@@ -1,0 +1,12 @@
+﻿################################################################################
+# Данный GITIGNORE-файл был автоматически создан Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs
+/packages
+/Plugins/bin/Debug
+/Plugins/obj
+/Plugins.Console/bin/Debug
+/Plugins.Console/obj
+/Plugins.Tests/bin/Debug/net6.0
+/Plugins.Tests/obj
