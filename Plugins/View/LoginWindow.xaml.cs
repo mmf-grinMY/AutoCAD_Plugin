@@ -8,7 +8,7 @@ namespace Plugins
     /// </summary>
     public partial class LoginWindow : Window
     {
-        public Tuple<string, string, string, string> Vars { get; set; }
+        public Tuple<DataSource, object> Vars { get; set; }
         public LoginWindow()
         {
             InitializeComponent();
@@ -20,7 +20,14 @@ namespace Plugins
             {
                 string[] vars = { "NORMAL", "SYSDBA", "SYSOPER" };
                 DialogResult = true;
-                Vars = Tuple.Create<string, string, string, string>(model.UserName, model.Password, model.Host, vars[model.Privilege]);
+                if (flip.IsMainPanelOpened)
+                {
+                    Vars = Tuple.Create<DataSource, object>(DataSource.OracleDatabase, Tuple.Create<string, string, string, string>(model.UserName, model.Password, model.Host, vars[model.Privilege]));
+                }
+                else
+                {
+                    Vars = Tuple.Create<DataSource, object>(DataSource.XmlDocument, Tuple.Create<string, string>(model.Geometry, model.Layers));
+                }
                 Close();
             });
             model.CancelCommand = new RelayCommand(obj => 
@@ -31,13 +38,11 @@ namespace Plugins
         }
         private readonly double _screenWidth = SystemParameters.FullPrimaryScreenWidth;
         private readonly double _screenHeight = SystemParameters.FullPrimaryScreenHeight;
-
         private void LoginWindow_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             this.Top = (_screenHeight - ActualHeight) / 2;
             this.Left = (_screenWidth - ActualWidth) / 2;
         }
-
         private void LoginWindow_Loaded(object sender, RoutedEventArgs e)
         {
             flip.OtherInput.Visibility = Visibility.Collapsed;

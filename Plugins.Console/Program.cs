@@ -1,13 +1,12 @@
 ﻿using System;
 using Plugins;
 using System.Collections.Generic;
-using System.Linq;
 
 internal class Program
 {
     public static void Main(string[] args)
     {
-        var draws = Commands.LoadDataFromDB("SYS", "SYSTEM", "localhost/XEPDB1", "SYSDBA");
+        var draws = Commands.LoadDataFromDB(("SYS", "SYSTEM", "localhost/XEPDB1", "SYSDBA"));
         HashSet<string> sublayers = new HashSet<string>();
         string sublayer = string.Empty;
         foreach (var draw in draws)

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Security.Policy;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -64,6 +65,7 @@ namespace Plugins
         {
             (this.Template.FindName("mainInput", this) as StackPanel).Visibility = Visibility.Collapsed;
             (this.Template.FindName("otherInput", this) as StackPanel).Visibility = Visibility.Visible;
+            IsMainPanelOpened = false;
         }
         /// <summary> Логика открытия основной панели </summary>
         /// <param name="sender"> Вызывающий событие элемент управления </param>
@@ -72,7 +74,9 @@ namespace Plugins
         {
             (this.Template.FindName("otherInput", this) as StackPanel).Visibility = Visibility.Collapsed;
             (this.Template.FindName("mainInput", this) as StackPanel).Visibility = Visibility.Visible;
+            IsMainPanelOpened = true;
         }
+        public bool IsMainPanelOpened { get; private set; } = true;
         public StackPanel OtherInput => this.Template.FindName("otherInput", this) as StackPanel;
 
         #endregion

@@ -15,9 +15,7 @@ using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 using AColor = Autodesk.AutoCAD.Colors.Color;
 using System.Drawing;
 using Oracle.ManagedDataAccess.Client;
-using Region = Autodesk.AutoCAD.DatabaseServices.Region;
-using DBObjectCollection = Autodesk.AutoCAD.DatabaseServices.DBObjectCollection;
-using Autodesk.AutoCAD.Colors;
+using System.Runtime;
 
 namespace Plugins
 {
@@ -43,8 +41,10 @@ namespace Plugins
                 MessageBox.Show("Произошла ошибка!\n" + ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-        public static List<DrawParameters> LoadDataFromDB(string user, string password, string host, string privilege)
+        public static List<DrawParameters> LoadDataFromDB(object tuple)
         {
+            string user, password, host, privilege;
+            (user, password, host, privilege) = tuple as Tuple<string, string, string, string>;
             string conStringUser = $"Data Source={host};Password={password};User Id={user};";
             conStringUser += privilege == "NORMAL" ? string.Empty : $"DBA Privilege = {privilege};";
             List<DrawParameters> drawParameters = new List<DrawParameters>();
@@ -61,7 +61,6 @@ namespace Plugins
                     {
                         DrawParameters parameters = new DrawParameters
                         {
-
                             DrawSettings = reader.IsDBNull(0) ? DrawSettings.Empty : JsonConvert.DeserializeObject<DrawSettings>(reader.GetString(0)),
                             WKT = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
                             SubleyerGUID = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
@@ -72,11 +71,12 @@ namespace Plugins
             }
             return drawParameters;
         }
-        public static List<DrawParameters> LoadDataFromXml()
+        public static List<DrawParameters> LoadDataFromXml(object tuple)
         {
             List<DrawParameters> drawParameters = new List<DrawParameters>();
-            string filePath = @"C:\Users\grinm\Documents\_Работа_\_AutoCAD_Plugin_\DB\k630f_trans_control.xml";
-            using (XmlConnection connection = new XmlConnection(filePath))
+            string fileGeometry, fileLayers;
+            (fileGeometry, fileLayers) = tuple as Tuple<string, string>;
+            using (XmlConnection connection = new XmlConnection(fileGeometry))
             {
                 XmlElement rowdata = connection.Connect();
                 if (rowdata is null) return drawParameters;
@@ -88,7 +88,8 @@ namespace Plugins
                         DrawParameters parameters = new DrawParameters
                         {
                             DrawSettings = JsonConvert.DeserializeObject<DrawSettings>(row.SelectSingleNode("DRAWJSON").InnerText),
-                            WKT = row.SelectSingleNode("GEOWKT").InnerText
+                            WKT = row.SelectSingleNode("GEOWKT").InnerText,
+                            SubleyerGUID = row.SelectSingleNode("SUBLAYERGUID").InnerText
                         };
                         drawParameters.Add(parameters);
                     }
@@ -116,16 +117,15 @@ namespace Plugins
             Database db = doc.Database;
             DataSource dataSource;
             List<DrawParameters> drawParameters;
-            string user, password, host, privilege;
             try
             {
                 var window = new LoginWindow();
                 bool? resultDialog = window.ShowDialog();
+                object tuple;
 
-                if (resultDialog.HasValue && window.Vars != null)
+                if (resultDialog.HasValue)
                 {
-                    (user, password, host, privilege) = window.Vars;
-                    dataSource = DataSource.OracleDatabase;
+                    (dataSource, tuple) = window.Vars;
                 }
                 else
                 {
@@ -135,8 +135,8 @@ namespace Plugins
 
                 switch (dataSource)
                 {
-                    case DataSource.OracleDatabase: drawParameters = LoadDataFromDB(user, password, host, privilege); break;
-                    case DataSource.XmlDocument: drawParameters = LoadDataFromXml(); break;
+                    case DataSource.OracleDatabase: drawParameters = LoadDataFromDB(tuple); break;
+                    case DataSource.XmlDocument: drawParameters = LoadDataFromXml(tuple); break;
                     default: drawParameters = new List<DrawParameters>(); break;
                 }
             
@@ -193,14 +193,14 @@ namespace Plugins
                                     }
                                     else
                                     {
-                                        DrawMultiPolyline(db, multi, points, debug);
+                                        DrawMultiPolyline(db, multi, draw.DrawSettings, points, debug);
                                     }
                                 }
                                 else if (obj is Polygon polygon)
                                 {
                                     foreach (LineString line in polygon.Lines)
                                     {
-                                        DrawPolyline(db, line);
+                                        DrawPolyline(db, line, draw.DrawSettings);
                                         if (debug) Compare(points, line.Points);
                                     }
                                 }
@@ -228,11 +228,7 @@ namespace Plugins
             p.Y0 -= padding;
             p.Y1 += padding;
             Polygon ramka = new Polygon(string.Format("POLYGON(({0} {1}, {0} {3}, {2} {3}, {2} {1}, {0} {1}))", p.X0, p.Y0, p.X1, p.Y1));
-            KnownColor color = KnownColor.Aquamarine;
-            DrawSettings settings = new DrawSettings()
-            {
-                BrushColor = 0x00FFCC,
-            };
+            DrawSettings settings = new DrawSettings() { BrushColor = 0x00FFCC };
 
             using(Transaction transaction = db.TransactionManager.StartTransaction())
             {
@@ -254,7 +250,7 @@ namespace Plugins
                 }
             }
 
-            foreach (LineString line in ramka.Lines) DrawPolyline(db, line, color);
+            foreach (LineString line in ramka.Lines) DrawPolyline(db, line, settings);
             DrawLine(db, new Point[] { new Point(0, 0), new Point(p.X0, p.Y0) }, settings);
         }
         private void Compare(Points p, List<Point> points)
@@ -296,7 +292,6 @@ namespace Plugins
                 {
                     line.Color = AColor.FromColor(SColor.FromArgb(settings.BrushColor));
                     line.Thickness = settings.Width;
-                    //if (settings.GetClosed) line.Close();
 
                     _ = record.AppendEntity(line);
                     transaction.AddNewlyCreatedDBObject(line, true);
@@ -304,7 +299,7 @@ namespace Plugins
             }
             DrawEntity(db, action);
         }
-        private void DrawPolyline(Database db, LineString line, KnownColor? color = null)
+        private void DrawPolyline(Database db, LineString line, DrawSettings settings)
         {
             void action(Transaction transaction, BlockTableRecord record)
             {
@@ -315,7 +310,8 @@ namespace Plugins
                     {
                         polyline.AddVertexAt(i, points[i].ToPoint2d(), 0, 0, 0);
                     }
-                    polyline.Color = color is null ? AColor.FromColor(SColor.Red) : AColor.FromColor(SColor.FromKnownColor((KnownColor)color));
+                    polyline.Color = AColor.FromColor(SColor.FromArgb(settings.BrushColor));
+                    polyline.Thickness = settings.Width;
 
                     record.AppendEntity(polyline);
                     transaction.AddNewlyCreatedDBObject(polyline, true);
@@ -324,7 +320,7 @@ namespace Plugins
 
             DrawEntity(db, action);
         }
-        private void DrawMultiPolyline(Database db, MultiLineStrings multi, Points p, bool debug, KnownColor? color = null)
+        private void DrawMultiPolyline(Database db, MultiLineStrings multi, DrawSettings settings, Points p, bool debug)
         {
             foreach (LineString line in multi.Lines)
             {
@@ -337,7 +333,8 @@ namespace Plugins
                         {
                             polyline.AddVertexAt(i, points[i].ToPoint2d(), 0, 0, 0);
                         }
-                        polyline.Color = color is null ? AColor.FromColor(SColor.Red) : AColor.FromColor(SColor.FromKnownColor((KnownColor)color));
+                        polyline.Color = AColor.FromColor(SColor.FromArgb(settings.BrushColor));
+                        polyline.Thickness = settings.Width;
 
                         record.AppendEntity(polyline);
                         transaction.AddNewlyCreatedDBObject(polyline, true);
@@ -348,49 +345,6 @@ namespace Plugins
                 if (debug) Compare(p, line.Points);
             }
         }
-        //private (double, double, double, double) DrawPolygon(Database db, Polygon polygon, DrawSettings settings)
-        //{
-        //    double maxX = 0, maxY = 0, minX = double.MaxValue, minY = double.MaxValue;
-        //    void action(Transaction transaction, BlockTableRecord record)
-        //    {
-        //        DBObjectCollection dbObjectCollection = new DBObjectCollection();
-        //        foreach (LineString lineString in polygon.Lines)
-        //        {
-        //            var points = lineString.Points;
-        //            for (int i = 0; i < points.Count - 1; i++)
-        //            {
-        //                using (Line line = new Line(points[i].ToPoint3d(), points[i+1].ToPoint3d()))
-        //                {
-        //                    dbObjectCollection.Add(line);
-        //                }
-        //            }
-        //            MessageBox.Show(dbObjectCollection.Count.ToString());
-        //            //using (Polyline polyline = new Polyline())
-        //            //{
-        //            //    for (int i = 0; i < points.Count; i++)
-        //            //    {
-        //            //        polyline.AddVertexAt(i, points[i].ToPoint2d(), 0, 0, 0);
-        //            //        (maxX, maxY, minX, minY) = Compare(maxX, maxY, minX, minY, points);
-        //            //    }
-        //            //    polyline.Color = AColor.FromColor(SColor.Violet);
-        //            //    record.AppendEntity(polyline);
-        //            //    transaction.AddNewlyCreatedDBObject(polyline, true);
-        //            //    //dbObjectCollection.Add(polyline);
-        //            //}
-        //        }
-        //        DBObjectCollection regionCollection = Region.CreateFromCurves(dbObjectCollection);
-        //        if (!(regionCollection[0] is Region region)) throw new ArgumentNullException(nameof(region));
-        //        region.Color = AColor.FromColor(SColor.DarkCyan);
-
-        //        record.AppendEntity(region);
-        //        transaction.AddNewlyCreatedDBObject(region, true);
-        //    }
-        //    DrawEntity(db, action);
-        //    return (maxX, maxY, minX, minY);
-        //}
-        public void Terminate()
-        {
-            //throw new NotImplementedException();
-        }
+        public void Terminate() { }
     }
 }
