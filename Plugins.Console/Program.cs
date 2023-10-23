@@ -1,45 +1,35 @@
-﻿using Plugins;
+﻿using System;
+using Plugins;
 using System.Collections.Generic;
-using System;
-using System.Windows;
-using static Plugins.Commands;
+using System.Linq;
 
 internal class Program
 {
-    [STAThread]
-    public static void Main()
+    public static void Main(string[] args)
     {
-        DataSource dataSource;
-        List<DrawParameters> drawParameters;
-        string user, password, host, privilege;
-        try
+        var draws = Commands.LoadDataFromDB("SYS", "SYSTEM", "localhost/XEPDB1", "SYSDBA");
+        HashSet<string> sublayers = new HashSet<string>();
+        string sublayer = string.Empty;
+        foreach (var draw in draws)
         {
-            var window = new LoginWindow();
-            bool? resultDialog = window.ShowDialog();
-
-            if (resultDialog.HasValue && window.Vars != null)
+            if (draw.SubleyerGUID != string.Empty)
             {
-                (user, password, host, privilege) = window.Vars;
-                dataSource = DataSource.OracleDatabase;
+                if (sublayer != draw.SubleyerGUID)
+                {
+                    if (!sublayers.Contains(draw.SubleyerGUID))
+                    {
+                        //TODO: Create new Layer
+                        sublayers.Add(draw.SubleyerGUID);
+                    }
+                    sublayer = draw.SubleyerGUID;
+                }
+                //TODO: Drawing in current Layer
             }
-            else
-            {
-                MessageBox.Show("Для отрисовки объектов требуются данные!");
-                return;
-            }
-
-            switch (dataSource)
-            {
-                case DataSource.OracleDatabase: drawParameters = LoadDataFromDB(user, password, host, privilege); break;
-                case DataSource.XmlDocument: drawParameters = LoadDataFromXml(); break;
-                default: drawParameters = new List<DrawParameters>(); break;
-            }
-
-            MessageBox.Show(drawParameters.Count.ToString());
         }
-        catch (Exception ex)
+        foreach (var guid in sublayers)
         {
-            MessageBox.Show(ex.Message);
+            Console.WriteLine(guid);
         }
+        Console.Read();
     }
 }

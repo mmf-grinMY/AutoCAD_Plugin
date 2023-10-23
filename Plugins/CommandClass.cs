@@ -17,6 +17,7 @@ using System.Drawing;
 using Oracle.ManagedDataAccess.Client;
 using Region = Autodesk.AutoCAD.DatabaseServices.Region;
 using DBObjectCollection = Autodesk.AutoCAD.DatabaseServices.DBObjectCollection;
+using Autodesk.AutoCAD.Colors;
 
 namespace Plugins
 {
@@ -51,7 +52,7 @@ namespace Plugins
             {
                 if (connection is null) throw new ArgumentNullException(nameof(connection));
                 connection.Open();
-                string sqlExpression = "select drawjson, geowkt from K670F_TRANS_OPEN";
+                string sqlExpression = "select drawjson, geowkt, SUBLAYERGUID from K670F_TRANS_OPEN";
                 var cmd = connection.CreateCommand();
                 cmd.CommandText = sqlExpression;
                 using (var reader = cmd.ExecuteReader())
@@ -60,8 +61,10 @@ namespace Plugins
                     {
                         DrawParameters parameters = new DrawParameters
                         {
+
                             DrawSettings = reader.IsDBNull(0) ? DrawSettings.Empty : JsonConvert.DeserializeObject<DrawSettings>(reader.GetString(0)),
-                            WKT = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
+                            WKT = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                            SubleyerGUID = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
                         };
                         drawParameters.Add(parameters);
                     }
@@ -142,34 +145,68 @@ namespace Plugins
                 bool debug = true;
                 Points points = new Points();
 
+                int i = 1;
+                string sublayer = string.Empty;
+                LayerTable layerTable;
+                HashSet<string> sublayers = new HashSet<string>();
                 foreach (var draw in drawParameters)
                 {
-                    switch (draw.DrawSettings.GetDrawType)
+                    if (draw.SubleyerGUID != string.Empty)
                     {
-                        case DrawType.Polyline:
-                            object obj = Reader.Read(draw.WKT, DrawType.Polyline);
-                            if (obj is MultiLineStrings multi)
+                        if (sublayer != draw.SubleyerGUID)
+                        {
+                            using (Transaction transaction = db.TransactionManager.StartTransaction())
                             {
-                                if (multi.Lines.Count == 1)
+                                layerTable = transaction.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
+                            
+                                if (!sublayers.Contains(draw.SubleyerGUID))
                                 {
-                                    DrawLine(db, multi.Lines[0].Points.ToArray(), draw.DrawSettings);
-                                    if (debug) Compare(points, multi.Lines[0].Points);
+                                    string layerName = i.ToString();
+                                    if (layerTable.Has(layerName) == false)
+                                    {
+                                        LayerTableRecord layerTableRecord = new LayerTableRecord { Name = layerName };
+                                        layerTable.UpgradeOpen();
+                                        layerTable.Add(layerTableRecord);
+                                        transaction.AddNewlyCreatedDBObject(layerTableRecord, true);
+                                        db.Clayer = layerTable[layerName];
+                                        i++;
+                                    }
+                                    sublayers.Add(draw.SubleyerGUID);
                                 }
-                                else
-                                {
-                                    DrawMultiPolyline(db, multi, points, debug);
-                                }
+
+                                transaction.Commit();
                             }
-                            else if (obj is Polygon polygon)
-                            {
-                                foreach (LineString line in polygon.Lines)
+
+                            sublayer = draw.SubleyerGUID;
+                        }
+
+                        switch (draw.DrawSettings.GetDrawType)
+                        {
+                            case DrawType.Polyline:
+                                object obj = Reader.Read(draw.WKT, DrawType.Polyline);
+                                if (obj is MultiLineStrings multi)
                                 {
-                                    DrawPolyline(db, line);
-                                    if (debug) Compare(points, line.Points);
+                                    if (multi.Lines.Count == 1)
+                                    {
+                                        DrawLine(db, multi.Lines[0].Points.ToArray(), draw.DrawSettings);
+                                        if (debug) Compare(points, multi.Lines[0].Points);
+                                    }
+                                    else
+                                    {
+                                        DrawMultiPolyline(db, multi, points, debug);
+                                    }
                                 }
-                            }
-                            break;
-                        default: break;
+                                else if (obj is Polygon polygon)
+                                {
+                                    foreach (LineString line in polygon.Lines)
+                                    {
+                                        DrawPolyline(db, line);
+                                        if (debug) Compare(points, line.Points);
+                                    }
+                                }
+                                break;
+                            default: break;
+                        }
                     }
                 }
 
@@ -196,6 +233,27 @@ namespace Plugins
             {
                 BrushColor = 0x00FFCC,
             };
+
+            using(Transaction transaction = db.TransactionManager.StartTransaction())
+            {
+                LayerTable layerTable = layerTable = transaction.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
+                string layerName = "DEBUG LAYER";
+                if (layerTable.Has(layerName) == false)
+                {
+                    LayerTableRecord layerTableRecord = new LayerTableRecord
+                    {
+                        Name = layerName
+                    };
+                    layerTable.UpgradeOpen();
+                    layerTable.Add(layerTableRecord);
+                    transaction.AddNewlyCreatedDBObject(layerTableRecord, true);
+
+                    db.Clayer = layerTable[layerName];
+
+                    transaction.Commit();
+                }
+            }
+
             foreach (LineString line in ramka.Lines) DrawPolyline(db, line, color);
             DrawLine(db, new Point[] { new Point(0, 0), new Point(p.X0, p.Y0) }, settings);
         }
@@ -238,7 +296,7 @@ namespace Plugins
                 {
                     line.Color = AColor.FromColor(SColor.FromArgb(settings.BrushColor));
                     line.Thickness = settings.Width;
-                    if (settings.GetClosed) line.Close();
+                    //if (settings.GetClosed) line.Close();
 
                     _ = record.AppendEntity(line);
                     transaction.AddNewlyCreatedDBObject(line, true);
