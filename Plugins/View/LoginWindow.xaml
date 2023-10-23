@@ -108,11 +108,12 @@
                         Text="Пароль"
                         Grid.Row="1"
                         Style="{StaticResource TextBlockStyle}"/>
-                    <TextBox
-                        Text="{Binding Password}"
+                    <PasswordBox
+                        x:Name="passwordBox"
                         Grid.Row="1"
                         Grid.Column="1"
-                        Style="{StaticResource TextBoxStyle}"/>
+                        Margin="2 4 4 0"
+                        FontSize="14"/>
                     <TextBlock
                         Text="База данных"
                         Grid.Row="2"

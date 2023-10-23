@@ -45,6 +45,7 @@ namespace Plugins
         {
             string user, password, host, privilege;
             (user, password, host, privilege) = tuple as Tuple<string, string, string, string>;
+            MessageBox.Show(password);
             string conStringUser = $"Data Source={host};Password={password};User Id={user};";
             conStringUser += privilege == "NORMAL" ? string.Empty : $"DBA Privilege = {privilege};";
             List<DrawParameters> drawParameters = new List<DrawParameters>();

@@ -1,11 +1,10 @@
 ﻿using System;
+using System.Runtime.InteropServices;
+using System.Security;
 using System.Windows;
 
 namespace Plugins
 {
-    /// <summary>
-    /// Логика взаимодействия для UserControl1.xaml
-    /// </summary>
     public partial class LoginWindow : Window
     {
         public Tuple<DataSource, object> Vars { get; set; }
@@ -22,7 +21,7 @@ namespace Plugins
                 DialogResult = true;
                 if (flip.IsMainPanelOpened)
                 {
-                    Vars = Tuple.Create<DataSource, object>(DataSource.OracleDatabase, Tuple.Create<string, string, string, string>(model.UserName, model.Password, model.Host, vars[model.Privilege]));
+                    Vars = Tuple.Create<DataSource, object>(DataSource.OracleDatabase, Tuple.Create<string, string, string, string>(model.UserName, SecureStringToString(passwordBox.SecurePassword), model.Host, vars[model.Privilege]));
                 }
                 else
                 {
@@ -35,6 +34,19 @@ namespace Plugins
                 DialogResult = false;
                 Close();
             });
+        }
+        private String SecureStringToString(SecureString value)
+        {
+            IntPtr valuePtr = IntPtr.Zero;
+            try
+            {
+                valuePtr = Marshal.SecureStringToGlobalAllocUnicode(value);
+                return Marshal.PtrToStringUni(valuePtr);
+            }
+            finally
+            {
+                Marshal.ZeroFreeGlobalAllocUnicode(valuePtr);
+            }
         }
         private readonly double _screenWidth = SystemParameters.FullPrimaryScreenWidth;
         private readonly double _screenHeight = SystemParameters.FullPrimaryScreenHeight;
