@@ -73,6 +73,7 @@ namespace Plugins
             (this.Template.FindName("otherInput", this) as StackPanel).Visibility = Visibility.Collapsed;
             (this.Template.FindName("mainInput", this) as StackPanel).Visibility = Visibility.Visible;
         }
+        public StackPanel OtherInput => this.Template.FindName("otherInput", this) as StackPanel;
 
         #endregion
 

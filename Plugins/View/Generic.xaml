@@ -48,10 +48,15 @@
 
 	<ControlTemplate x:Key="FlipPanelTemplate" TargetType="{x:Type local:FlipPanel}">
         <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
+            
             <StackPanel x:Name="mainInput"
 						Orientation="Vertical"
                         HorizontalAlignment="Stretch">
-				<Grid HorizontalAlignment="Stretch">
+                <Grid HorizontalAlignment="Stretch">
 
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1*"/>
@@ -65,7 +70,7 @@
             		        Style="{StaticResource ButtonStyle}"
                             Template="{StaticResource CircleButtonStyle}"
             		        HorizontalAlignment="Right"
-            				Margin="4"
+            				Margin="4 4 4 0"
                             Grid.Column="1">
 						<Path x:Name="rightToLeftArrow"
 					          Data="M 0 0 L 4 4 L 0 8 Z"
@@ -74,10 +79,10 @@
 				</Grid>
 				<ContentPresenter ContentSource="MainContent"/>
 			</StackPanel>
-			<StackPanel x:Name="otherInput"
-						Visibility="Collapsed"
-						Orientation="Vertical">
-				<Grid>
+            <StackPanel x:Name="otherInput"
+						Orientation="Vertical"
+                        Grid.Row="1">
+                <Grid>
 
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -85,7 +90,7 @@
                     </Grid.ColumnDefinitions>
                     
 					<Button x:Name="otherButton"
-   							Margin="4"
+   							Margin="4 4 4 0"
 							HorizontalAlignment="Left"
                             Template="{StaticResource CircleButtonStyle}"
             				Style="{StaticResource ButtonStyle}">

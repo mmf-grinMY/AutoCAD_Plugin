@@ -7,7 +7,7 @@ using static Plugins.Commands;
 internal class Program
 {
     [STAThread]
-    public static void Main(string[] args)
+    public static void Main()
     {
         DataSource dataSource;
         List<DrawParameters> drawParameters;

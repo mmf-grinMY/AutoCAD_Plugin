@@ -8,6 +8,10 @@ namespace Plugins
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
+            if ((double)value is double.NaN)
+            {
+                return 108;
+            }
             return System.Convert.ToDouble(value) * System.Convert.ToDouble(parameter);
         }
 

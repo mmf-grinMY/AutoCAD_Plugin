@@ -290,46 +290,46 @@ namespace Plugins
                 if (debug) Compare(p, line.Points);
             }
         }
-        private (double, double, double, double) DrawPolygon(Database db, Polygon polygon, DrawSettings settings)
-        {
-            double maxX = 0, maxY = 0, minX = double.MaxValue, minY = double.MaxValue;
-            void action(Transaction transaction, BlockTableRecord record)
-            {
-                DBObjectCollection dbObjectCollection = new DBObjectCollection();
-                foreach (LineString lineString in polygon.Lines)
-                {
-                    var points = lineString.Points;
-                    for (int i = 0; i < points.Count - 1; i++)
-                    {
-                        using (Line line = new Line(points[i].ToPoint3d(), points[i+1].ToPoint3d()))
-                        {
-                            dbObjectCollection.Add(line);
-                        }
-                    }
-                    MessageBox.Show(dbObjectCollection.Count.ToString());
-                    //using (Polyline polyline = new Polyline())
-                    //{
-                    //    for (int i = 0; i < points.Count; i++)
-                    //    {
-                    //        polyline.AddVertexAt(i, points[i].ToPoint2d(), 0, 0, 0);
-                    //        (maxX, maxY, minX, minY) = Compare(maxX, maxY, minX, minY, points);
-                    //    }
-                    //    polyline.Color = AColor.FromColor(SColor.Violet);
-                    //    record.AppendEntity(polyline);
-                    //    transaction.AddNewlyCreatedDBObject(polyline, true);
-                    //    //dbObjectCollection.Add(polyline);
-                    //}
-                }
-                DBObjectCollection regionCollection = Region.CreateFromCurves(dbObjectCollection);
-                if (!(regionCollection[0] is Region region)) throw new ArgumentNullException(nameof(region));
-                region.Color = AColor.FromColor(SColor.DarkCyan);
+        //private (double, double, double, double) DrawPolygon(Database db, Polygon polygon, DrawSettings settings)
+        //{
+        //    double maxX = 0, maxY = 0, minX = double.MaxValue, minY = double.MaxValue;
+        //    void action(Transaction transaction, BlockTableRecord record)
+        //    {
+        //        DBObjectCollection dbObjectCollection = new DBObjectCollection();
+        //        foreach (LineString lineString in polygon.Lines)
+        //        {
+        //            var points = lineString.Points;
+        //            for (int i = 0; i < points.Count - 1; i++)
+        //            {
+        //                using (Line line = new Line(points[i].ToPoint3d(), points[i+1].ToPoint3d()))
+        //                {
+        //                    dbObjectCollection.Add(line);
+        //                }
+        //            }
+        //            MessageBox.Show(dbObjectCollection.Count.ToString());
+        //            //using (Polyline polyline = new Polyline())
+        //            //{
+        //            //    for (int i = 0; i < points.Count; i++)
+        //            //    {
+        //            //        polyline.AddVertexAt(i, points[i].ToPoint2d(), 0, 0, 0);
+        //            //        (maxX, maxY, minX, minY) = Compare(maxX, maxY, minX, minY, points);
+        //            //    }
+        //            //    polyline.Color = AColor.FromColor(SColor.Violet);
+        //            //    record.AppendEntity(polyline);
+        //            //    transaction.AddNewlyCreatedDBObject(polyline, true);
+        //            //    //dbObjectCollection.Add(polyline);
+        //            //}
+        //        }
+        //        DBObjectCollection regionCollection = Region.CreateFromCurves(dbObjectCollection);
+        //        if (!(regionCollection[0] is Region region)) throw new ArgumentNullException(nameof(region));
+        //        region.Color = AColor.FromColor(SColor.DarkCyan);
 
-                record.AppendEntity(region);
-                transaction.AddNewlyCreatedDBObject(region, true);
-            }
-            DrawEntity(db, action);
-            return (maxX, maxY, minX, minY);
-        }
+        //        record.AppendEntity(region);
+        //        transaction.AddNewlyCreatedDBObject(region, true);
+        //    }
+        //    DrawEntity(db, action);
+        //    return (maxX, maxY, minX, minY);
+        //}
         public void Terminate()
         {
             //throw new NotImplementedException();

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Windows;
 
 namespace Plugins
 {
@@ -65,25 +64,7 @@ namespace Plugins
                 OnPropertyChanged(nameof(Layers));
             }
         }
-        public RelayCommand SaveCommand { get; }
-        public RelayCommand CancelCommand { get; }
-        private readonly LoginWindow _window;
-        private readonly Tuple<string, string, string, string> _tuple;
-        public LoginViewModel(LoginWindow window)
-        {
-            _window = window;
-            SaveCommand = new RelayCommand(obj =>
-            {
-                string[] vars = { "NORMAL", "SYSDBA", "SYSOPER" };
-                _window.DialogResult = true;
-                _window.Vars = Tuple.Create<string, string, string, string>(UserName, Password, Host, vars[Privilege]);
-                _window.Close();
-
-            });
-            CancelCommand = new RelayCommand(obj => {
-                _window.DialogResult = false;
-                _window.Close();
-            });
-        }
+        public RelayCommand SaveCommand { get; set; }
+        public RelayCommand CancelCommand { get; set; }
     }
 }
