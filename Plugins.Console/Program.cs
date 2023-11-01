@@ -36,17 +36,18 @@ internal class Program
             {
                 if (list.Count < maxLength)
                 {
+                    object line = null;
                     lock (locker)
                     {
-                        T line = readAction();
-                        if (line != null)
-                        {
-                            list.Add(line);
-                        }
-                        else
-                        {
-                            read.Abort();
-                        }
+                        line = readAction();
+                    }
+                    if (line != null)
+                    {
+                        list.Add((T)line);
+                    }
+                    else
+                    {
+                        read.Abort();
                     }
                 }
             }
@@ -56,18 +57,19 @@ internal class Program
         {
             while (write.IsAlive)
             {
-                lock (locker)
+                if (list.Count > 0)
                 {
-                    if (list.Count > 0)
+                    T item;
+                    lock (locker)
                     {
-                        T item = list[0];
+                        item = list[0];
                         list.RemoveAt(0);
-                        writeAction(item);
                     }
-                    else if (!read.IsAlive)
-                    {
-                        write.Abort();
-                    }
+                    writeAction(item);
+                }
+                else if (!read.IsAlive)
+                {
+                    write.Abort();
                 }
             }
         });

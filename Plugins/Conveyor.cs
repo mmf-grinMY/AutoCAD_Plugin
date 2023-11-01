@@ -29,17 +29,18 @@ namespace Plugins
                 {
                     if (_list.Count < _maxLength)
                     {
+                        object item = null;
                         lock (_locker)
                         {
-                            T line = _read();
-                            if (line != null)
-                            {
-                                _list.Add(line);
-                            }
-                            else
-                            {
-                                _readThread.Abort();
-                            }
+                            item = _read();
+                        }
+                        if (item != null)
+                        {
+                            _list.Add((T)item);
+                        }
+                        else
+                        {
+                            _readThread.Abort();
                         }
                     }
                 }
@@ -48,18 +49,19 @@ namespace Plugins
             {
                 while (_writeThread.IsAlive)
                 {
-                    lock (_locker)
+                    if (_list.Count > 0)
                     {
-                        if (_list.Count > 0)
+                        T item;
+                        lock (_locker)
                         {
-                            T item = _list[0];
+                            item = _list[0];
                             _list.RemoveAt(0);
-                            _write(item);
                         }
-                        else if (!_readThread.IsAlive)
-                        {
-                            _writeThread.Abort();
-                        }
+                        _write(item);
+                    }
+                    else if (!_readThread.IsAlive)
+                    {
+                        _writeThread.Abort();
                     }
                 }
             });
