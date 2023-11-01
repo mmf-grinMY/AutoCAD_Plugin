@@ -164,6 +164,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Conveyor.cs" />
     <Compile Include="View\BaseViewModel.cs" />
     <Compile Include="CommandClass.cs" />
     <Compile Include="DrawParameters.cs" />

@@ -1,4 +1,6 @@
-﻿using Autodesk.AutoCAD.DatabaseServices;
+﻿#region Usings
+
+using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
 using System;
 using System.Windows;
@@ -13,9 +15,14 @@ using Exception = System.Exception;
 using Polyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 using AColor = Autodesk.AutoCAD.Colors.Color;
-using System.Drawing;
 using Oracle.ManagedDataAccess.Client;
-using System.Runtime;
+using System.Runtime.CompilerServices;
+using Plugins;
+using System.Data.SqlClient;
+using System.Security.Cryptography;
+using System.Threading;
+
+#endregion
 
 namespace Plugins
 {
@@ -41,62 +48,60 @@ namespace Plugins
                 MessageBox.Show("Произошла ошибка!\n" + ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-        public static List<DrawParameters> LoadDataFromDB(object tuple)
+        private void RunConveyor<T>(Func<T> readAction, Action<T> writeAction, int bufferSize = 50)
         {
-            string user, password, host, privilege;
-            (user, password, host, privilege) = tuple as Tuple<string, string, string, string>;
-            MessageBox.Show(password);
-            string conStringUser = $"Data Source={host};Password={password};User Id={user};";
-            conStringUser += privilege == "NORMAL" ? string.Empty : $"DBA Privilege = {privilege};";
-            List<DrawParameters> drawParameters = new List<DrawParameters>();
-            using (OracleConnection connection = new OracleConnection(conStringUser))
+            Thread read = null;
+            Thread write = null;
+            List<T> list = new List<T>();
+            object locker = new object();
+            int maxLength = bufferSize;
+
+            read = new Thread(() =>
             {
-                if (connection is null) throw new ArgumentNullException(nameof(connection));
-                connection.Open();
-                string sqlExpression = "select drawjson, geowkt, SUBLAYERGUID from K670F_TRANS_OPEN";
-                var cmd = connection.CreateCommand();
-                cmd.CommandText = sqlExpression;
-                using (var reader = cmd.ExecuteReader())
+                while (read.IsAlive)
                 {
-                    while (reader.Read())
+                    if (list.Count < maxLength)
                     {
-                        DrawParameters parameters = new DrawParameters
+                        lock (locker)
                         {
-                            DrawSettings = reader.IsDBNull(0) ? DrawSettings.Empty : JsonConvert.DeserializeObject<DrawSettings>(reader.GetString(0)),
-                            WKT = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                            SubleyerGUID = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                        };
-                        drawParameters.Add(parameters);
+                            T line = readAction();
+                            if (line != null)
+                            {
+                                list.Add(line);
+                            }
+                            else
+                            {
+                                read.Abort();
+                            }
+                        }
                     }
                 }
-            }
-            return drawParameters;
-        }
-        public static List<DrawParameters> LoadDataFromXml(object tuple)
-        {
-            List<DrawParameters> drawParameters = new List<DrawParameters>();
-            string fileGeometry, fileLayers;
-            (fileGeometry, fileLayers) = tuple as Tuple<string, string>;
-            using (XmlConnection connection = new XmlConnection(fileGeometry))
+            });
+
+            write = new Thread(() =>
             {
-                XmlElement rowdata = connection.Connect();
-                if (rowdata is null) return drawParameters;
-                XmlNodeList rows = rowdata.SelectNodes("//ROW");
-                if (rows != null)
+                while (write.IsAlive)
                 {
-                    foreach (XmlNode row in rows)
+                    lock (locker)
                     {
-                        DrawParameters parameters = new DrawParameters
+                        if (list.Count > 0)
                         {
-                            DrawSettings = JsonConvert.DeserializeObject<DrawSettings>(row.SelectSingleNode("DRAWJSON").InnerText),
-                            WKT = row.SelectSingleNode("GEOWKT").InnerText,
-                            SubleyerGUID = row.SelectSingleNode("SUBLAYERGUID").InnerText
-                        };
-                        drawParameters.Add(parameters);
+                            T item = list[0];
+                            list.RemoveAt(0);
+                            writeAction(item);
+                        }
+                        else if (!read.IsAlive)
+                        {
+                            write.Abort();
+                        }
                     }
                 }
-            }
-            return drawParameters;
+            });
+
+            read.Start();
+            write.Start();
+            read.Join();
+            write.Join();
         }
         class Points
         {
@@ -113,13 +118,30 @@ namespace Plugins
         [CommandMethod("Draw")]
         public void Draw()
         {
+            #region Local variables init
+
             var doc = Application.DocumentManager.MdiActiveDocument;
             if (doc is null) throw new ArgumentNullException(nameof(doc));
             Database db = doc.Database;
             DataSource dataSource;
-            List<DrawParameters> drawParameters;
+            XmlConnection conn = null;
+            OracleConnection connection = null;
+            OracleDataReader reader = null;
+            bool debug = true;
+            Points points = new Points();
+            int i = 1;
+            string sublayer = string.Empty;
+            LayerTable layerTable;
+            HashSet<string> sublayers = new HashSet<string>();
+            Func<DrawParameters> readAction = null;
+
+            #endregion
+
             try
             {
+
+                #region Window initialize
+
                 var window = new LoginWindow();
                 bool? resultDialog = window.ShowDialog();
                 object tuple;
@@ -134,23 +156,78 @@ namespace Plugins
                     return;
                 }
 
+                #endregion
+
                 switch (dataSource)
                 {
-                    case DataSource.OracleDatabase: drawParameters = LoadDataFromDB(tuple); break;
-                    case DataSource.XmlDocument: drawParameters = LoadDataFromXml(tuple); break;
-                    default: drawParameters = new List<DrawParameters>(); break;
+                    case DataSource.OracleDatabase:
+                        string user, password, host, privilege;
+                        (user, password, host, privilege) = tuple as Tuple<string, string, string, string>;
+                        string conStringUser = $"Data Source={host};Password={password};User Id={user};";
+                        conStringUser += privilege == "NORMAL" ? string.Empty : $"DBA Privilege = {privilege};";
+                        connection = new OracleConnection(conStringUser);
+                        
+                        if (connection is null)
+                        {
+                            MessageBox.Show("Не удалось подключиться к базе данных!");
+                        }
+
+                        connection.Open();
+                        reader = new OracleCommand("SELECT drawjson, geowkt, sublayerguid FROM k670f_trans_open", connection).ExecuteReader();
+
+                        readAction = () =>
+                        {
+                            if (reader.Read())
+                            {
+                                return new DrawParameters
+                                {
+                                    DrawSettings = reader.IsDBNull(0) ? DrawSettings.Empty : JsonConvert.DeserializeObject<DrawSettings>(reader.GetString(0)),
+                                    WKT = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                                    SubleyerGUID = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                                };
+                            }
+                            else
+                            {
+                                return null;
+                            }
+                        };
+                        
+                        break;
+                    case DataSource.XmlDocument:
+                        List<DrawParameters> drawParameters = new List<DrawParameters>();
+                        string fileGeometry, fileLayers;
+                        (fileGeometry, fileLayers) = tuple as Tuple<string, string>;
+                        conn = new XmlConnection(fileGeometry);
+                        XmlElement rowdata = conn.Connect();
+                        if (rowdata is null)
+                        {
+                            MessageBox.Show("Нет данных для отрисовки!");
+                        }
+                        XmlNodeList rows = rowdata.SelectNodes("//ROW");
+
+                        readAction = () =>
+                        {
+                            if (rows.GetEnumerator().MoveNext())
+                            {
+                                XmlNode row = rows.GetEnumerator().Current as XmlNode;
+                                return new DrawParameters
+                                {
+                                        DrawSettings = JsonConvert.DeserializeObject<DrawSettings>(row.SelectSingleNode("DRAWJSON").InnerText),
+                                    WKT = row.SelectSingleNode("GEOWKT").InnerText,
+                                    SubleyerGUID = row.SelectSingleNode("SUBLAYERGUID").InnerText
+                                };
+                            }
+                            else
+                            {
+                                return null;
+                            }
+                        };
+                        break;
+                    default: 
+                        break;
                 }
-            
-                #region Get rechtangle coords
 
-                bool debug = true;
-                Points points = new Points();
-
-                int i = 1;
-                string sublayer = string.Empty;
-                LayerTable layerTable;
-                HashSet<string> sublayers = new HashSet<string>();
-                foreach (var draw in drawParameters)
+                Action<DrawParameters> writeAction = (draw) =>
                 {
                     if (draw.SubleyerGUID != string.Empty)
                     {
@@ -159,7 +236,7 @@ namespace Plugins
                             using (Transaction transaction = db.TransactionManager.StartTransaction())
                             {
                                 layerTable = transaction.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
-                            
+
                                 if (!sublayers.Contains(draw.SubleyerGUID))
                                 {
                                     string layerName = i.ToString();
@@ -209,9 +286,9 @@ namespace Plugins
                             default: break;
                         }
                     }
-                }
+                };
 
-                #endregion
+                RunConveyor(readAction, writeAction);
 
                 if (debug) DrawDebugObjects(db, points);
                 doc.Editor.WriteMessage("Закончена отрисовка объектов!");
@@ -219,6 +296,12 @@ namespace Plugins
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
+            }
+            finally
+            {
+                conn?.Dispose();
+                reader?.Dispose();
+                connection?.Dispose();
             }
         }
         private void DrawDebugObjects(Database db, Points p)
