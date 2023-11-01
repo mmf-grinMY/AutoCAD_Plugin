@@ -11,8 +11,8 @@ namespace Plugins
         public LoginWindow()
         {
             InitializeComponent();
-            this.Loaded += LoginWindow_Loaded;
-            this.SizeChanged += LoginWindow_SizeChanged;
+            Loaded += LoginWindow_Loaded;
+            SizeChanged += LoginWindow_SizeChanged;
             LoginViewModel model = new LoginViewModel();
             DataContext = model;
             model.SaveCommand = new RelayCommand(obj =>
@@ -21,11 +21,11 @@ namespace Plugins
                 DialogResult = true;
                 if (flip.IsMainPanelOpened)
                 {
-                    Vars = Tuple.Create<DataSource, object>(DataSource.OracleDatabase, Tuple.Create<string, string, string, string>(model.UserName, SecureStringToString(passwordBox.SecurePassword), model.Host, vars[model.Privilege]));
+                    Vars = Tuple.Create<DataSource, object>(DataSource.OracleDatabase, Tuple.Create(model.UserName, SecureStringToString(passwordBox.SecurePassword), model.Host, vars[model.Privilege]));
                 }
                 else
                 {
-                    Vars = Tuple.Create<DataSource, object>(DataSource.XmlDocument, Tuple.Create<string, string>(model.Geometry, model.Layers));
+                    Vars = Tuple.Create<DataSource, object>(DataSource.XmlDocument, Tuple.Create(model.Geometry, model.Layers));
                 }
                 Close();
             });
@@ -35,7 +35,7 @@ namespace Plugins
                 Close();
             });
         }
-        private String SecureStringToString(SecureString value)
+        private string SecureStringToString(SecureString value)
         {
             IntPtr valuePtr = IntPtr.Zero;
             try
@@ -52,8 +52,8 @@ namespace Plugins
         private readonly double _screenHeight = SystemParameters.FullPrimaryScreenHeight;
         private void LoginWindow_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            this.Top = (_screenHeight - ActualHeight) / 2;
-            this.Left = (_screenWidth - ActualWidth) / 2;
+            Top = (_screenHeight - ActualHeight) / 2;
+            Left = (_screenWidth - ActualWidth) / 2;
         }
         private void LoginWindow_Loaded(object sender, RoutedEventArgs e)
         {

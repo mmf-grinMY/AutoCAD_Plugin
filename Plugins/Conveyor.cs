@@ -1,106 +1,75 @@
-﻿using System;
-using System.Threading;
+﻿#region Usings
+
+using System;
 using System.Collections.Generic;
+using System.Threading;
+
+#endregion
 
 namespace Plugins
 {
-    public class Conveyor<T>
+    internal class Conveyor<T>
     {
-        #region Fields
-
-        private readonly Buffer _buffer = new Buffer();
-        private readonly Func< T> _read;
+        private readonly Func<T> _read;
         private readonly Action<T> _write;
-
-        #endregion
-
-        #region Ctors
-
-        public Conveyor(Func<T> read, Action<T> write)
+        private readonly int _maxLength;
+        private readonly object _locker = new object();
+        private readonly List<T> _list;
+        private readonly Thread _readThread;
+        private readonly Thread _writeThread;
+        public Conveyor(Func<T> read, Action<T> write, int bufferSize = 50)
         {
             _read = read;
             _write = write;
-        }
-
-        #endregion
-
-        public void Run()
-        {
-            Thread readThread = null;
-            Thread writeThread = null;
-            writeThread = new Thread(new ThreadStart(() =>
+            _maxLength = bufferSize;
+            _list = new List<T>();
+            _readThread = new Thread(() =>
             {
-                if (_buffer.Count > 0)
+                while (_readThread.IsAlive)
                 {
-                    _write(_buffer.Remove());
-                }
-                else if (readThread.ThreadState == ThreadState.Aborted || readThread.ThreadState == ThreadState.Stopped)
-                {
-                    writeThread.Abort();
-                }
-            }));
-            readThread = new Thread(new ThreadStart(() =>
-            {
-                if (_buffer.Count < _buffer.MaxLength) 
-                {
-                    T item = _read();
-                    if (item != null)
+                    if (_list.Count < _maxLength)
                     {
-                        _buffer.Add(item);
-                    }
-                    else
-                    {
-                        readThread.Abort();
-                    }
-                }
-            }));
-            readThread.Start();
-            writeThread.Start();
-            readThread.Join();
-            writeThread.Join();
-        }
-        private class Buffer
-        {
-            public int MaxLength => 20;
-            private readonly Stack<T> _list = new Stack<T>();
-            private readonly object _locker = new object();
-
-            public void Add(T item)
-            {
-                lock (_locker)
-                {
-                    if (_list.Count < MaxLength)
-                    {
-                        _list.Push(item);
-
-                        if (_list.Count == MaxLength - 1)
+                        lock (_locker)
                         {
-                            IsFullNext = true;
+                            T line = _read();
+                            if (line != null)
+                            {
+                                _list.Add(line);
+                            }
+                            else
+                            {
+                                _readThread.Abort();
+                            }
                         }
                     }
-                    else
-                    {
-                        throw new ArgumentOutOfRangeException(nameof(item));
-                    }
                 }
-            }
-
-            public T Remove()
+            });
+            _writeThread = new Thread(() =>
             {
-                lock (_locker)
+                while (_writeThread.IsAlive)
                 {
-                    if (IsFullNext)
+                    lock (_locker)
                     {
-                        IsFullNext = false;
+                        if (_list.Count > 0)
+                        {
+                            T item = _list[0];
+                            _list.RemoveAt(0);
+                            _write(item);
+                        }
+                        else if (!_readThread.IsAlive)
+                        {
+                            _writeThread.Abort();
+                        }
                     }
-
-                    return _list.Pop();
                 }
-            }
-
-            public int Count => _list.Count;
-
-            public bool IsFullNext { get; set; }
+            });
+        }
+        public void Run()
+        {
+            _readThread.Start();
+            _writeThread.Start();
+            _readThread.Join();
+            _writeThread.Join();
         }
     }
 }

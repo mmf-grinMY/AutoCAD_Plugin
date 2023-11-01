@@ -16,21 +16,11 @@ using Polyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 using AColor = Autodesk.AutoCAD.Colors.Color;
 using Oracle.ManagedDataAccess.Client;
-using System.Runtime.CompilerServices;
-using Plugins;
-using System.Data.SqlClient;
-using System.Security.Cryptography;
-using System.Threading;
 
 #endregion
 
 namespace Plugins
 {
-    public enum DataSource
-    {
-        OracleDatabase,
-        XmlDocument
-    }
     public class Commands : IExtensionApplication
     {
         public void Initialize()
@@ -47,61 +37,6 @@ namespace Plugins
             {
                 MessageBox.Show("Произошла ошибка!\n" + ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }
-        private void RunConveyor<T>(Func<T> readAction, Action<T> writeAction, int bufferSize = 50)
-        {
-            Thread read = null;
-            Thread write = null;
-            List<T> list = new List<T>();
-            object locker = new object();
-            int maxLength = bufferSize;
-
-            read = new Thread(() =>
-            {
-                while (read.IsAlive)
-                {
-                    if (list.Count < maxLength)
-                    {
-                        lock (locker)
-                        {
-                            T line = readAction();
-                            if (line != null)
-                            {
-                                list.Add(line);
-                            }
-                            else
-                            {
-                                read.Abort();
-                            }
-                        }
-                    }
-                }
-            });
-
-            write = new Thread(() =>
-            {
-                while (write.IsAlive)
-                {
-                    lock (locker)
-                    {
-                        if (list.Count > 0)
-                        {
-                            T item = list[0];
-                            list.RemoveAt(0);
-                            writeAction(item);
-                        }
-                        else if (!read.IsAlive)
-                        {
-                            write.Abort();
-                        }
-                    }
-                }
-            });
-
-            read.Start();
-            write.Start();
-            read.Join();
-            write.Join();
         }
         class Points
         {
@@ -288,7 +223,7 @@ namespace Plugins
                     }
                 };
 
-                RunConveyor(readAction, writeAction);
+                new Conveyor<DrawParameters>(readAction, writeAction).Run();
 
                 if (debug) DrawDebugObjects(db, points);
                 doc.Editor.WriteMessage("Закончена отрисовка объектов!");
