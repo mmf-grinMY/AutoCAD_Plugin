@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Windows;
 
 namespace Plugins
 {
@@ -25,7 +26,10 @@ namespace Plugins
                     case "BasicSignDrawParams":
                         _drawType = Plugins.DrawType.BasicSignDrawParams;
                         break;
-                    default: throw new InvalidOperationException();
+                    case "TMMTTFSignDrawParams":
+                        _drawType = Plugins.DrawType.TMMTTFSignDrawParams;
+                        break;
+                    default: MessageBox.Show(value); break; //throw new InvalidOperationException();
                 }
             }
         }

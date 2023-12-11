@@ -1,6 +1,6 @@
-﻿using static Plugins.WKT.RegExp;
+﻿using static Plugins.WKT.Old.RegExp;
 
-namespace Plugins
+namespace Plugins.WKT.Old
 {
     public class Point
     {

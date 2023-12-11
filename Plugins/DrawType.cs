@@ -6,5 +6,6 @@
         Polyline,
         LabelDrawParams,
         BasicSignDrawParams,
+        TMMTTFSignDrawParams
     }
 }

@@ -3,80 +3,46 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Collections.Generic;
+using Aspose.Gis.Geometries;
+using Oracle.ManagedDataAccess.Client;
+using Newtonsoft.Json;
+using Plugins;
+using System.Windows;
+using Newtonsoft.Json.Linq;
 
 internal class Program
 {
-    private static readonly string readPath = @"C:\Users\grinm\Desktop\Test.txt";
-    private static readonly string writePath = @"C:\Users\grinm\Desktop\Write.txt";
-    public async static Task Main(string[] args)
+    public static void Main(string[] args)
     {
-        var sr = new StreamReader(readPath);
-        var sw = new StreamWriter(writePath);
+        string dbName = "k630f";
+        DrawParameters draw;
+        using (var connection = new OracleConnection("Data Source=data-pc/GEO;Password=g;User Id=g;"))
+        {
+            connection.Open();
+            using (var reader = new OracleCommand($"SELECT drawjson, geowkt, paramjson FROM {dbName}_trans_open", connection).ExecuteReader())
+            {
+                reader.Read();
+                draw = new DrawParameters()
+                {
+                    DrawSettings = JObject.Parse(reader.GetString(0))
+                };
+                if (draw.DrawSettings["DrawType"].ToString() != "Empty")
+                {
+                    draw.WKT = reader.GetString(1);
+                    draw.Param = JObject.Parse(reader.GetString(2));
+                }
+            }
+        }
 
-        RunConveyor<string>(sr.ReadLine, sw.WriteLine);
-
-        sr.Close();
-        sw.Close();
-
-        await Console.Out.WriteLineAsync("Конец записи файла!");
-
+        switch (draw.DrawSettings["DrawType"].ToString())
+        {
+            case "Polyline":
+                {
+                    Console.WriteLine(Convert.ToDouble(draw.Param["LeftBound"].ToString().Replace("_", ",")));
+                }
+                break;
+            default: break;
+        }
         Console.Read();
-    }
-    private static void RunConveyor<T>(Func<T> readAction, Action<T> writeAction, int bufferSize = 50)
-    {
-        Thread read = null;
-        Thread write = null;
-        List<T> list = new List<T>();
-        object locker = new object();
-        int maxLength = bufferSize;
-
-        read = new Thread(() =>
-        {
-            while (read.IsAlive)
-            {
-                if (list.Count < maxLength)
-                {
-                    object line = null;
-                    lock (locker)
-                    {
-                        line = readAction();
-                    }
-                    if (line != null)
-                    {
-                        list.Add((T)line);
-                    }
-                    else
-                    {
-                        read.Abort();
-                    }
-                }
-            }
-        });
-
-        write = new Thread(() =>
-        {
-            while (write.IsAlive)
-            {
-                if (list.Count > 0)
-                {
-                    T item;
-                    lock (locker)
-                    {
-                        item = list[0];
-                        list.RemoveAt(0);
-                    }
-                    writeAction(item);
-                }
-                else if (!read.IsAlive)
-                {
-                    write.Abort();
-                }
-            }
-        });
-
-        read.Start();
-        write.Start();
-        read.Join();
-        write.Join();
     }
 }

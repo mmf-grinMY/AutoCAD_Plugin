@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Plugins
+﻿namespace Plugins
 {
     internal class LoginViewModel : BaseViewModel
     {
@@ -62,6 +60,26 @@ namespace Plugins
             {
                 _layers = value;
                 OnPropertyChanged(nameof(Layers));
+            }
+        }
+        private string _transactionTableName;
+        public string TransactionTableName
+        {
+            get => _transactionTableName;
+            set
+            {
+                _transactionTableName = value;
+                OnPropertyChanged(nameof(TransactionTableName));
+            }
+        }
+        private string _layersTableName;
+        public string LayersTableName
+        {
+            get => _layersTableName;
+            set
+            {
+                _layersTableName = value;
+                OnPropertyChanged(nameof(LayersTableName));
             }
         }
         public RelayCommand SaveCommand { get; set; }

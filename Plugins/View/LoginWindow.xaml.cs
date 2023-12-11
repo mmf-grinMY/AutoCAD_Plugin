@@ -7,7 +7,7 @@ namespace Plugins
 {
     public partial class LoginWindow : Window
     {
-        public Tuple<DataSource, object> Vars { get; set; }
+        internal WindowVars Vars { get; set; }
         public LoginWindow()
         {
             InitializeComponent();
@@ -21,11 +21,17 @@ namespace Plugins
                 DialogResult = true;
                 if (flip.IsMainPanelOpened)
                 {
-                    Vars = Tuple.Create<DataSource, object>(DataSource.OracleDatabase, Tuple.Create(model.UserName, SecureStringToString(passwordBox.SecurePassword), model.Host, vars[model.Privilege]));
+                    Vars = new DBWindowVars(model.UserName,
+                                            SecureStringToString(passwordBox.SecurePassword),
+                                            model.Host,
+                                            vars[model.Privilege],
+                                            model.TransactionTableName,
+                                            model.LayersTableName);
                 }
                 else
                 {
-                    Vars = Tuple.Create<DataSource, object>(DataSource.XmlDocument, Tuple.Create(model.Geometry, model.Layers));
+                    Vars = new XmlWindowVars(model.Geometry,
+                                             model.Layers);
                 }
                 Close();
             });

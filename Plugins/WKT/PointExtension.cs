@@ -1,7 +1,6 @@
 ﻿using Autodesk.AutoCAD.Geometry;
-using System.Net.NetworkInformation;
 
-namespace Plugins
+namespace Plugins.WKT.Old
 {
     public static class PointExtension
     {

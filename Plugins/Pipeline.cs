@@ -8,7 +8,7 @@ using System.Threading;
 
 namespace Plugins
 {
-    internal class Conveyor<T>
+    internal class Pipeline<T>
     {
         private readonly Func<T> _read;
         private readonly Action<T> _write;
@@ -17,11 +17,15 @@ namespace Plugins
         private readonly List<T> _list;
         private readonly Thread _readThread;
         private readonly Thread _writeThread;
-        public Conveyor(Func<T> read, Action<T> write, int bufferSize = 50)
+        private readonly int _limitItemsCount;
+        private int _counter = 0;
+        public int ReadedItemsCount => _counter;
+        public Pipeline(Func<T> read, Action<T> write, int bufferSize = 500, int limitItemsCount = 10_000)
         {
             _read = read;
             _write = write;
             _maxLength = bufferSize;
+            _limitItemsCount = limitItemsCount;
             _list = new List<T>();
             _readThread = new Thread(() =>
             {
@@ -34,7 +38,8 @@ namespace Plugins
                         {
                             item = _read();
                         }
-                        if (item != null)
+                        _counter++;
+                        if (item != null && _counter < _limitItemsCount)
                         {
                             _list.Add((T)item);
                         }

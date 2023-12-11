@@ -22,6 +22,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,6 +31,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject />
@@ -46,6 +48,9 @@
     <Reference Include="acmgd, Version=24.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\..\..\Program Files\Autodesk\AutoCAD 2023\acmgd.dll</HintPath>
+    </Reference>
+    <Reference Include="Aspose.GIS, Version=23.11.0.0, Culture=neutral, PublicKeyToken=716fcc553a201e56, processorArchitecture=MSIL">
+      <HintPath>..\packages\Aspose.GIS.23.11.0\lib\net47\Aspose.GIS.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.AspNetCore.Hosting.Abstractions, Version=2.1.1.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.AspNetCore.Hosting.Abstractions.2.1.1\lib\netstandard2.0\Microsoft.AspNetCore.Hosting.Abstractions.dll</HintPath>
@@ -110,15 +115,6 @@
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
-    <Reference Include="NLog, Version=5.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
-      <HintPath>..\packages\NLog.5.2.4\lib\net46\NLog.dll</HintPath>
-    </Reference>
-    <Reference Include="NLog.Extensions.Logging, Version=5.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
-      <HintPath>..\packages\NLog.Extensions.Logging.5.3.4\lib\net461\NLog.Extensions.Logging.dll</HintPath>
-    </Reference>
-    <Reference Include="NLog.Web.AspNetCore, Version=5.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
-      <HintPath>..\packages\NLog.Web.AspNetCore.5.3.4\lib\net461\NLog.Web.AspNetCore.dll</HintPath>
-    </Reference>
     <Reference Include="Oracle.ManagedDataAccess, Version=4.122.21.1, Culture=neutral, PublicKeyToken=89b483f429c47342, processorArchitecture=MSIL">
       <HintPath>..\packages\Oracle.ManagedDataAccess.21.11.0\lib\net462\Oracle.ManagedDataAccess.dll</HintPath>
     </Reference>
@@ -164,8 +160,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Conveyor.cs" />
-    <Compile Include="DataSource.cs" />
+    <Compile Include="Pipeline.cs" />
     <Compile Include="View\BaseViewModel.cs" />
     <Compile Include="CommandClass.cs" />
     <Compile Include="DrawParameters.cs" />
@@ -174,16 +169,23 @@
     <Compile Include="View\FlipPanel.cs" />
     <Compile Include="Connections\IConnection.cs" />
     <Compile Include="View\LoginViewModel.cs" />
-    <Compile Include="Point.cs" />
-    <Compile Include="PointExtension.cs" />
+    <Compile Include="WKT\Point.cs" />
+    <Compile Include="WKT\PointExtension.cs" />
     <Compile Include="View\ProcentConverter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="View\LoginWindow.xaml.cs">
       <DependentUpon>LoginWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="RelayCommand.cs" />
+    <Compile Include="DBWindowVars.cs" />
+    <Compile Include="WKT\LineString.cs" />
+    <Compile Include="WKT\MultiLine.cs" />
+    <Compile Include="WKT\MultiLineStrings.cs" />
+    <Compile Include="WKT\Polygon.cs" />
     <Compile Include="WKT\Reader.cs" />
     <Compile Include="Connections\XmlConnection.cs" />
+    <Compile Include="WKT\RegExp.cs" />
+    <Compile Include="XmlWindowVars.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

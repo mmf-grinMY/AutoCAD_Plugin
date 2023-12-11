@@ -45,6 +45,9 @@
     <Reference Include="AcMgd">
       <HintPath>..\..\..\..\ObjectARX_for_AutoCAD_2021_Win_64bit_dlm\inc\AcMgd.dll</HintPath>
     </Reference>
+    <Reference Include="Aspose.GIS, Version=23.11.0.0, Culture=neutral, PublicKeyToken=716fcc553a201e56, processorArchitecture=MSIL">
+      <HintPath>..\packages\Aspose.GIS.23.11.0\lib\net47\Aspose.GIS.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=6.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.6.0.0\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
     </Reference>
