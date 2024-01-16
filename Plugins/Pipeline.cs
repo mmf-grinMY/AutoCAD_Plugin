@@ -1,10 +1,6 @@
-﻿#region Usings
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
-
-#endregion
 
 namespace Plugins
 {
@@ -39,7 +35,7 @@ namespace Plugins
                             item = _read();
                         }
                         _counter++;
-                        if (item != null && _counter < _limitItemsCount)
+                        if (item != null && _limitItemsCount == -1 ? _counter < _limitItemsCount : true)
                         {
                             _list.Add((T)item);
                         }

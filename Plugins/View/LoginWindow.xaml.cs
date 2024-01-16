@@ -1,69 +1,80 @@
-﻿using System;
-using System.Runtime.InteropServices;
-using System.Security;
-using System.Windows;
+﻿using System.Windows;
 
 namespace Plugins
 {
+    /// <summary>
+    /// Окно ввода параметров для подключения к БД
+    /// </summary>
     public partial class LoginWindow : Window
     {
-        internal WindowVars Vars { get; set; }
+        #region Public Properties
+        /// <summary>
+        /// Строка подключения
+        /// </summary>
+        public (string, string, bool) ConnectionString { get; private set; }
+        /// <summary>
+        /// Результат ввода информации
+        /// </summary>
+        public bool InputResult { get; private set; }
+        #endregion
+
+        #region Ctors
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
         public LoginWindow()
         {
             InitializeComponent();
-            Loaded += LoginWindow_Loaded;
             SizeChanged += LoginWindow_SizeChanged;
             LoginViewModel model = new LoginViewModel();
             DataContext = model;
             model.SaveCommand = new RelayCommand(obj =>
             {
                 string[] vars = { "NORMAL", "SYSDBA", "SYSOPER" };
-                DialogResult = true;
-                if (flip.IsMainPanelOpened)
+                string message = string.Empty;
+                if (string.IsNullOrWhiteSpace(model.UserName))
+                    message += "имя пользователя";
+                string password = this.passwordBox.Password;
+                if (string.IsNullOrWhiteSpace(password))
+                    message += message == string.Empty ? "пароль" : ", пароль";
+                if (string.IsNullOrWhiteSpace(model.Host))
+                    message += message == string.Empty ? "имя базы данных" : ", имя базы данных";
+                if (model.SelectedGorizont == -1)
+                    message += message == string.Empty ? "Не выбран горизонт!" : "! Не выбран горизонт!";
+                if (message != string.Empty)
                 {
-                    Vars = new DBWindowVars(model.UserName,
-                                            SecureStringToString(passwordBox.SecurePassword),
-                                            model.Host,
-                                            vars[model.Privilege],
-                                            model.TransactionTableName,
-                                            model.LayersTableName);
+                    message = "Некорректно введено " + message;
+                    this.Hide();
+                    MessageBox.Show(message);
+                    this.ShowDialog();
                 }
                 else
                 {
-                    Vars = new XmlWindowVars(model.Geometry,
-                                             model.Layers);
+                    InputResult = true;
+                    this.Hide();
+                    ConnectionString = ($"Data Source={model.Host};Password={password};User Id={model.UserName};Connection Timeout = 360;" + 
+                        (vars[model.Privilege] == "NORMAL" ? string.Empty : $"DBA Privilege={vars[model.Privilege]};"), model.Gorizonts[model.SelectedGorizont], model.CheckingBoundingBox);
                 }
-                Close();
             });
             model.CancelCommand = new RelayCommand(obj => 
             {
-                DialogResult = false;
+                InputResult = false;
                 Close();
             });
         }
-        private string SecureStringToString(SecureString value)
-        {
-            IntPtr valuePtr = IntPtr.Zero;
-            try
-            {
-                valuePtr = Marshal.SecureStringToGlobalAllocUnicode(value);
-                return Marshal.PtrToStringUni(valuePtr);
-            }
-            finally
-            {
-                Marshal.ZeroFreeGlobalAllocUnicode(valuePtr);
-            }
-        }
-        private readonly double _screenWidth = SystemParameters.FullPrimaryScreenWidth;
-        private readonly double _screenHeight = SystemParameters.FullPrimaryScreenHeight;
+        #endregion
+
+        #region Private Methods
+        /// <summary>
+        /// Изменить размер окна
+        /// </summary>
+        /// <param name="sender">Вызывающий объект</param>
+        /// <param name="e">Параметры вызова</param>
         private void LoginWindow_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            Top = (_screenHeight - ActualHeight) / 2;
-            Left = (_screenWidth - ActualWidth) / 2;
+            Top = (SystemParameters.FullPrimaryScreenWidth - ActualHeight) / 2;
+            Left = (SystemParameters.FullPrimaryScreenHeight - ActualWidth) / 2;
         }
-        private void LoginWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            flip.OtherInput.Visibility = Visibility.Collapsed;
-        }
+        #endregion
     }
 }

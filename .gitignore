@@ -4,9 +4,12 @@
 
 /.vs
 /packages
-/Plugins/bin/Debug
+/Plugins/bin
 /Plugins/obj
-/Plugins.Console/bin/Debug
+/Plugins.Console/bin
 /Plugins.Console/obj
-/Plugins.Tests/bin/Debug/net6.0
-/Plugins.Tests/obj
+/Plugins.Chr.Tests/bin
+/Plugins.Chr.Tests/obj
+/Plugins.Chr/bin
+/Plugins.Chr/obj
+/**/*.xsd

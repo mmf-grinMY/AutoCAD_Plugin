@@ -1,48 +1,10 @@
-﻿using System;
-using System.IO;
-using System.Threading.Tasks;
-using System.Threading;
-using System.Collections.Generic;
-using Aspose.Gis.Geometries;
-using Oracle.ManagedDataAccess.Client;
-using Newtonsoft.Json;
-using Plugins;
-using System.Windows;
-using Newtonsoft.Json.Linq;
+﻿using Plugins.Chr;
 
-internal class Program
-{
-    public static void Main(string[] args)
-    {
-        string dbName = "k630f";
-        DrawParameters draw;
-        using (var connection = new OracleConnection("Data Source=data-pc/GEO;Password=g;User Id=g;"))
-        {
-            connection.Open();
-            using (var reader = new OracleCommand($"SELECT drawjson, geowkt, paramjson FROM {dbName}_trans_open", connection).ExecuteReader())
-            {
-                reader.Read();
-                draw = new DrawParameters()
-                {
-                    DrawSettings = JObject.Parse(reader.GetString(0))
-                };
-                if (draw.DrawSettings["DrawType"].ToString() != "Empty")
-                {
-                    draw.WKT = reader.GetString(1);
-                    draw.Param = JObject.Parse(reader.GetString(2));
-                }
-            }
-        }
-
-        switch (draw.DrawSettings["DrawType"].ToString())
-        {
-            case "Polyline":
-                {
-                    Console.WriteLine(Convert.ToDouble(draw.Param["LeftBound"].ToString().Replace("_", ",")));
-                }
-                break;
-            default: break;
-        }
-        Console.Read();
-    }
-}
+const string chrFilePath = @"C:\Users\grinm\Documents\_Job_\_MapManager_\Programs\MapMan\Fonts\pnt!.chr";
+var path = chrFilePath.Split('\\');
+var name = path[path.Length - 1].Replace(".chr", ".new.bdf");
+const string outputRoot = @"C:\Users\grinm\Desktop\_AutoCAD_\Fonts";
+var font = ChrReader.Read(chrFilePath);
+font.Dump(Path.Combine(outputRoot, name));
+Console.WriteLine("Закончена запись шрифта!");
+Console.Read();
