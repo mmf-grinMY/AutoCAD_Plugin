@@ -1,41 +1,40 @@
-﻿#define ALL_LAYERS // отрисовка всех слоев
-// #define MARK_LAYER // отрисовка слоя 'Маркшейдерские поля'
-#define TEXT // отрисовка подслоя 'Текст'
-#define LINE // отрисовка подслоя 'Линия'
-// #define LAYERS // деление на слои
-#define ZOOM // прибилижение к отрисовываемым объектам
-// #define MULTI_THREAD
-#define MY_BOUNDING_BOX
-#define BOUNDING_BOX // Учет bounding box, определенной в таблице
-// #define GET_LAYER // Функция для отдельного запроса к БД для изъятия параметров слоя
-// #define COUNTER_SHOW
-// #define LAYER_DEBUG // просмотр неправильности отрисовки некоторых слоев
+﻿#define ZOOM // Прибилижение к отрисовываемым объектам
+// #define MULTI_THREAD // Отрисовывать объекты в качестве сторонней задачи
+#define MY_BOUNDING_BOX // Отслеживание границ по координатам
+#if !MY_BOUNDING_BOX
+    #define DB_BOUNDING_BOX // Отслеживание границ по БД
+#endif
+// #define DEBUG_COUNTER // Вывод сообщения об отрисовке 1000 объектов
 
-using Autodesk.AutoCAD.DatabaseServices;
+// #define MARK_SIGNS // Выбирать только знаки на слое Маркшейдерская сеть
+// #define POLILINES // Отрисовка только полилиний
+
+using Plugins.View;
+
 using System;
 using System.Windows;
-using Line = Autodesk.AutoCAD.DatabaseServices.Line;
-using SColor = System.Drawing.Color;
-using Polyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
-using Application = Autodesk.AutoCAD.ApplicationServices.Application;
-using AColor = Autodesk.AutoCAD.Colors.Color;
+
 using Oracle.ManagedDataAccess.Client;
+
+using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-using Aspose.Gis.Geometries;
-using Newtonsoft.Json.Linq;
-using Plugins.View;
 using Autodesk.AutoCAD.ApplicationServices;
+using ALine = Autodesk.AutoCAD.DatabaseServices.Line;
+using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace Plugins
 {
+    class Box
+    {
+        public long Left { get; set; } 
+        public long Right { get; set; } 
+        public long Top { get; set; } 
+        public long Bottom { get; set; }
+    }
     internal class ObjectDispatcher : IDisposable
     {
         #region Private Fields
 
-        /// <summary>
-        /// Масштаб всех объектов по отношению к записям БД
-        /// </summary>
-        private readonly int scale = 1_000;
         /// <summary>
         /// Текущий документ
         /// </summary>
@@ -69,27 +68,8 @@ namespace Plugins
         /// Текущий слой
         /// </summary>
         private string currentLayer = string.Empty;
-        /// <summary>
-        /// Масштаб текста
-        /// </summary>
-        private readonly int textScale = 750;
 #if MY_BOUNDING_BOX
-        /// <summary>
-        /// Крайняя левая точка рамки
-        /// </summary>
-        private long left = long.MaxValue;
-        /// <summary>
-        /// Крайняя правая точка рамки
-        /// </summary>
-        private long right = long.MinValue;
-        /// <summary>
-        /// Крайняя верхняя точка рамки
-        /// </summary>
-        private long top = long.MinValue;
-        /// <summary>
-        /// Крайняя нижняя точка рамки
-        /// </summary>
-        private long bottom = long.MaxValue;
+        readonly Box box = new Box() { Bottom = long.MaxValue, Left = long.MaxValue, Right = long.MinValue, Top = long.MinValue };
 #endif
 
         #endregion
@@ -122,9 +102,9 @@ namespace Plugins
         /// <param name="factor">Масштаб приближения</param>
         private static void Zoom(Point3d min, Point3d max, Point3d center, double factor)
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
+            var doc = AApplication.DocumentManager.MdiActiveDocument;
             var db = doc.Database;
-            int currentVPort = Convert.ToInt32(Application.GetSystemVariable("CVPORT"));
+            int currentVPort = Convert.ToInt32(AApplication.GetSystemVariable("CVPORT"));
             var emptyPoint3d = new Point3d();
 
             if (min.Equals(emptyPoint3d) && max.Equals(emptyPoint3d))
@@ -159,7 +139,7 @@ namespace Plugins
                         max = new Point3d((view.Width / 2) + center.X, (view.Height / 2) + center.Y, 0);
                     }
                     // Create an extents object using a line
-                    using (var line = new Line(min, max))
+                    using (var line = new ALine(min, max))
                     {
                         (extens3d = new Extents3d(line.Bounds.Value.MinPoint, line.Bounds.Value.MaxPoint)).TransformBy(matrixWCS2DCS);
                     }
@@ -206,7 +186,6 @@ namespace Plugins
             }
         }
 
-
         #endregion
 
         #region Private Methods
@@ -239,237 +218,6 @@ namespace Plugins
             }
         }
         /// <summary>
-        /// Отрисовать объект
-        /// </summary>
-        /// <param name="db">Внутренняя БД AutoCAD</param>
-        /// <param name="draw">Параметры рисования</param>
-        /// <exception cref="NotImplementedException">Вызывается, если не предусмотрена логика отрисовки объекта</exception>
-        private void DrawPrimitives(Database db, DrawParams draw)
-        {
-            switch (draw.DrawSettings["DrawType"].ToString())
-            {
-                case "Polyline":
-                    {
-                        switch (draw.Geometry)
-                        {
-                            case MultiLineString multiLine:
-                                {
-                                    foreach (var line in multiLine)
-                                    {
-                                        DrawPolyline(db, (LineString)line, draw.DrawSettings, draw.LayerName);
-                                    }
-                                    drawingCount++;
-                                }
-                                break;
-                            case Polygon polygon:
-                                {
-                                    DrawPolygon(db, polygon, draw.DrawSettings, draw.LayerName);
-                                    drawingCount++;
-                                }
-                                break;
-                            default:
-                                throw new NotImplementedException();
-                        }
-                    }
-                    break;
-                case "TMMTTFSignDrawParams":
-                    break;
-                case "BasicSignDrawParams":
-                    break;
-                case "LabelDrawParams":
-                    {
-                        if (draw.Geometry is Aspose.Gis.Geometries.Point point)
-                        {
-                            drawingCount++;
-                            DrawText(db, new Point3d(point.X * scale, point.Y * scale, 0), draw.DrawSettings, draw.LayerName);
-                        }
-                    }
-                    break;
-                default: throw new NotImplementedException();
-            }
-        }
-        /// <summary>
-        /// Нарисовать абстрактный объект
-        /// </summary>
-        /// <param name="db">Внутренняя БД AutoCAD</param>
-        /// <param name="action">Логика отрисовки</param>
-        private void DrawEntity(Database db, Action<Transaction, BlockTableRecord> action)
-        {
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                using (var blockTable = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable)
-                {
-                    using (var record = transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord)
-                    {
-                        action(transaction, record);
-                        transaction.Commit();
-                    }
-                }
-            }
-        }
-        /// <summary>
-        /// Нарисовать полигон
-        /// </summary>
-        /// <param name="db">Внутренняя БД AutoCAD</param>
-        /// <param name="polygon">Полигон для отрисовки</param>
-        /// <param name="settings">Параметры легендаризации полигона</param>
-        /// <param name="layer">Имя слоя</param>
-        private void DrawPolygon(Database db, Polygon polygon, JObject settings, string layer)
-        {
-            void action(Transaction transaction, BlockTableRecord record)
-            {
-                using (var polyline = new Polyline())
-                {
-                    try
-                    {
-                        var line = polygon.ReplacePolygonsByLines() as LineString ?? throw new ArgumentNullException(nameof(polygon));
-                        ActionDrawPolyline(polyline, transaction, record, line, settings, layer);
-                        var region = Autodesk.AutoCAD.DatabaseServices.Region.CreateFromCurves(new DBObjectCollection { polyline })[0]
-                            as Autodesk.AutoCAD.DatabaseServices.Region ?? throw new ArgumentNullException(nameof(polyline));
-                        region.Color = AColor.FromColor(SColor.FromArgb(Convert.ToInt32(settings["BrushBkColor"].ToString())));
-                        record.AppendEntity(region);
-                        transaction.AddNewlyCreatedDBObject(region, true);
-                        var objIdCollection = new ObjectIdCollection { region.ObjectId };
-
-                        using (var hatch = new Hatch())
-                        {
-                            record.AppendEntity(hatch);
-                            transaction.AddNewlyCreatedDBObject(hatch, true);
-
-                            string pattern = settings["BitmapName"].Value<string>() + settings["BitmapIndex"].Value<string>();
-
-                            // FIXME: Добавить оригинальную щаливку с этим номером
-                            if (pattern != "DRO3247")
-                                hatch.SetHatchPattern(HatchPatternType.CustomDefined, pattern);
-                            else
-                                hatch.SetHatchPattern(HatchPatternType.UserDefined, "SOLID");
-                            hatch.Layer = layer;
-                            hatch.Associative = true;
-                            hatch.AppendLoop(HatchLoopTypes.Outermost, objIdCollection);
-                            hatch.EvaluateHatch(true);
-                        }
-                    }
-                    catch (ArgumentNullException)
-                    {
-                        // TODO: Предусмотреть перерисовку объекта своими методами
-                    }
-                    catch (ArgumentException)
-                    {
-                        // TODO: Предусмотреть перерисовку объекта своими методами
-                    }
-                    catch (Exception ex)
-                    {
-                        if (ex.Message != "eInvalidInput")
-                        {
-                            throw ex;
-                        }
-                    }
-                }
-            }
-
-            DrawEntity(db, action);
-        }
-        /// <summary>
-        /// Проверить двумерную точку на принадлежность рамке
-        /// </summary>
-        /// <param name="point">Проверяемая точка</param>
-        private void CheckBoundingBox(Point2d point)
-        {
-            left = Convert.ToInt64(Math.Min(point.X, left));
-            right = Convert.ToInt64(Math.Max(point.X, right));
-            bottom = Convert.ToInt64(Math.Min(point.Y, bottom));
-            top = Convert.ToInt64(Math.Max(point.Y, top));
-        }
-        /// <summary>
-        /// Проверить трехмерную точку на принадлежность рамке
-        /// </summary>
-        /// <param name="point">Проверяемая точка</param>
-        private void CheckBoundingBox(Point3d point)
-        {
-            left = Convert.ToInt64(Math.Min(point.X, left));
-            right = Convert.ToInt64(Math.Max(point.X, right));
-            bottom = Convert.ToInt64(Math.Min(point.Y, bottom));
-            top = Convert.ToInt64(Math.Max(point.Y, top));
-        }
-        /// <summary>
-        /// Отрисовать основу полилинии
-        /// </summary>
-        /// <param name="polyline">Отрисовываемая полилиния</param>
-        /// <param name="transaction">Текущая транзакция в БД</param>
-        /// <param name="record">Таблица записи</param>
-        /// <param name="line">Текущая линия</param>
-        /// <param name="settings">Параметры легендаризации</param>
-        /// <param name="layer">Имя слоя</param>
-        private void ActionDrawPolyline(Polyline polyline, Transaction transaction, BlockTableRecord record, LineString line, JObject settings, string layer)
-        {
-            for (int i = 0; i < line.Count; i++)
-            {
-                var point = new Point2d(line[i].X * scale, line[i].Y * scale);
-#if MY_BOUNDING_BOX
-                CheckBoundingBox(point);
-#endif
-                polyline.AddVertexAt(i, point, 0, 0, 0);
-            }
-
-            // TODO: Добавить тип линий
-            //polyline.Linetype = "Grantec";
-            polyline.Color = AColor.FromColor(SColor.FromArgb(Convert.ToInt32(settings["BrushColor"].ToString())));
-            polyline.Thickness = Convert.ToInt32(settings["Width"].ToString());
-            polyline.Layer = layer;
-
-            record.AppendEntity(polyline);
-            transaction.AddNewlyCreatedDBObject(polyline, true);
-        }
-        /// <summary>
-        /// Отрисовать полилиню
-        /// </summary>
-        /// <param name="db">Внутренняя БД AutoCAD</param>
-        /// <param name="line">Исходная линия</param>
-        /// <param name="settings">Параметры легендаризации</param>
-        /// <param name="layer">Имя слоя</param>
-        private void DrawPolyline(Database db, LineString line, JObject settings, string layer)
-        {
-            void action(Transaction transaction, BlockTableRecord record)
-            {
-                using (var polyline = new Polyline())
-                {
-                    ActionDrawPolyline(polyline, transaction, record, line, settings, layer);
-                }
-            }
-
-            DrawEntity(db, action);
-        }
-        /// <summary>
-        /// Отрисовать однострочный текст
-        /// </summary>
-        /// <param name="db">Внутренняя БД AutoCAD</param>
-        /// <param name="point">Исходная позиция текста</param>
-        /// <param name="settings">Параметры легендаризации</param>
-        /// <param name="layer">Имя слоя</param>
-        private void DrawText(Database db, Point3d point, JObject settings, string layer)
-        {
-            void action(Transaction transaction, BlockTableRecord record)
-            {
-                var text = new DBText();
-                text.SetDatabaseDefaults();
-                text.Position = point;
-                int fontSize = Convert.ToInt32(settings["FontSize"].Value<string>());
-                if (fontSize > 0)
-                    text.Height = fontSize * textScale;
-                text.TextString = settings["Text"].Value<string>();
-                text.Layer = layer;
-
-#if MY_BOUNDING_BOX
-                CheckBoundingBox(point);
-#endif
-
-                record.AppendEntity(text);
-                transaction.AddNewlyCreatedDBObject(text, true);
-            }
-
-            DrawEntity(db, action);
-        }
-        /// <summary>
         /// Прочитать строку из БД
         /// </summary>
         /// <param name="reader">Читатель БД</param>
@@ -483,7 +231,7 @@ namespace Plugins
 
             return new Draw();
         }
-        #endregion
+#endregion
 
         #region Ctors
 
@@ -509,16 +257,7 @@ namespace Plugins
         /// <summary>
         /// Освободить занятые ресурсы
         /// </summary>
-        public void Dispose()
-        {
-#if LOG
-            writer.Close();
-#endif
-        }
-        /// <summary>
-        /// Приблизить к граничной рамке
-        /// </summary>
-        public void Zoom() => Zoom(new Point3d(left, bottom, 0), new Point3d(right, top, 0), new Point3d(0, 0, 0), 1.0);
+        public void Dispose() { }
         /// <summary>
         /// Проделать полную итерацию отрисовки
         /// </summary>
@@ -529,24 +268,24 @@ namespace Plugins
             string layer = string.Empty;
             try
             {
-#if ZOOM && !MY_BOUNDING_BOX
-            Draw InnerRead(OracleDataReader dataReader)
-            {
-                if (IsDBNull(dataReader, 8))
+#if DB_BOUNDING_BOX
+                Draw InnerRead(OracleDataReader dataReader)
                 {
-                    throw new GotoException();
+                    if (IsDBNull(dataReader, 8))
+                    {
+                        throw new GotoException();
+                    }
+                    else
+                    {
+                        left = Math.Min(Convert.ToInt64(dataReader.GetString(4)), left);
+                        right = Math.Max(Convert.ToInt64(dataReader.GetString(5)), right);
+                        bottom = Math.Min(Convert.ToInt64(dataReader.GetString(6)), bottom);
+                        top = Math.Max(Convert.ToInt64(dataReader.GetString(7)), top);
+                        return new Draw(dataReader.GetString(1), dataReader.GetString(0), dataReader.GetString(2), dataReader.GetString(3));
+                    }
                 }
-                else
-                {
-                    left = Math.Min(Convert.ToInt64(dataReader.GetString(4)), left);
-                    right = Math.Max(Convert.ToInt64(dataReader.GetString(5)), right);
-                    bottom = Math.Min(Convert.ToInt64(dataReader.GetString(6)), bottom);
-                    top = Math.Max(Convert.ToInt64(dataReader.GetString(7)), top);
-                    return new Draw(dataReader.GetString(1), dataReader.GetString(0), dataReader.GetString(2), dataReader.GetString(3));
-                }
-            }
 
-            var param = InnerRead(reader);                    
+                var param = InnerRead(reader);                    
 #else
                 var param = Read(reader);
 #endif
@@ -555,11 +294,15 @@ namespace Plugins
                 layer = draw.LayerName;
                 CreateLayer(db, draw.LayerName);
 
-                DrawPrimitives(db, draw);
+                MMPFactory.Create(db, draw, box).Draw();
             }
-            catch (Exception) 
+            catch (GotoException)
             {
-                MessageBox.Show($"Не удалось создать слой {layer}!");
+                return;
+            }
+            catch (Exception ex) 
+            {
+                MessageBox.Show(ex.GetType() + "\n" + ex.Message + "\n" + ex.StackTrace + "\n" + ex.Source);
             }
         }
         /// <summary>
@@ -570,33 +313,44 @@ namespace Plugins
         {
             var db = doc.Database;
 
-            const string columns = "drawjson, geowkt, paramjson";
+            // SQL commands
+            const string SELECT = "SELECT";
+            const string FROM = "FROM";
+            const string JOIN = "JOIN";
+            const string ON = "ON";
+            const string WHERE = "WHERE";
+            const string AND = "AND";
+            const string LIKE = "LIKE";
+            const string NOT = "NOT";
+            // Rows
+            const string sublyaername = "sublayername";
+            const string geowkt = "geowkt";
+            const string drawjson = "drawjson";
+            // Geometry types
+            const string multilinestring = "MULTILINESTRING";
 
-#if ZOOM && !MY_BOUNDING_BOX
-            long 
-                left = long.MaxValue, 
-                right = long.MinValue, 
-                bottom = long.MaxValue, 
-                top = long.MinValue;
-#endif
-            // TODO: Переделать директивы препроцессора на if (isBoungingBox)
-#if MARK_LAYER && LINE
-            string command = $"SELECT drawjson, geowkt, paramjson, sublayerguid FROM {gorizont}_trans_clone";
-#else
             string command =
-                "SELECT " + columns +
-#if ZOOM
-                ", layername, sublayername, leftbound, rightbound, bottombound, topbound " +
+                SELECT +
+                " drawjson, geowkt, paramjson, layername, sublayername " +
+#if DB_BOUNDING_BOX
+                ", leftbound, rightbound, bottombound, topbound " +
 #endif
-                "FROM" +
+                FROM +
                 "(" +
-                "     SELECT b.layername, b.sublayername, a.geowkt, a.drawjson, a.paramjson, a.sublayerguid" +
-#if ZOOM
+                    SELECT + " b.layername, b.sublayername, a.geowkt, a.drawjson, a.paramjson, a.sublayerguid " +
+#if DB_BOUNDIG_BOX
                 ", a.leftbound, a.rightbound, a.topbound, a.bottombound " +
 #endif
-                $"     FROM {gorizont}_trans_clone a" +
-                $"     JOIN {gorizont}_trans_open_sublayers b" +
-                "     ON a.sublayerguid = b.sublayerguid" +
+                    FROM + $" {gorizont}_trans_clone a " +
+                    JOIN + $" {gorizont}_trans_open_sublayers b " +
+                    ON + " a.sublayerguid = b.sublayerguid" +
+#if MARK_SIGNS
+                ")" +
+                WHERE + " layername = 'Mapкшейдеpская сеть' " + AND + " sublayername = 'Знаки'";
+#elif POLILINES
+                ")"+ 
+                $" {WHERE} {geowkt} {LIKE} '%{multilinestring}%' {AND} {drawjson} {NOT} {LIKE} '%\"BrushBkColor\": 0,%'"; 
+#else
                 ")";
 #endif
             using (var reader = new OracleCommand(command, connection).ExecuteReader())
@@ -607,6 +361,12 @@ namespace Plugins
                 while (reader.Read() && counter < limit)
                 {
                     counter++;
+
+#if DEBUG_COUNTER
+                    if (counter % 1000 == 0)
+                        MessageBox.Show(counter.ToString());
+#endif
+
 #if MULTI_THREAD
                     if (window.isCancelOperation)
                         return;
@@ -616,14 +376,7 @@ namespace Plugins
                         window.ReportProgress(counter);
                     });
 #endif
-                    try
-                    {
-                        PipelineIteration(db, reader);
-                    }
-                    catch (GotoException)
-                    {
-                        continue;
-                    }
+                    PipelineIteration(db, reader);
                 }
 #if MULTI_THREAD
                 window.Dispatcher.Invoke(() =>
@@ -632,14 +385,11 @@ namespace Plugins
                 });
 #endif
                 MessageBox.Show($"Закончена отрисовка геометрии!\n{drawingCount}");
-#if ZOOM && MY_BOUNDING_BOX
-                Zoom(new Point3d(left, bottom, 0), new Point3d(right, top, 0), new Point3d(0, 0, 0), 1.0);
-#else
-                if (isBound)
-                    Zoom(points[0], points[1], new Point3d(0, 0, 0), 1.0);
+#if ZOOM
+                Zoom(new Point3d(box.Left, box.Bottom, 0), new Point3d(box.Right, box.Top, 0), new Point3d(0, 0, 0), 1.0);
 #endif
             }
         }
-        #endregion
+#endregion
     }
 }

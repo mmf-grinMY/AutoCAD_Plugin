@@ -5,7 +5,7 @@ VisualStudioVersion = 17.6.33829.357
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugins", "Plugins\Plugins.csproj", "{16101008-BB22-4321-9BD0-45A7A08CDABD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plugins.Chr.Tests", "Plugins.Tests\Plugins.Chr.Tests.csproj", "{CAAA2676-4FC7-4EE7-B7FE-1112C8B50C17}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plugins.Chr.Tests", "Plugins.Chr.Tests\Plugins.Chr.Tests.csproj", "{CAAA2676-4FC7-4EE7-B7FE-1112C8B50C17}"
 EndProject
 Project("{911E67C6-3D85-4FCE-B560-20A9C3E3FF48}") = "acad", "..\..\..\..\..\Program Files\Autodesk\AutoCAD 2021\acad.exe", "{3CEED13D-DB90-410F-9F6A-EE73E0BD51BB}"
 	ProjectSection(DebuggerProjectSystem) = preProject

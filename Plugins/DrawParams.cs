@@ -1,4 +1,6 @@
-﻿using Aspose.Gis.Geometries;
+﻿using System;
+
+using Aspose.Gis.Geometries;
 using Newtonsoft.Json.Linq;
 
 namespace Plugins
@@ -8,6 +10,10 @@ namespace Plugins
     /// </summary>
     public class DrawParams
     {
+        #region Private Fields
+        private string layername;
+        #endregion
+
         #region Public Properties
         /// <summary>
         /// Геометрический объект
@@ -24,7 +30,17 @@ namespace Plugins
         /// <summary>
         /// Имя слоя
         /// </summary>
-        public string LayerName { get; set; }
+        public string LayerName 
+        {
+            get => layername;
+            private set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    throw new ArgumentException(nameof(value));
+
+                layername = value;
+            }
+        }
         #endregion
 
         #region Ctors

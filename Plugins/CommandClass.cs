@@ -1,12 +1,22 @@
-﻿using Autodesk.AutoCAD.Runtime;
+﻿#define DEBUG_1 // Проверка работоспособности плагина на K450E горизонте
+#define LOAD_FONT // Подгрузка файла со шрифтами
+// #define MULTI_THREAD // Отрисовка объектов как фоновая задача с показом прогресса
+// #define LIMIT_1 // Ограничение количества рисуемых объектов равно 1
+
 using System;
+using System.IO;
 using System.Windows;
-using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+
 using Oracle.ManagedDataAccess.Client;
-using Autodesk.AutoCAD.Geometry;
+
 using Newtonsoft.Json.Linq;
+
+using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Runtime;
 
 namespace Plugins
 {
@@ -115,6 +125,29 @@ namespace Plugins
             else
             {
                 var editor = doc.Editor;
+                var db = doc.Database;
+
+                // TODO: Добавить подгрузку типов линий
+
+                // TODO: Добавить подгрузку шрифтов
+
+                using (var transaction = db.TransactionManager.StartTransaction())
+                {
+                    var textStyleTable = transaction.GetObject(db.TextStyleTableId, OpenMode.ForWrite) as TextStyleTable ?? throw new ArgumentNullException($"Не удалось обратиться к объекту {nameof(TextStyleTable)}", nameof(TextStyleTable));
+
+                    string path = Path.Combine(Directory.GetParent(Path.GetDirectoryName(db.Filename)).FullName, "Support", "pnt!.ttf").Replace("Local", "Roaming");
+
+                    var record = new TextStyleTableRecord
+                    {
+                        Name = "pnt!.chr",
+                        FileName = path
+                    };
+
+                    textStyleTable.Add(record);
+                    transaction.AddNewlyCreatedDBObject(record, true);
+                    transaction.Commit();
+                }
+
                 string helloMessage = "Загрузка плагина прошла успешно!";
                 editor.WriteMessage(helloMessage);
             }
@@ -123,7 +156,7 @@ namespace Plugins
         /// Завершить работу плагина
         /// </summary>
         public void Terminate() { }
-        #endregion
+#endregion
 
         #region Command Methods
 // Тестовые команды и методы
@@ -191,7 +224,7 @@ namespace Plugins
         /// <summary>
         /// Отрисовать геометрию
         /// </summary>
-        /// <exception cref="GotoException">Вызывается, если в процессе работы</exception>
+        /// <exception cref="GotoException"></exception>
         [CommandMethod("MMP_DRAW")]
         public void DrawCommand()
         {
@@ -203,7 +236,7 @@ namespace Plugins
             var loginWindow = new LoginWindow();
 
             var db = doc.Database;
-
+#if !DEBUG_1
             void Login()
             {
                 loginWindow.ShowDialog();
@@ -224,6 +257,7 @@ namespace Plugins
                 }
                 while (true);
             }
+#endif
         connect:
             try
             {
@@ -233,7 +267,12 @@ namespace Plugins
 
                 var points = Array.Empty<Point3d>();
                 Func<Draw, Point3d[], DrawParams> sort = Sort;
+#if LIMIT_1
+                int limit = 1;
+#else
                 int limit = int.MaxValue;
+#endif
+                gorizont = "K450E";
 #else
                 Login();
                 connection = new OracleConnection(connectionString);
@@ -299,13 +338,13 @@ namespace Plugins
             }
             finally
             {
-                MessageBox.Show("Невозможно отрисовать объекты!");
+                // MessageBox.Show("Невозможно отрисовать объекты!");
                 if (loginWindow.IsLoaded)
                     loginWindow.Close();
                 connection?.Dispose();
             }
         }
 
-        #endregion
+#endregion
     }
 }

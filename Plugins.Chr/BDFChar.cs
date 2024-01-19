@@ -73,7 +73,7 @@ namespace Plugins.Chr
             sb.AppendFormat("ENCODING {0}\n", Encoding);
             sb.AppendFormat("SWIDTH {0} 0\n", Length * 1000 / em);
             sb.AppendFormat("DWIDTH {0} 0\n", Length);
-            sb.AppendFormat("BBX {0} {1} {2} {3}\n", Length, Height, OffsetX, OffsetY);
+            sb.AppendFormat("BBX {0} {1} {2} {3}\n", Length, Height, 0/*OffsetX*/, -Height/2/*OffsetY*/);
             sb.AppendLine("BITMAP");
             for (int i = 0; i < Height; i++)
             {

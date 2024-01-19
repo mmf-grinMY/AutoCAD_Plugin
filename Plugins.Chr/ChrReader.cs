@@ -159,7 +159,7 @@ namespace Plugins.Chr
                             }
                             else
                             {
-                                // TODO:
+                                // TODO: Доабвить обработку этого случая
                             }
                         }
                         else

@@ -150,7 +150,15 @@
   <ItemGroup>
     <Compile Include="Draw.cs" />
     <Compile Include="DrawParams.cs" />
+    <Compile Include="Entities\ColorConverter.cs" />
+    <Compile Include="Entities\MMPBaseText.cs" />
+    <Compile Include="Entities\MMPFactory.cs" />
+    <Compile Include="Entities\MMPText.cs" />
     <Compile Include="GotoException.cs" />
+    <Compile Include="Entities\MMPEntity.cs" />
+    <Compile Include="Entities\MMPPolyline.cs" />
+    <Compile Include="Entities\MMPPolygon.cs" />
+    <Compile Include="Entities\MMPSign.cs" />
     <Compile Include="ObjectDispatcher.cs" />
     <Compile Include="ObjectDispatcherCtorArgs.cs" />
     <Compile Include="Pipeline.cs" />
