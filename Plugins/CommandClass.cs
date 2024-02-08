@@ -1,10 +1,14 @@
-﻿#define DEBUG_1 // Проверка работоспособности плагина на K450E горизонте
-#define LOAD_FONT // Подгрузка файла со шрифтами
-// #define MULTI_THREAD // Отрисовка объектов как фоновая задача с показом прогресса
-// #define LIMIT_1 // Ограничение количества рисуемых объектов равно 1
+﻿//#define LOAD_FONT // Подгрузка файла со шрифтами
+//#define MULTI_THREAD // Отрисовка объектов как фоновая задача с показом прогресса
+#define DEBUG_1 // Проверка работоспособности плагина на K450E горизонте
+//#define LIMIT_1 // Ограничение количества рисуемых объектов равно 1
+
+// Из-за плохого сглаживания линий для приемлемого вида объектов при увеличении приходится вводить команду _REGEN
+// Либо необходимо изменить переменные VIEWRES=20_000 и WHIPARC=1, что отразится на размере файла и производительности AutoCAD
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 
 using Oracle.ManagedDataAccess.Client;
@@ -18,12 +22,13 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
 
+using static Plugins.Constants;
+
 namespace Plugins
 {
-    public class Commands : IExtensionApplication
+    public partial class Commands : IExtensionApplication
     {
         #region Private Fields
-        private readonly int scale = 1_000;
         private readonly string LEFT_BOUND = "LeftBound";
         private readonly string RIGHT_BOUND = "RightBound";
         private readonly string BOTTOM_BOUND = "BottomBound";
@@ -46,10 +51,10 @@ namespace Plugins
 
                 string value = drawParams.Param[LEFT_BOUND].Value<string>();
                 if (value.Contains("1_=INF")) throw new GotoException(5);
-                if (Convert.ToDouble(value.Replace("_", "")) * scale < points[0].X) throw new GotoException(5);
-                if (Convert.ToDouble(drawParams.Param[BOTTOM_BOUND].Value<string>().Replace("_", "")) * scale < points[0].Y) throw new GotoException(5);
-                if (Convert.ToDouble(drawParams.Param[RIGHT_BOUND].Value<string>().Replace("_", "")) * scale > points[1].X) throw new GotoException(5);
-                if (Convert.ToDouble(drawParams.Param[TOP_BOUND].Value<string>().Replace("_", "")) * scale > points[1].Y) throw new GotoException(5);
+                if (Convert.ToDouble(value.Replace("_", "")) * Scale < points[0].X) throw new GotoException(5);
+                if (Convert.ToDouble(drawParams.Param[BOTTOM_BOUND].Value<string>().Replace("_", "")) * Scale < points[0].Y) throw new GotoException(5);
+                if (Convert.ToDouble(drawParams.Param[RIGHT_BOUND].Value<string>().Replace("_", "")) * Scale > points[1].X) throw new GotoException(5);
+                if (Convert.ToDouble(drawParams.Param[TOP_BOUND].Value<string>().Replace("_", "")) * Scale > points[1].Y) throw new GotoException(5);
 
                 return drawParams;
             }
@@ -110,6 +115,49 @@ namespace Plugins
         }
         #endregion
 
+        public static void getXDataMok(ResultBuffer rb, string RegAppName, out string RegValue)
+        {
+            bool proc_fl_1 = false;
+            RegValue = "";
+            foreach (TypedValue tv in rb)
+            {
+                if (proc_fl_1)
+                {
+                    RegValue = tv.Value.ToString();
+                    proc_fl_1 = false;
+                }
+                if ((tv.TypeCode == (int)DxfCode.ExtendedDataRegAppName) && (tv.Value.ToString() == RegAppName))
+                {
+                    proc_fl_1 = true;
+                }
+            }
+        }
+        public static void AddRegAppTableRecord(string regAppName)
+        {
+            Document doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+            Editor ed = doc.Editor;
+            Database db = doc.Database;
+            Transaction tr = doc.TransactionManager.StartTransaction();
+            using (tr)
+            {
+                RegAppTable rat =
+                  (RegAppTable)tr.GetObject(
+                    db.RegAppTableId,
+                    OpenMode.ForRead,
+                    false);
+                if (!rat.Has(regAppName))
+                {
+                    rat.UpgradeOpen();
+                    RegAppTableRecord ratr =
+                      new RegAppTableRecord();
+                    ratr.Name = regAppName;
+                    rat.Add(ratr);
+                    tr.AddNewlyCreatedDBObject(ratr, true);
+                }
+                tr.Commit();
+            }
+        }
+
         #region Public Methods
         /// <summary>
         /// Инициализировать плагин
@@ -127,26 +175,11 @@ namespace Plugins
                 var editor = doc.Editor;
                 var db = doc.Database;
 
-                // TODO: Добавить подгрузку типов линий
+                // TODO: Добавить подгрузку всех типов линий
 
-                // TODO: Добавить подгрузку шрифтов
+                string supportPath = Path.Combine(Directory.GetParent(Path.GetDirectoryName(db.Filename)).FullName, "Support").Replace("Local", "Roaming");
 
-                using (var transaction = db.TransactionManager.StartTransaction())
-                {
-                    var textStyleTable = transaction.GetObject(db.TextStyleTableId, OpenMode.ForWrite) as TextStyleTable ?? throw new ArgumentNullException($"Не удалось обратиться к объекту {nameof(TextStyleTable)}", nameof(TextStyleTable));
-
-                    string path = Path.Combine(Directory.GetParent(Path.GetDirectoryName(db.Filename)).FullName, "Support", "pnt!.ttf").Replace("Local", "Roaming");
-
-                    var record = new TextStyleTableRecord
-                    {
-                        Name = "pnt!.chr",
-                        FileName = path
-                    };
-
-                    textStyleTable.Add(record);
-                    transaction.AddNewlyCreatedDBObject(record, true);
-                    transaction.Commit();
-                }
+                db.LoadLineTypeFile("Contur", Path.Combine(supportPath, "linetype.lin"));
 
                 string helloMessage = "Загрузка плагина прошла успешно!";
                 editor.WriteMessage(helloMessage);
@@ -156,10 +189,9 @@ namespace Plugins
         /// Завершить работу плагина
         /// </summary>
         public void Terminate() { }
-#endregion
+        #endregion
 
         #region Command Methods
-// Тестовые команды и методы
 #if DEBUG_COMMANDS
         [CommandMethod("MMP_LOADLINETYPE")]
         public void LoadLineType()
@@ -233,7 +265,7 @@ namespace Plugins
             bool isBoundingBoxChecked = false;
             string connectionString = string.Empty;
             string gorizont = string.Empty;
-            var loginWindow = new LoginWindow();
+            var loginWindow = new Plugins.View.LoginWindow();
 
             var db = doc.Database;
 #if !DEBUG_1
@@ -291,7 +323,9 @@ namespace Plugins
                 {
                     sort = Sort;
                 }
-
+#if LIMIT_1
+                int limit = 100;
+#else
                 int limit = 100;
 
                 using (var reader = new OracleCommand($"SELECT count(*) FROM {gorizont}_trans_clone", connection).ExecuteReader())
@@ -301,6 +335,7 @@ namespace Plugins
                         limit = reader.GetInt32(0);
                     }
                 }
+#endif
 #endif
                 var args = new ObjectDispatcherCtorArgs(doc, gorizont, points, isBoundingBoxChecked, sort, connection, limit);
 #if MULTI_THREAD
@@ -344,7 +379,99 @@ namespace Plugins
                 connection?.Dispose();
             }
         }
+        [CommandMethod("VRM_INSPECT_EXT_DB")]
+        public void InspectExtDB()
+        {
 
-#endregion
+            VarOpenTrans vot = new VarOpenTrans();
+            if (!vot.InitConnectionParams())
+                return;
+            if (!vot.askPassword())
+                return;
+            if (!vot.tryConnectAndSave())
+                return;
+
+            Document doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+            Editor ed = doc.Editor;
+            // Ask the user to select an entity
+            // for which to retrieve XData
+            PromptEntityOptions opt = new PromptEntityOptions("\nSelect entity: ");
+            using (Transaction tr = doc.TransactionManager.StartTransaction())
+            {
+                while (true)
+                {
+                    PromptEntityResult res = ed.GetEntity(opt);
+                    if (res.Status == PromptStatus.OK)
+                    {
+                        DBObject obj =
+                          tr.GetObject(
+                            res.ObjectId,
+                            OpenMode.ForRead
+                          );
+
+                        ResultBuffer rb = obj.XData;
+                        if (rb == null)
+                        {
+                            ed.WriteMessage(
+                              "\nEntity does not have XData attached."
+                            );
+                        }
+                        else
+                        {
+                            // достанем локальные поля 
+                            //AddRegAppTableRecord("varMM_SystemID");
+
+                            //AddRegAppTableRecord("varMM_BaseName");
+                            //AddRegAppTableRecord("varMM_LinkField");
+
+                            // Извлечение из XData параметра с именем 2 возвращаем в 3
+
+                            const string VAR_SYSTEM_ID = "varMM_SystemID";
+                            const string VAR_BASE_NAME = "varMM_BaseName";
+                            const string VAR_LINK_FIELD = "varMM_LinkField";
+
+                            string cross_guid2 = "";
+                            getXDataMok(obj.XData, VAR_SYSTEM_ID, out cross_guid2);
+                            if (cross_guid2 != "")
+                            {
+                                int systemID = Convert.ToInt32(cross_guid2);
+                                cross_guid2 = "";
+                                getXDataMok(obj.XData, VAR_BASE_NAME, out cross_guid2);
+                                if (cross_guid2 != "")
+                                {
+                                    string baseName = "";
+                                    var row = cross_guid2.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+                                    if (row.Count() > 1)
+                                        baseName = row[1];
+                                    cross_guid2 = "";
+                                    getXDataMok(obj.XData, VAR_LINK_FIELD, out cross_guid2);
+                                    if (cross_guid2 != "")
+                                    {
+                                        string linkField = cross_guid2;
+                                        //MessageBox.Show("\n SystemID_BaseName_linkField  " + systemID.ToString() + " " +  baseName + " " + linkField);
+                                        string outData = "";
+                                        string baseCapture = baseName;
+                                        vot.parseExternalDBLINK(baseName, out outData, vot.dbcon);
+                                        string[] f = outData.Split('\n');
+                                        if (f.Count() > 2)
+                                            baseCapture = f[1];
+                                        vot.getExternalDB(baseName, baseCapture, linkField, systemID, vot.dbcon);
+                                    }
+                                }
+                                else
+                                {
+                                    MessageBox.Show("Атрибутивная таблица к объекту отсутсвует!");
+                                }
+
+                            }
+                        } // else ==================================================
+                    }
+                    else
+                        break;
+                }// while
+            } //using
+            vot.dbcon.Close();
+        }
+        #endregion
     }
 }

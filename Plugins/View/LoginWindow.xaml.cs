@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 
-namespace Plugins
+namespace Plugins.View
 {
     /// <summary>
     /// Окно ввода параметров для подключения к БД

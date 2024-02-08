@@ -22,6 +22,8 @@
         /// Имя слоя
         /// </summary>
         public string Layername { get; }
+        public string SystemId { get; }
+        public LinkedDBFields LinkedFields { get; }
         #endregion
 
         #region Ctors
@@ -32,13 +34,25 @@
         /// <param name="draw">Легендаризация объекта</param>
         /// <param name="param">Общие параметры</param>
         /// <param name="layername">Имя слоя</param>
-        public Draw(string wkt, string draw, string param, string layername)
+        public Draw(string wkt, string draw, string param, string layername, string systemId, LinkedDBFields linkedFields)
         {
             WKT = wkt;
             DrawSettings = draw;
             Param = param;
             Layername = layername;
+            SystemId = systemId;
+            LinkedFields = linkedFields;
         }
         #endregion
+    }
+    public class LinkedDBFields
+    {
+        public string BaseName { get; }
+        public string LinkedField { get; }
+        public LinkedDBFields(string bseName, string linkedField)
+        {
+            BaseName = bseName;
+            LinkedField = linkedField;
+        }
     }
 }

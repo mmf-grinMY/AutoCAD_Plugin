@@ -138,6 +138,7 @@
     <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
     </Reference>
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xaml" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -150,21 +151,32 @@
   <ItemGroup>
     <Compile Include="Draw.cs" />
     <Compile Include="DrawParams.cs" />
+    <Compile Include="Entities\BlocksCreater.cs" />
     <Compile Include="Entities\ColorConverter.cs" />
-    <Compile Include="Entities\MMPBaseText.cs" />
-    <Compile Include="Entities\MMPFactory.cs" />
-    <Compile Include="Entities\MMPText.cs" />
+    <Compile Include="Entities\Constants.cs" />
+    <Compile Include="Entities\EntitiesFactory.cs" />
+    <Compile Include="Entities\EntityExtensions.cs" />
+    <Compile Include="Entities\ResourceManager.cs" />
+    <Compile Include="Entities\Text.cs" />
     <Compile Include="GotoException.cs" />
-    <Compile Include="Entities\MMPEntity.cs" />
-    <Compile Include="Entities\MMPPolyline.cs" />
-    <Compile Include="Entities\MMPPolygon.cs" />
-    <Compile Include="Entities\MMPSign.cs" />
+    <Compile Include="Entities\Entity.cs" />
+    <Compile Include="Entities\Polyline.cs" />
+    <Compile Include="Entities\Polygon.cs" />
+    <Compile Include="Entities\Sign.cs" />
     <Compile Include="ObjectDispatcher.cs" />
     <Compile Include="ObjectDispatcherCtorArgs.cs" />
     <Compile Include="Pipeline.cs" />
+    <Compile Include="VarOpenTrans.cs" />
     <Compile Include="View\BaseViewModel.cs" />
     <Compile Include="CommandClass.cs" />
     <Compile Include="DrawType.cs" />
+    <Compile Include="View\ExternalDBWindow.xaml.cs">
+      <DependentUpon>ExternalDBWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\SimpleLoginViewModel.cs" />
+    <Compile Include="View\SimpleLoginWindow.xaml.cs">
+      <DependentUpon>SimpleLoginWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="View\WorkprogressWindow.xaml.cs">
       <DependentUpon>WorkprogressWindow.xaml</DependentUpon>
     </Compile>
@@ -178,6 +190,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
+    <Page Include="View\ExternalDBWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\SimpleLoginWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="View\WorkprogressWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

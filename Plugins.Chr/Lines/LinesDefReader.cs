@@ -44,7 +44,10 @@ public partial class DefConverter
                     IsPrevProp = false;
                     writer.Write(comma);
                 }
-                writer.Write($"\"{line[1..^1]}\" : {{\r\n");
+                if (tags.Count > 1)
+                {
+                    writer.Write($"{{ \"name\" : \"{line[1..^1]}\"\r\n");
+                }
                 tags.Push(line);
             }
             else if (line.StartsWith(';'))

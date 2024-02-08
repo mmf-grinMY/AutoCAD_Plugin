@@ -41,6 +41,8 @@ namespace Plugins
                 layername = value;
             }
         }
+        public int SystemId { get; }
+        public LinkedDBFields LinkedDBFields { get; }
         #endregion
 
         #region Ctors
@@ -48,7 +50,7 @@ namespace Plugins
         /// Создание объекта
         /// </summary>
         /// <param name="draw">Строковые параметры отрисовки</param>
-        public DrawParams(Draw draw) : this(draw.WKT, draw.DrawSettings, draw.Param, draw.Layername) { }
+        public DrawParams(Draw draw) : this(draw.WKT, draw.DrawSettings, draw.Param, draw.Layername, draw.SystemId, draw.LinkedFields) { }
         /// <summary>
         /// Создание объекта
         /// </summary>
@@ -56,12 +58,14 @@ namespace Plugins
         /// <param name="draw">Легендаризация объекта</param>
         /// <param name="param">Общие параметры</param>
         /// <param name="layername">Имя слоя</param>
-        protected DrawParams(string wkt, string settings, string param, string layername)
+        protected DrawParams(string wkt, string settings, string param, string layername, string systemid, LinkedDBFields linkedDBFields)
         {
             Geometry = Aspose.Gis.Geometries.Geometry.FromText(wkt);
             DrawSettings = JObject.Parse(settings);
             Param = JObject.Parse(param);
             LayerName = layername;
+            SystemId = Convert.ToInt32(systemid);
+            LinkedDBFields = linkedDBFields;
         }
         #endregion
     }

@@ -2,7 +2,7 @@
 using System.Globalization;
 using System.Windows.Data;
 
-namespace Plugins
+namespace Plugins.View
 {
     /// <summary>
     /// Конвертер размеров

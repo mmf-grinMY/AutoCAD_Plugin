@@ -4,6 +4,7 @@ using System.Threading;
 
 namespace Plugins
 {
+    // TODO: Переписать конвейер под 3 потока (либо массив потоков)
     internal class Pipeline<T>
     {
         private readonly Func<T> _read;

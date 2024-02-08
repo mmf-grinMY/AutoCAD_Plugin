@@ -9,7 +9,14 @@
 // #define MARK_SIGNS // Выбирать только знаки на слое Маркшейдерская сеть
 // #define POLILINES // Отрисовка только полилиний
 
+//#define ERRORS_COUNT // Подсчет количества ошибок во время отрисовки
+//#define EXCEPTIONS // Логирование всех исключений во время отрисовки объектов
+//#define ERROR_MSG // Вывод сообщения об ошибке отрисовки
+
+#define CHECK_TIME // Вывод времени, затраченному на отрисовку
+
 using Plugins.View;
+using Plugins.Entities;
 
 using System;
 using System.Windows;
@@ -31,10 +38,81 @@ namespace Plugins
         public long Top { get; set; } 
         public long Bottom { get; set; }
     }
+#if DEBUG
+    class ErrorCounter : IDisposable
+    {
+#if ERRORS_COUNT || EXCEPTIONS
+        private StreamWriter writer;
+#endif
+        public ErrorCounter()
+        {
+            error = 0;
+            counter = 0;
+            startObjectDraw = false;
+#if ERRORS_COUNT
+            writer = new StreamWriter(@"C:\Users\И\Desktop\errors.log");
+            prevCount = 0;
+            prevError = 0;
+#elif EXCEPTIONS
+            writer = new StreamWriter(@"C:\Users\И\Desktop\exceptions.log");
+#endif
+        }
+        public void Log(Exception ex, string geowkt)
+        {
+#if EXCEPTIONS
+            writer.WriteLine($"{counter + error}\r\n{ex.Message}\r\n{ex.GetType()}\r\n{ex.StackTrace}\r\n{geowkt}");
+#endif
+        }
+        private bool startObjectDraw;
+        private int error;
+        private int counter;
+#if ERRORS_COUNT
+        private int prevCount;
+        private int prevError;
+#endif
+        public int Error => error;
+        public int Counter => counter;
+        public void StartObjectDraw()
+        {
+            if (startObjectDraw)
+            {
+#if ERROR_MSG
+                MessageBox.Show("При отрисовке объекта произошла ошибка!");
+#endif
+                error++;
+            }
+            else
+            {
+                startObjectDraw = true;
+                counter++;
+            }
+        }
+        public void EndObjectDraw()
+        {
+            startObjectDraw = false;
+#if ERRORS_COUNT
+            if ((counter + error) % 100 == 0)
+            {
+                writer.WriteLine($"{counter - prevCount} | {error - prevError}");
+                prevCount = counter;
+                prevError = error;
+            }
+#endif
+        }
+        public void Dispose()
+        {
+#if ERRORS_COUNT
+            writer.WriteLine($"{counter - prevCount} | {error}");
+            writer.Close();
+#endif
+        }
+    }
+#endif
     internal class ObjectDispatcher : IDisposable
     {
         #region Private Fields
 
+        private readonly EntitiesFactory entityFactory;
         /// <summary>
         /// Текущий документ
         /// </summary>
@@ -43,7 +121,6 @@ namespace Plugins
         /// Рисуемый горизонт
         /// </summary>
         private readonly string gorizont;
-        // private readonly bool isBound;
         /// <summary>
         /// Граничные точки
         /// </summary>
@@ -60,10 +137,6 @@ namespace Plugins
         /// Предельное количество рисуемых объектов
         /// </summary>
         private readonly int limit;
-        /// <summary>
-        /// Количество нарисованных без ошибок объектов
-        /// </summary>
-        private int drawingCount = 0;
         /// <summary>
         /// Текущий слой
         /// </summary>
@@ -130,25 +203,19 @@ namespace Plugins
                         (Matrix3d.Rotation(-view.ViewTwist, view.ViewDirection, view.Target) *
                         Matrix3d.Displacement(view.Target - Point3d.Origin) *
                         Matrix3d.PlaneToWorld(view.ViewDirection)).Inverse();
-                    // If a center point is specified, define the min and max
-                    // point of the extents
-                    // for Center and Scale modes
                     if (center.DistanceTo(Point3d.Origin) != 0)
                     {
                         min = new Point3d(center.X - (view.Width / 2), center.Y - (view.Height / 2), 0);
                         max = new Point3d((view.Width / 2) + center.X, (view.Height / 2) + center.Y, 0);
                     }
-                    // Create an extents object using a line
                     using (var line = new ALine(min, max))
                     {
                         (extens3d = new Extents3d(line.Bounds.Value.MinPoint, line.Bounds.Value.MaxPoint)).TransformBy(matrixWCS2DCS);
                     }
-                    // Calculate the ratio between the width and height of the current view
                     double ratio = view.Width / view.Height;
                     double width;
                     double height;
                     Point2d newCenter;
-                    // Check to see if a center point was provided (Center and Scale modes)
                     if (center.DistanceTo(Point3d.Origin) != 0)
                     {
                         width = view.Width;
@@ -159,21 +226,17 @@ namespace Plugins
                         }
                         newCenter = new Point2d(center.X, center.Y);
                     }
-                    else // Working in Window, Extents and Limits mode
+                    else
                     {
-                        // Calculate the new width and height of the current view
                         width = extens3d.MaxPoint.X - extens3d.MinPoint.X;
                         height = extens3d.MaxPoint.Y - extens3d.MinPoint.Y;
-                        // Get the center of the view
                         newCenter = new Point2d((extens3d.MaxPoint.X + extens3d.MinPoint.X) * 0.5,
                                                 (extens3d.MaxPoint.Y + extens3d.MinPoint.Y) * 0.5);
                     }
-                    // Check to see if the new width fits in current window
                     if (width > (height * ratio))
                     {
                         height = width / ratio;
                     }
-                    // Resize and scale the view
                     if (factor != 0)
                     {
                         view.Height = height * factor;
@@ -226,7 +289,10 @@ namespace Plugins
         {
             if (!IsDBNull(reader, 5))
             {
-                return new Draw(reader.GetString(1), reader.GetString(0), reader.GetString(2), $"{reader.GetString(3)} | {reader.GetString(4)}");
+                if (reader.IsDBNull(6) || reader.IsDBNull(7))
+                    return new Draw(reader.GetString(1), reader.GetString(0), reader.GetString(2), $"{reader.GetString(3)} | {reader.GetString(4)}", reader.GetString(5), null);
+                else
+                    return new Draw(reader.GetString(1), reader.GetString(0), reader.GetString(2), $"{reader.GetString(3)} | {reader.GetString(4)}", reader.GetString(5), new LinkedDBFields(reader.GetString(6), reader.GetString(7)));
             }
 
             return new Draw();
@@ -248,6 +314,7 @@ namespace Plugins
             this.sort = args.Sort;
             this.connection = args.Connection;
             this.limit = args.Limit;
+            entityFactory = new EntitiesFactory();
         }
 
         #endregion
@@ -257,7 +324,10 @@ namespace Plugins
         /// <summary>
         /// Освободить занятые ресурсы
         /// </summary>
-        public void Dispose() { }
+        public void Dispose() 
+        {
+            entityFactory.Dispose();
+        }
         /// <summary>
         /// Проделать полную итерацию отрисовки
         /// </summary>
@@ -294,11 +364,16 @@ namespace Plugins
                 layer = draw.LayerName;
                 CreateLayer(db, draw.LayerName);
 
-                MMPFactory.Create(db, draw, box).Draw();
+                var entity = entityFactory.Create(db, draw, box);
+                entity?.Draw();
             }
             catch (GotoException)
             {
                 return;
+            }
+            catch (Autodesk.AutoCAD.Runtime.Exception ex)
+            {
+                // TODO: Обработать исключение
             }
             catch (Exception ex) 
             {
@@ -322,51 +397,49 @@ namespace Plugins
             const string AND = "AND";
             const string LIKE = "LIKE";
             const string NOT = "NOT";
+            const string IS = "IS";
+            const string NULL = "NULL";
             // Rows
-            const string sublyaername = "sublayername";
+            const string layername = "layername";
+            const string sublayername = "sublayername";
             const string geowkt = "geowkt";
             const string drawjson = "drawjson";
             // Geometry types
             const string multilinestring = "MULTILINESTRING";
+            // Linked table
+            const string systemid = "systemid";
+            const string basename = "basename";
+            const string childfields = "childfields";
 
             string command =
                 SELECT +
-                " drawjson, geowkt, paramjson, layername, sublayername " +
+                " drawjson, geowkt, paramjson, layername, sublayername, " +
+                $"{systemid}, {basename}, {childfields} " +
 #if DB_BOUNDING_BOX
                 ", leftbound, rightbound, bottombound, topbound " +
 #endif
                 FROM +
                 "(" +
-                    SELECT + " b.layername, b.sublayername, a.geowkt, a.drawjson, a.paramjson, a.sublayerguid " +
+                    SELECT + // " rownum as counter," +
+                    " b.layername, b.sublayername, a.geowkt, a.drawjson, a.paramjson, a.sublayerguid, " +
+                    $"a.{systemid}, b.{childfields}, b.{basename} " +
 #if DB_BOUNDIG_BOX
                 ", a.leftbound, a.rightbound, a.topbound, a.bottombound " +
 #endif
                     FROM + $" {gorizont}_trans_clone a " +
                     JOIN + $" {gorizont}_trans_open_sublayers b " +
-                    ON + " a.sublayerguid = b.sublayerguid" +
-#if MARK_SIGNS
-                ")" +
-                WHERE + " layername = 'Mapкшейдеpская сеть' " + AND + " sublayername = 'Знаки'";
-#elif POLILINES
-                ")"+ 
-                $" {WHERE} {geowkt} {LIKE} '%{multilinestring}%' {AND} {drawjson} {NOT} {LIKE} '%\"BrushBkColor\": 0,%'"; 
-#else
+                    ON + " a.sublayerguid = b.sublayerguid" + 
                 ")";
-#endif
             using (var reader = new OracleCommand(command, connection).ExecuteReader())
             {
                 int counter = 0;
                 string sublayer = string.Empty;
-
+#if CHECK_TIME
+                TimeSpan now = DateTime.Now.TimeOfDay;
+#endif
                 while (reader.Read() && counter < limit)
                 {
                     counter++;
-
-#if DEBUG_COUNTER
-                    if (counter % 1000 == 0)
-                        MessageBox.Show(counter.ToString());
-#endif
-
 #if MULTI_THREAD
                     if (window.isCancelOperation)
                         return;
@@ -384,7 +457,16 @@ namespace Plugins
                     window.Close();
                 });
 #endif
-                MessageBox.Show($"Закончена отрисовка геометрии!\n{drawingCount}");
+#if CHECK_TIME
+                MessageBox.Show((DateTime.Now.TimeOfDay - now).TotalMilliseconds.ToString());
+#endif
+                MessageBox.Show($"Закончена отрисовка геометрии!" +
+#if DEBUG
+                    $"\nУспешно отрисовано {entityFactory.Counter}!\nНе удалось отрисовать {entityFactory.Error}"
+#else
+                    ""
+#endif
+                    );
 #if ZOOM
                 Zoom(new Point3d(box.Left, box.Bottom, 0), new Point3d(box.Right, box.Top, 0), new Point3d(0, 0, 0), 1.0);
 #endif

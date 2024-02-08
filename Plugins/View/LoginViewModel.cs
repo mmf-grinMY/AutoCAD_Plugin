@@ -1,6 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 
-namespace Plugins
+namespace Plugins.View
 {
     /// <summary>
     /// Модель предстваления для класса LoginWindow
