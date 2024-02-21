@@ -1,24 +1,20 @@
-﻿//#define LOAD_FONT // Подгрузка файла со шрифтами
-//#define MULTI_THREAD // Отрисовка объектов как фоновая задача с показом прогресса
-#define DEBUG_1 // Проверка работоспособности плагина на K450E горизонте
+﻿//#define MULTI_THREAD // Отрисовка объектов как фоновая задача с показом прогресса
 //#define LIMIT_1 // Ограничение количества рисуемых объектов равно 1
+
+#define DB_BOUNDING_BOX
 
 // Из-за плохого сглаживания линий для приемлемого вида объектов при увеличении приходится вводить команду _REGEN
 // Либо необходимо изменить переменные VIEWRES=20_000 и WHIPARC=1, что отразится на размере файла и производительности AutoCAD
 
 using System;
 using System.IO;
-using System.Linq;
 using System.Windows;
 
 using Oracle.ManagedDataAccess.Client;
 
-using Newtonsoft.Json.Linq;
-
-using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.EditorInput;
-using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
 
@@ -28,59 +24,8 @@ namespace Plugins
 {
     public partial class Commands : IExtensionApplication
     {
-        #region Private Fields
-        private readonly string LEFT_BOUND = "LeftBound";
-        private readonly string RIGHT_BOUND = "RightBound";
-        private readonly string BOTTOM_BOUND = "BottomBound";
-        private readonly string TOP_BOUND = "TopBound";
-        #endregion
-
         #region Private Static Methods
-        /// <summary>
-        /// Сортировать объекты с учетом граничной рамки
-        /// </summary>
-        /// <param name="draw">Строковые параметры рисования</param>
-        /// <param name="points">Граничные точки рамки</param>
-        /// <returns>Параметры рисования</returns>
-        /// <exception cref="GotoException">Вызывается, если объект не принадлежит рамке</exception>
-        private DrawParams SortWithBoundingBox(Draw draw, Point3d[] points)
-        {
-            try
-            {
-                DrawParams drawParams = new DrawParams(draw);
-
-                string value = drawParams.Param[LEFT_BOUND].Value<string>();
-                if (value.Contains("1_=INF")) throw new GotoException(5);
-                if (Convert.ToDouble(value.Replace("_", "")) * Scale < points[0].X) throw new GotoException(5);
-                if (Convert.ToDouble(drawParams.Param[BOTTOM_BOUND].Value<string>().Replace("_", "")) * Scale < points[0].Y) throw new GotoException(5);
-                if (Convert.ToDouble(drawParams.Param[RIGHT_BOUND].Value<string>().Replace("_", "")) * Scale > points[1].X) throw new GotoException(5);
-                if (Convert.ToDouble(drawParams.Param[TOP_BOUND].Value<string>().Replace("_", "")) * Scale > points[1].Y) throw new GotoException(5);
-
-                return drawParams;
-            }
-            catch
-            {
-                throw new GotoException(4);
-            }
-        }
-        /// <summary>
-        /// Сортировать параметры рисования
-        /// </summary>
-        /// <param name="draw">Строковые параметры рисования</param>
-        /// <param name="points">Точки</param>
-        /// <returns>Сконвертированные параметры рисования</returns>
-        /// <exception cref="GotoException">Вызывается, если не удается сконвертировать параметры рисования</exception>
-        private static DrawParams Sort(Draw draw, Point3d[] points)
-        {
-            try
-            {
-                return new DrawParams(draw);
-            }
-            catch
-            {
-                throw new GotoException(4);
-            }
-        }
+#if OLD
         /// <summary>
         /// Взять граничные точки области
         /// </summary>
@@ -113,17 +58,16 @@ namespace Plugins
                 throw new ArgumentException(nameof(bound_fl));
             }
         }
-        #endregion
-
-        public static void getXDataMok(ResultBuffer rb, string RegAppName, out string RegValue)
+#endif
+        private static string GetXData(ResultBuffer rb, string RegAppName)
         {
-            bool proc_fl_1 = false;
-            RegValue = "";
-            foreach (TypedValue tv in rb)
+            var proc_fl_1 = false;
+            var result = string.Empty;
+            foreach (var tv in rb)
             {
                 if (proc_fl_1)
                 {
-                    RegValue = tv.Value.ToString();
+                    result = tv.Value.ToString();
                     proc_fl_1 = false;
                 }
                 if ((tv.TypeCode == (int)DxfCode.ExtendedDataRegAppName) && (tv.Value.ToString() == RegAppName))
@@ -131,32 +75,9 @@ namespace Plugins
                     proc_fl_1 = true;
                 }
             }
+            return result;
         }
-        public static void AddRegAppTableRecord(string regAppName)
-        {
-            Document doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
-            Editor ed = doc.Editor;
-            Database db = doc.Database;
-            Transaction tr = doc.TransactionManager.StartTransaction();
-            using (tr)
-            {
-                RegAppTable rat =
-                  (RegAppTable)tr.GetObject(
-                    db.RegAppTableId,
-                    OpenMode.ForRead,
-                    false);
-                if (!rat.Has(regAppName))
-                {
-                    rat.UpgradeOpen();
-                    RegAppTableRecord ratr =
-                      new RegAppTableRecord();
-                    ratr.Name = regAppName;
-                    rat.Add(ratr);
-                    tr.AddNewlyCreatedDBObject(ratr, true);
-                }
-                tr.Commit();
-            }
-        }
+#endregion
 
         #region Public Methods
         /// <summary>
@@ -164,10 +85,11 @@ namespace Plugins
         /// </summary>
         public void Initialize()
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
+            var doc = AApplication.DocumentManager.MdiActiveDocument;
             if (doc is null)
             {
-                MessageBox.Show("При загрузке плагина произошла ошибка!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("При загрузке плагина произошла ошибка!", "Ошибка", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
             else
@@ -175,14 +97,13 @@ namespace Plugins
                 var editor = doc.Editor;
                 var db = doc.Database;
 
+                Constants.SetSupportPath(Path.Combine(Directory.GetParent(
+                    Path.GetDirectoryName(db.Filename)).FullName, "Support").Replace("Local", "Roaming"));
+
                 // TODO: Добавить подгрузку всех типов линий
+                db.LoadLineTypeFile("Contur", Path.Combine(SupportPath, "linetype.lin"));
 
-                string supportPath = Path.Combine(Directory.GetParent(Path.GetDirectoryName(db.Filename)).FullName, "Support").Replace("Local", "Roaming");
-
-                db.LoadLineTypeFile("Contur", Path.Combine(supportPath, "linetype.lin"));
-
-                string helloMessage = "Загрузка плагина прошла успешно!";
-                editor.WriteMessage(helloMessage);
+                editor.WriteMessage("Загрузка плагина прошла успешно!");
             }
         }
         /// <summary>
@@ -192,67 +113,6 @@ namespace Plugins
         #endregion
 
         #region Command Methods
-#if DEBUG_COMMANDS
-        [CommandMethod("MMP_LOADLINETYPE")]
-        public void LoadLineType()
-        {
-            Document doc = Application.DocumentManager.MdiActiveDocument;
-            Database db = doc.Database;
-
-            // Укажите путь к вашему файлу шаблона линий
-            string lineTypeFilePath = @"C:\Users\grinm\Documents\_Job_\_MapManager_\Programs\MapMan\UserData\ACAD\Linetype\MMLines.lin";
-
-            using (Transaction trans = db.TransactionManager.StartTransaction())
-            {
-                LinetypeTable linetypeTable = trans.GetObject(db.LinetypeTableId, OpenMode.ForWrite) as LinetypeTable;
-
-                if (linetypeTable != null)
-                {
-                    if (!linetypeTable.Has(lineTypeFilePath))
-                    {
-
-                        // Добавление нового типа линий в таблицу типов линий
-                        LinetypeTableRecord linetypeRecord = new LinetypeTableRecord();
-                        // linetypeRecord.Name = "Grantec";
-                        // linetypeRecord.AsciiRepresentation = lineTypeFilePath;
-                        linetypeTable.Add(linetypeRecord);
-                        trans.AddNewlyCreatedDBObject(linetypeRecord, true);
-                    }
-                }
-
-                trans.Commit();
-            }
-
-            doc.Editor.WriteMessage("Загрузка типа линии прошла успешно!");
-        }
-        /* Multi Thread Method Draw
-            Func<DrawParameters> readAction = () =>
-            {
-                if (transactionReader.Read())
-                {
-                    // draw read from db
-                    return draw;
-                }
-                else
-                {
-                    Thread.CurrentThread.Abort();
-                    return null;
-                }
-            };
-
-            Action<DrawParameters> writeAction = (draw) =>
-            {
-                // create layer if not exists
-            };
-
-            var pipeline = new Pipeline<DrawParameters>(readAction, writeAction, limitItemsCount: 1);
-            var thread = new Thread(pipeline.Run);
-
-            thread.Start();
-            thread.Join();
-        */
-#endif
-
         /// <summary>
         /// Отрисовать геометрию
         /// </summary>
@@ -260,7 +120,7 @@ namespace Plugins
         [CommandMethod("MMP_DRAW")]
         public void DrawCommand()
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
+            var doc = AApplication.DocumentManager.MdiActiveDocument;
             OracleConnection connection = null;
             bool isBoundingBoxChecked = false;
             string connectionString = string.Empty;
@@ -268,7 +128,7 @@ namespace Plugins
             var loginWindow = new Plugins.View.LoginWindow();
 
             var db = doc.Database;
-#if !DEBUG_1
+#if !DEBUG
             void Login()
             {
                 loginWindow.ShowDialog();
@@ -277,7 +137,7 @@ namespace Plugins
                     (connectionString, gorizont, isBoundingBoxChecked) = loginWindow.ConnectionString;
                 }
             }
-
+#if !DB_BOUNDING_BOX
             Point3d[] GetBoundingBox()
             {
                 do
@@ -290,19 +150,16 @@ namespace Plugins
                 while (true);
             }
 #endif
+#endif
         connect:
             try
             {
-#if DEBUG_1
-                connection = new OracleConnection("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout = 360;");
+#if DEBUG
+                connection = new OracleConnection("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
                 connection.Open();
 
+#if OLD
                 var points = Array.Empty<Point3d>();
-                Func<Draw, Point3d[], DrawParams> sort = Sort;
-#if LIMIT_1
-                int limit = 1;
-#else
-                int limit = int.MaxValue;
 #endif
                 gorizont = "K450E";
 #else
@@ -310,25 +167,26 @@ namespace Plugins
                 connection = new OracleConnection(connectionString);
                 connection.Open();
                 loginWindow.Close();
-
+#if OLD
                 Point3d[] points = Array.Empty<Point3d>();
-                Func<Draw, Point3d[], DrawParams> sort;
 
                 if (isBoundingBoxChecked)
                 {
                     points = GetBoundingBox();
-                    sort = SortWithBoundingBox;
                 }
-                else
-                {
-                    sort = Sort;
-                }
+#endif
+#endif
 #if LIMIT_1
                 int limit = 100;
 #else
-                int limit = 100;
-
-                using (var reader = new OracleCommand($"SELECT count(*) FROM {gorizont}_trans_clone", connection).ExecuteReader())
+                int limit = 0;
+                var query =
+#if OLD
+                $"SELECT count(*) FROM {gorizont}_trans_clone";
+#else
+                new SqlQuery().Count(gorizont + "_trans_clone").ToString();
+#endif
+                using (var reader = new OracleCommand(query, connection).ExecuteReader())
                 {
                     if (reader.Read())
                     {
@@ -336,16 +194,11 @@ namespace Plugins
                     }
                 }
 #endif
-#endif
-                var args = new ObjectDispatcherCtorArgs(doc, gorizont, points, isBoundingBoxChecked, sort, connection, limit);
 #if MULTI_THREAD
                 var window = new WorkProgressWindow(args);
                 window.ShowDialog();
 #else
-                using (var disp = new ObjectDispatcher(args))
-                {
-                    disp.Start(null);
-                }
+                new ObjectDispatcher(doc, gorizont, connection, limit).Start();
 #endif
             }
             catch (OracleException ex)
@@ -373,7 +226,6 @@ namespace Plugins
             }
             finally
             {
-                // MessageBox.Show("Невозможно отрисовать объекты!");
                 if (loginWindow.IsLoaded)
                     loginWindow.Close();
                 connection?.Dispose();
@@ -382,96 +234,84 @@ namespace Plugins
         [CommandMethod("VRM_INSPECT_EXT_DB")]
         public void InspectExtDB()
         {
-
             VarOpenTrans vot = new VarOpenTrans();
             if (!vot.InitConnectionParams())
                 return;
-            if (!vot.askPassword())
+            if (!vot.TryGetPassword(out string username, out string password))
                 return;
-            if (!vot.tryConnectAndSave())
+            if (!vot.TryConnectAndSave(new ConnectionParams(username, password)))
                 return;
 
-            Document doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
-            Editor ed = doc.Editor;
-            // Ask the user to select an entity
-            // for which to retrieve XData
-            PromptEntityOptions opt = new PromptEntityOptions("\nSelect entity: ");
-            using (Transaction tr = doc.TransactionManager.StartTransaction())
+            var document = AApplication.DocumentManager.MdiActiveDocument;
+            var editor = document.Editor;
+            var options = new PromptEntityOptions("\nВыберите объект: ");
+            using (var transaction = document.TransactionManager.StartTransaction())
             {
-                while (true)
+                PromptEntityResult result = null;
+                while ((result = editor.GetEntity(options)).Status == PromptStatus.OK)
                 {
-                    PromptEntityResult res = ed.GetEntity(opt);
-                    if (res.Status == PromptStatus.OK)
+                    var buffer = transaction.GetObject(result.ObjectId, OpenMode.ForRead).XData;
+                    if (buffer == null)
                     {
-                        DBObject obj =
-                          tr.GetObject(
-                            res.ObjectId,
-                            OpenMode.ForRead
-                          );
+                        editor.WriteMessage("\nУ объекта отсутствуют параметры XData");
+                    }
+                    else
+                    {
+                        string xData;
+                        const int ERROR_SYSTEM_ID = -1;
 
-                        ResultBuffer rb = obj.XData;
-                        if (rb == null)
+                        int systemId;
+                        string[] row;
+                        string linkField;
+
+                        if ((linkField = GetXData(buffer, LINK_FIELD)) != string.Empty
+                            && (systemId = (xData = GetXData(buffer, SYSTEM_ID)) == string.Empty ? ERROR_SYSTEM_ID : Convert.ToInt32(xData)) != ERROR_SYSTEM_ID
+                            && (xData = GetXData(buffer, BASE_NAME)) != string.Empty && (row = xData.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)).Length > 1)
                         {
-                            ed.WriteMessage(
-                              "\nEntity does not have XData attached."
-                            );
+                            string baseName = row[1];
+                            string baseCapture = baseName;
+                            vot.ParseExternalDbLink(baseName, out string outData, vot.dbcon);
+                            string[] f = outData.Split('\n');
+                            if (f.Length > 2)
+                                baseCapture = f[1];
+                            vot.GetExternalDb(baseName, baseCapture, linkField, systemId, vot.dbcon);
                         }
                         else
                         {
-                            // достанем локальные поля 
-                            //AddRegAppTableRecord("varMM_SystemID");
-
-                            //AddRegAppTableRecord("varMM_BaseName");
-                            //AddRegAppTableRecord("varMM_LinkField");
-
-                            // Извлечение из XData параметра с именем 2 возвращаем в 3
-
-                            const string VAR_SYSTEM_ID = "varMM_SystemID";
-                            const string VAR_BASE_NAME = "varMM_BaseName";
-                            const string VAR_LINK_FIELD = "varMM_LinkField";
-
-                            string cross_guid2 = "";
-                            getXDataMok(obj.XData, VAR_SYSTEM_ID, out cross_guid2);
-                            if (cross_guid2 != "")
-                            {
-                                int systemID = Convert.ToInt32(cross_guid2);
-                                cross_guid2 = "";
-                                getXDataMok(obj.XData, VAR_BASE_NAME, out cross_guid2);
-                                if (cross_guid2 != "")
-                                {
-                                    string baseName = "";
-                                    var row = cross_guid2.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
-                                    if (row.Count() > 1)
-                                        baseName = row[1];
-                                    cross_guid2 = "";
-                                    getXDataMok(obj.XData, VAR_LINK_FIELD, out cross_guid2);
-                                    if (cross_guid2 != "")
-                                    {
-                                        string linkField = cross_guid2;
-                                        //MessageBox.Show("\n SystemID_BaseName_linkField  " + systemID.ToString() + " " +  baseName + " " + linkField);
-                                        string outData = "";
-                                        string baseCapture = baseName;
-                                        vot.parseExternalDBLINK(baseName, out outData, vot.dbcon);
-                                        string[] f = outData.Split('\n');
-                                        if (f.Count() > 2)
-                                            baseCapture = f[1];
-                                        vot.getExternalDB(baseName, baseCapture, linkField, systemID, vot.dbcon);
-                                    }
-                                }
-                                else
-                                {
-                                    MessageBox.Show("Атрибутивная таблица к объекту отсутсвует!");
-                                }
-
-                            }
-                        } // else ==================================================
+                            editor.WriteMessage("Атрибутивная таблица к объекту отсутствует!");
+                        }
                     }
-                    else
-                        break;
-                }// while
-            } //using
+                }
+            }
             vot.dbcon.Close();
         }
-        #endregion
+#endregion
+
+#if DEBUG_COMMANDS
+        Func<DrawParameters> readAction = () =>
+        {
+            if (transactionReader.Read())
+            {
+                // draw read from db
+                return draw;
+            }
+            else
+            {
+                Thread.CurrentThread.Abort();
+                return null;
+            }
+        };
+
+        Action<DrawParameters> writeAction = (draw) =>
+        {
+            // create layer if not exists
+        };
+
+        var pipeline = new Pipeline<DrawParameters>(readAction, writeAction, limitItemsCount: 1);
+        var thread = new Thread(pipeline.Run);
+
+        thread.Start();
+        thread.Join();
+#endif
     }
 }

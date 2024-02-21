@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿#define OLD
+
+using System.Windows;
 
 namespace Plugins.View
 {
@@ -11,12 +13,16 @@ namespace Plugins.View
         /// <summary>
         /// Строка подключения
         /// </summary>
+#if OLD
         public (string, string, bool) ConnectionString { get; private set; }
+#else
+        public string ConnectionString { get; private set; }
+#endif
         /// <summary>
         /// Результат ввода информации
         /// </summary>
         public bool InputResult { get; private set; }
-        #endregion
+#endregion
 
         #region Ctors
         /// <summary>
@@ -34,26 +40,33 @@ namespace Plugins.View
                 string message = string.Empty;
                 if (string.IsNullOrWhiteSpace(model.UserName))
                     message += "имя пользователя";
-                string password = this.passwordBox.Password;
+                string password = passwordBox.Password;
                 if (string.IsNullOrWhiteSpace(password))
                     message += message == string.Empty ? "пароль" : ", пароль";
                 if (string.IsNullOrWhiteSpace(model.Host))
                     message += message == string.Empty ? "имя базы данных" : ", имя базы данных";
+#if OLD
                 if (model.SelectedGorizont == -1)
                     message += message == string.Empty ? "Не выбран горизонт!" : "! Не выбран горизонт!";
+#endif
                 if (message != string.Empty)
                 {
                     message = "Некорректно введено " + message;
-                    this.Hide();
+                    Hide();
                     MessageBox.Show(message);
-                    this.ShowDialog();
+                    ShowDialog();
                 }
                 else
                 {
                     InputResult = true;
-                    this.Hide();
+                    Hide();
+#if OLD
                     ConnectionString = ($"Data Source={model.Host};Password={password};User Id={model.UserName};Connection Timeout = 360;" + 
                         (vars[model.Privilege] == "NORMAL" ? string.Empty : $"DBA Privilege={vars[model.Privilege]};"), model.Gorizonts[model.SelectedGorizont], model.CheckingBoundingBox);
+#else
+                    ConnectionString = $"Data Source={model.Host};Password={password};User Id={model.UserName};Connection Timeout = 360;" +
+                        (vars[model.Privilege] == "NORMAL" ? string.Empty : $"DBA Privilege={vars[model.Privilege]};");
+#endif
                 }
             });
             model.CancelCommand = new RelayCommand(obj => 
@@ -62,7 +75,7 @@ namespace Plugins.View
                 Close();
             });
         }
-        #endregion
+#endregion
 
         #region Private Methods
         /// <summary>

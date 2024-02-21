@@ -10,22 +10,31 @@ namespace Plugins.View
     public partial class WorkProgressWindow : Window
     {
         public bool isCancelOperation = false;
+#if OLD
         private readonly ObjectDispatcherCtorArgs args;
         public ProgressBar ProgressBar => progressBar;
         private readonly BackgroundWorker backgroundWorker;
-        public WorkProgressWindow(ObjectDispatcherCtorArgs args)
+#endif
+        public WorkProgressWindow(
+#if OLD
+            ObjectDispatcherCtorArgs args
+#endif
+            )
         {
             InitializeComponent();
-
+#if OLD
             allObjects.Text = args.Limit.ToString();
             this.args = args;
+
 
             backgroundWorker = new BackgroundWorker();
             backgroundWorker.DoWork += Background_DoDrawObjects;
             backgroundWorker.RunWorkerCompleted += BackgroundWorker_RunWorkerCompleted;
             backgroundWorker.WorkerSupportsCancellation = true;
             backgroundWorker.RunWorkerAsync();
+#endif
         }
+#if OLD
         public void ReportProgress(int progress)
         {
             progressBar.Value = (progress * 1.0) / args.Limit * 100;
@@ -65,10 +74,13 @@ namespace Plugins.View
                 MessageBox.Show("Операция была прервана!");
             }
         }
+#endif
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             isCancelOperation = true;
+#if OLD
             backgroundWorker.CancelAsync();
+#endif
         }
     }
 }

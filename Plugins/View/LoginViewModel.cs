@@ -1,4 +1,7 @@
-﻿using System.Collections.ObjectModel;
+﻿#define OLD
+
+using System.Collections.ObjectModel;
+using System.IO;
 
 namespace Plugins.View
 {
@@ -21,13 +24,15 @@ namespace Plugins.View
         /// </summary>
         private int privilege;
         /// <summary>
-        /// Отслеживание граничных точек
-        /// </summary>
-        private bool checkingBoundingBox;
-        /// <summary>
         /// Выбранный горизонт
         /// </summary>
         private int selectedGorizont;
+#if OLD
+        /// <summary>
+        /// Отслеживание граничных точек
+        /// </summary>
+        private bool checkingBoundingBox;
+#endif
         #endregion
 
         #region Ctors
@@ -37,6 +42,15 @@ namespace Plugins.View
         public LoginViewModel()
         {
             privilege = 0;
+            Gorizonts = new ObservableCollection<string>();
+            using(var reader = new StreamReader(Path.Combine(Constants.SupportPath, "gorizonts.txt")))
+            {
+                var content = reader.ReadToEnd();
+                foreach(var item in content.Split(',')) 
+                {
+                    Gorizonts.Add(item);
+                }
+            }
         }
         #endregion
 
@@ -78,18 +92,6 @@ namespace Plugins.View
             }
         }
         /// <summary>
-        /// Отслеживание граничных точек
-        /// </summary>
-        public bool CheckingBoundingBox
-        {
-            get => checkingBoundingBox;
-            set
-            {
-                checkingBoundingBox = value;
-                OnPropertyChanged(nameof(CheckingBoundingBox));
-            }
-        }
-        /// <summary>
         /// Выбранный горизонт
         /// </summary>
         public int SelectedGorizont
@@ -101,34 +103,21 @@ namespace Plugins.View
                 OnPropertyChanged(nameof(SelectedGorizont));
             }
         }
-        // TODO: Считывание существующих горизонтов из таблицы
-        // Алгоритм
-        // Подключение к Базе данных
-        // После подключения к базе идет запрос на существование набора таблиц <GOR>_trans_clone, <GOR>_trans_open_sublayers 
-        // Появление окна выбора горизонта
+        public ObservableCollection<string> Gorizonts { get; }
+#if OLD
         /// <summary>
-        /// Список доступных для отрисовки горизонтов
+        /// Отслеживание граничных точек
         /// </summary>
-        public ObservableCollection<string> Gorizonts { get; set; } = new ObservableCollection<string>()
+        public bool CheckingBoundingBox
         {
-            "K200F",
-            "K290F",
-            "K290N",
-            "K300E",
-            "K305F",
-            "K380",
-            "K420F",
-            "K430F",
-            "K440F",
-            "K445F",
-            "K450",
-            "K450E",
-            "K450F",
-            "K620F",
-            "K630F",
-            "K640",
-            "K670F"
-        };
+            get => checkingBoundingBox;
+            set
+            {
+                checkingBoundingBox = value;
+                OnPropertyChanged(nameof(CheckingBoundingBox));
+            }
+        }
+#endif 
         #endregion
 
         #region Commands

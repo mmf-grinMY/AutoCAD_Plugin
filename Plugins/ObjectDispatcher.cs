@@ -2,18 +2,8 @@
 // #define MULTI_THREAD // Отрисовывать объекты в качестве сторонней задачи
 #define MY_BOUNDING_BOX // Отслеживание границ по координатам
 #if !MY_BOUNDING_BOX
-    #define DB_BOUNDING_BOX // Отслеживание границ по БД
+#define DB_BOUNDING_BOX // Отслеживание границ по БД
 #endif
-// #define DEBUG_COUNTER // Вывод сообщения об отрисовке 1000 объектов
-
-// #define MARK_SIGNS // Выбирать только знаки на слое Маркшейдерская сеть
-// #define POLILINES // Отрисовка только полилиний
-
-//#define ERRORS_COUNT // Подсчет количества ошибок во время отрисовки
-//#define EXCEPTIONS // Логирование всех исключений во время отрисовки объектов
-//#define ERROR_MSG // Вывод сообщения об ошибке отрисовки
-
-#define CHECK_TIME // Вывод времени, затраченному на отрисовку
 
 using Plugins.View;
 using Plugins.Entities;
@@ -31,88 +21,11 @@ using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace Plugins
 {
-    class Box
-    {
-        public long Left { get; set; } 
-        public long Right { get; set; } 
-        public long Top { get; set; } 
-        public long Bottom { get; set; }
-    }
-#if DEBUG
-    class ErrorCounter : IDisposable
-    {
-#if ERRORS_COUNT || EXCEPTIONS
-        private StreamWriter writer;
-#endif
-        public ErrorCounter()
-        {
-            error = 0;
-            counter = 0;
-            startObjectDraw = false;
-#if ERRORS_COUNT
-            writer = new StreamWriter(@"C:\Users\И\Desktop\errors.log");
-            prevCount = 0;
-            prevError = 0;
-#elif EXCEPTIONS
-            writer = new StreamWriter(@"C:\Users\И\Desktop\exceptions.log");
-#endif
-        }
-        public void Log(Exception ex, string geowkt)
-        {
-#if EXCEPTIONS
-            writer.WriteLine($"{counter + error}\r\n{ex.Message}\r\n{ex.GetType()}\r\n{ex.StackTrace}\r\n{geowkt}");
-#endif
-        }
-        private bool startObjectDraw;
-        private int error;
-        private int counter;
-#if ERRORS_COUNT
-        private int prevCount;
-        private int prevError;
-#endif
-        public int Error => error;
-        public int Counter => counter;
-        public void StartObjectDraw()
-        {
-            if (startObjectDraw)
-            {
-#if ERROR_MSG
-                MessageBox.Show("При отрисовке объекта произошла ошибка!");
-#endif
-                error++;
-            }
-            else
-            {
-                startObjectDraw = true;
-                counter++;
-            }
-        }
-        public void EndObjectDraw()
-        {
-            startObjectDraw = false;
-#if ERRORS_COUNT
-            if ((counter + error) % 100 == 0)
-            {
-                writer.WriteLine($"{counter - prevCount} | {error - prevError}");
-                prevCount = counter;
-                prevError = error;
-            }
-#endif
-        }
-        public void Dispose()
-        {
-#if ERRORS_COUNT
-            writer.WriteLine($"{counter - prevCount} | {error}");
-            writer.Close();
-#endif
-        }
-    }
-#endif
-    internal class ObjectDispatcher : IDisposable
+    internal class ObjectDispatcher
     {
         #region Private Fields
 
-        private readonly EntitiesFactory entityFactory;
+        private readonly EntitiesFactory factory;
         /// <summary>
         /// Текущий документ
         /// </summary>
@@ -121,14 +34,6 @@ namespace Plugins
         /// Рисуемый горизонт
         /// </summary>
         private readonly string gorizont;
-        /// <summary>
-        /// Граничные точки
-        /// </summary>
-        private readonly Point3d[] points;
-        /// <summary>
-        /// Метод сортировки объектов
-        /// </summary>
-        private readonly Func<Draw, Point3d[], DrawParams> sort;
         /// <summary>
         /// Подключение к БД
         /// </summary>
@@ -145,7 +50,7 @@ namespace Plugins
         readonly Box box = new Box() { Bottom = long.MaxValue, Left = long.MaxValue, Right = long.MinValue, Top = long.MinValue };
 #endif
 
-        #endregion
+#endregion
 
         #region Private Static Methods
 
@@ -249,6 +154,60 @@ namespace Plugins
             }
         }
 
+#if DB_BOUNDING_BOX
+        /// <summary>
+        /// Сортировать объекты с учетом граничной рамки
+        /// </summary>
+        /// <param name="draw">Строковые параметры рисования</param>
+        /// <param name="points">Граничные точки рамки</param>
+        /// <returns>Параметры рисования</returns>
+        /// <exception cref="GotoException">Вызывается, если объект не принадлежит рамке</exception>
+        private DrawParams Sort(Draw draw, Point3d[] points)
+        {
+            try
+            {
+                const string LEFT_BOUND = "LeftBound";
+                const string RIGHT_BOUND = "RightBound";
+                const string BOTTOM_BOUND = "BottomBound";
+                const string TOP_BOUND = "TopBound";
+
+                var drawParams = new DrawParams(draw);
+
+                string value = drawParams.Param[LEFT_BOUND].Value<string>();
+                if (value.Contains("1_=INF")) throw new GotoException(5);
+                if (Convert.ToDouble(value.Replace("_", "")) * SCALE < points[0].X) throw new GotoException(5);
+                if (Convert.ToDouble(drawParams.Param[BOTTOM_BOUND].Value<string>().Replace("_", "")) * SCALE < points[0].Y) throw new GotoException(5);
+                if (Convert.ToDouble(drawParams.Param[RIGHT_BOUND].Value<string>().Replace("_", "")) * SCALE > points[1].X) throw new GotoException(5);
+                if (Convert.ToDouble(drawParams.Param[TOP_BOUND].Value<string>().Replace("_", "")) * SCALE > points[1].Y) throw new GotoException(5);
+
+                return drawParams;
+            }
+            catch
+            {
+                throw new GotoException(4);
+            }
+        }
+#else
+        /// <summary>
+        /// Сортировать параметры рисования
+        /// </summary>
+        /// <param name="draw">Строковые параметры рисования</param>
+        /// <param name="points">Точки</param>
+        /// <returns>Сконвертированные параметры рисования</returns>
+        /// <exception cref="GotoException">Вызывается, если не удается сконвертировать параметры рисования</exception>
+        private DrawParams Sort(Draw draw)
+        {
+            try
+            {
+                return new DrawParams(draw);
+            }
+            catch
+            {
+                throw new GotoException(4);
+            }
+        }
+#endif
+
         #endregion
 
         #region Private Methods
@@ -297,37 +256,23 @@ namespace Plugins
 
             return new Draw();
         }
-#endregion
+        #endregion
 
         #region Ctors
 
-        /// <summary>
-        /// Создание объекта
-        /// </summary>
-        /// <param name="args">Аргументы конструктора</param>
-        public ObjectDispatcher(ObjectDispatcherCtorArgs args)
+        public ObjectDispatcher(Document document, string gorizont, OracleConnection connection, int limit)
         {
-            this.doc = args.Document;
-            this.gorizont = args.Gorizont;
-            this.points = args.Points;
-            // this.isBound = args.IsBound;
-            this.sort = args.Sort;
-            this.connection = args.Connection;
-            this.limit = args.Limit;
-            entityFactory = new EntitiesFactory();
+            doc = document;
+            this.gorizont = gorizont;
+            this.connection = connection;
+            this.limit = limit;
+            factory = new EntitiesFactory();
         }
 
         #endregion
 
         #region Public Methods
 
-        /// <summary>
-        /// Освободить занятые ресурсы
-        /// </summary>
-        public void Dispose() 
-        {
-            entityFactory.Dispose();
-        }
         /// <summary>
         /// Проделать полную итерацию отрисовки
         /// </summary>
@@ -359,19 +304,21 @@ namespace Plugins
 #else
                 var param = Read(reader);
 #endif
-                var draw = sort(param, points);
+                var draw = Sort(param);
 
                 layer = draw.LayerName;
                 CreateLayer(db, draw.LayerName);
 
-                var entity = entityFactory.Create(db, draw, box);
-                entity?.Draw();
+                using (var entity = factory.Create(db, draw, box))
+                {
+                    entity?.Draw();
+                }
             }
             catch (GotoException)
             {
                 return;
             }
-            catch (Autodesk.AutoCAD.Runtime.Exception ex)
+            catch (Autodesk.AutoCAD.Runtime.Exception)
             {
                 // TODO: Обработать исключение
             }
@@ -384,7 +331,7 @@ namespace Plugins
         /// Начать отрисовку объектов
         /// </summary>
         /// <param name="window">Окно отображения пргресса отрисовки</param>
-        public void Start(WorkProgressWindow window)
+        public void Start()
         {
             var db = doc.Database;
 
@@ -393,43 +340,39 @@ namespace Plugins
             const string FROM = "FROM";
             const string JOIN = "JOIN";
             const string ON = "ON";
-            const string WHERE = "WHERE";
-            const string AND = "AND";
-            const string LIKE = "LIKE";
-            const string NOT = "NOT";
-            const string IS = "IS";
-            const string NULL = "NULL";
             // Rows
             const string layername = "layername";
             const string sublayername = "sublayername";
             const string geowkt = "geowkt";
             const string drawjson = "drawjson";
-            // Geometry types
-            const string multilinestring = "MULTILINESTRING";
+            const string paramjson = "paramjson";
+            const string sublayerguid = "sublayerguid";
             // Linked table
             const string systemid = "systemid";
             const string basename = "basename";
             const string childfields = "childfields";
 
+            // TODO: Переписать SQl-запрос специальным классом
             string command =
                 SELECT +
-                " drawjson, geowkt, paramjson, layername, sublayername, " +
+                $" {drawjson}, {geowkt}, {paramjson}, {layername}, {sublayername}, " +
                 $"{systemid}, {basename}, {childfields} " +
 #if DB_BOUNDING_BOX
                 ", leftbound, rightbound, bottombound, topbound " +
 #endif
                 FROM +
                 "(" +
-                    SELECT + // " rownum as counter," +
-                    " b.layername, b.sublayername, a.geowkt, a.drawjson, a.paramjson, a.sublayerguid, " +
+                    SELECT +
+                    $" b.{layername}, b.{sublayername}, a.{geowkt}, a.{drawjson}, a.{paramjson}, a.{sublayerguid}, " +
                     $"a.{systemid}, b.{childfields}, b.{basename} " +
 #if DB_BOUNDIG_BOX
                 ", a.leftbound, a.rightbound, a.topbound, a.bottombound " +
 #endif
                     FROM + $" {gorizont}_trans_clone a " +
                     JOIN + $" {gorizont}_trans_open_sublayers b " +
-                    ON + " a.sublayerguid = b.sublayerguid" + 
+                    ON + $" a.{sublayerguid} = b.{sublayerguid}" +
                 ")";
+                //") WHERE layername = 'Смежные ШП' AND sublayername <> 'Текст' AND drawjson NOT LIKE '%BitmapIndex\": 47%'";
             using (var reader = new OracleCommand(command, connection).ExecuteReader())
             {
                 int counter = 0;
@@ -462,7 +405,7 @@ namespace Plugins
 #endif
                 MessageBox.Show($"Закончена отрисовка геометрии!" +
 #if DEBUG
-                    $"\nУспешно отрисовано {entityFactory.Counter}!\nНе удалось отрисовать {entityFactory.Error}"
+                    $"\nУспешно отрисовано {factory.Counter}!\nНе удалось отрисовать {factory.Error}"
 #else
                     ""
 #endif

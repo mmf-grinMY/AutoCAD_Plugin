@@ -1,37 +1,27 @@
-﻿using Autodesk.AutoCAD.DatabaseServices;
-using System;
-using System.Diagnostics;
+﻿using System;
+
+using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Plugins.Entities
 {
     /// <summary>
     /// Объект отрисовки
     /// </summary>
-    abstract class Entity
+    abstract class Entity : IDisposable
     {
         #region Private Fields
         /// <summary>
-        /// Пустой объект
-        /// </summary>
-        public static Entity Empty => null;
-#if DEBUG
-        /// <summary>
-        /// Счетчик ошибок при отрисовке
-        /// </summary>
-        protected readonly ErrorCounter counter;
-#endif
-        /// <summary>
         /// BoundingBox
         /// </summary>
-        protected readonly Box box;
-        /// <summary>
-        /// Внутренняя база данных AutoCAD
-        /// </summary>
-        protected readonly Database db;
+        private readonly Box box;
         /// <summary>
         /// Параметры отрисовки объекта
         /// </summary>
         protected readonly DrawParams drawParams;
+        private readonly Transaction transaction;
+        private readonly BlockTableRecord record;
+        private readonly BlockTable table;
+        protected readonly string COLOR = "Color";
         #endregion
         #region Ctors
         /// <summary>
@@ -41,27 +31,24 @@ namespace Plugins.Entities
         /// <param name="drawParams">Параметры отрисовки объекта</param>
         /// <param name="box">Общий BoundingBox рисуемых объектов</param>
         /// <param name="counter">Счетчик ошибок</param>
-        public Entity(Database db, DrawParams drawParams, Box box
-#if DEBUG
-            , ErrorCounter counter
-#endif
-            )
+        public Entity(Database db, DrawParams drawParams, Box box)
         {
-            this.db = db;
+            transaction = db.TransactionManager.StartTransaction();
+            table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
+            record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
             this.drawParams = drawParams;
             this.box = box;
-#if DEBUG
-            this.counter = counter;
-#endif
         }
         #endregion
         #region Protected Methods
-        /// <summary>
-        /// Внутренняя логика отрисовки объекта
-        /// </summary>
-        /// <param name="transaction">Транзакция внутренней базы данных AutoCAD</param>
-        /// <param name="record">Запись таблицы блоков</param>
-        protected abstract void DrawLogic(Transaction transaction, BlockTableRecord record);
+        protected void AppendToDb(Autodesk.AutoCAD.DatabaseServices.Entity entity)
+        {
+            entity.SetDatabaseDefaults();
+            entity.AddXData(drawParams);
+            record.AppendEntity(entity);
+            transaction.AddNewlyCreatedDBObject(entity, true);
+            CheckBounds(entity);
+        }
         /// <summary>
         /// Перепроверить BoundingBox
         /// </summary>
@@ -81,26 +68,22 @@ namespace Plugins.Entities
         /// <summary>
         /// Нарисовать объект
         /// </summary>
-        public void Draw()
+        public virtual void Draw() { }
+        public void Dispose()
         {
-#if DEBUG
-            counter.StartObjectDraw();
-#endif
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                using (var blockTable = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable)
-                {
-                    using (var record = transaction.GetObject(blockTable[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord)
-                    {
-                        DrawLogic(transaction, record);
-#if DEBUG
-                        counter.EndObjectDraw();
-#endif
-                        transaction.Commit();
-                    }
-                }
-            }
+            transaction.Commit();
+            record.Dispose();
+            table.Dispose();
+            transaction.Dispose();
         }
-#endregion
+        public bool HasKey(string key)
+        {
+            return table.Has(key);
+        }
+        public ObjectId GetByKey(string key)
+        {
+            return table[key];
+        }
+        #endregion
     }
 }

@@ -21,7 +21,7 @@ namespace Plugins.Entities
         /// <summary>
         /// Транзакция во внутреннюю базу данных AutoCAD
         /// </summary>
-        private Transaction transaction;
+        private readonly Transaction transaction;
         /// <summary>
         /// Запись в таблицу блоков
         /// </summary>
@@ -36,9 +36,9 @@ namespace Plugins.Entities
         /// Создание объекта
         /// </summary>
         /// <param name="db">Внутренняя база данных AutoCAD</param>
-        public ResourceManager(Database db)
+        public ResourceManager(Database database)
         {
-            this.db = db;
+            db = database;
             transaction = db.TransactionManager.StartTransaction();
             isMustAborted = false;
         }
@@ -112,7 +112,7 @@ namespace Plugins.Entities
             {
                 circle.SetDatabaseDefaults();
                 circle.Center = new Point3d(0, 0, 0);
-                circle.Radius = radius * Scale;
+                circle.Radius = radius * SCALE;
                 circle.Color = Color.FromColorIndex(ColorMethod.ByBlock, 0);
 
                 Append(circle);
@@ -144,7 +144,7 @@ namespace Plugins.Entities
             {
                 for (int i = 0; i < points.Length; ++i)
                 {
-                    polyline.AddVertexAt(i, new Point2d(points[i].X * Scale, points[i].Y * Scale), 0, 0, 0);
+                    polyline.AddVertexAt(i, new Point2d(points[i].X * SCALE, points[i].Y * SCALE), 0, 0, 0);
                 }
                 polyline.Closed = true;
                 polyline.Color = Color.FromColorIndex(ColorMethod.ByBlock, 0);

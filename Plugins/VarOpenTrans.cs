@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Oracle.ManagedDataAccess.Client;
 
 using Plugins.View;
+using System.Text.Json;
 
 namespace Plugins
 {
@@ -32,22 +33,14 @@ namespace Plugins
         }
 
     }
-    public class OpenTransConnectionParams
+    internal readonly struct ConnectionParams
     {
-        public string host
+        public readonly string userName;
+        public readonly string password;
+        public ConnectionParams(string name, string pass)
         {
-            get;
-            set;
-        }
-        public int port
-        {
-            get;
-            set;
-        }
-        public string sid
-        {
-            get;
-            set;
+            userName = name;
+            password = pass;
         }
     }
     class VarOpenTrans
@@ -56,11 +49,11 @@ namespace Plugins
         public string sufTransClone = "_TRANS_CLONE";
         public string sufTransControl = "_TRANS_CONTROL";
         public string sufTransSubLayers = "_TRANS_OPEN_SUBLAYERS";
+
         public string host;
         public int port;
         public string sid;
-        public string network_user;
-        public string network_pass;
+
         public List<string> WktStringList;
         public List<string> DrawStringList;
         public List<string> ParamStringList;
@@ -85,31 +78,26 @@ namespace Plugins
             NameGuidList = new List<SubLayerGuid>();
             SystemIdList = new List<int>();
             field_names = new Dictionary<string, string>();
-
+#if OLD
             host = "data-pc";
             port = 1521;
             sid = "GEO";
+#else
+            using (var reader = new System.IO.StreamReader(System.IO.Path.Combine(Constants.SupportPath, "db.config"))) 
+            {
+                string content = reader.ReadToEnd();
+                var obj = JsonDocument.Parse(content).RootElement;
+                host = obj.GetProperty("host").GetString();
+                port = obj.GetProperty("port").GetInt32();
+                sid = obj.GetProperty("sid").GetString();
+            }
+#endif
 
             return true;
         }
-        public bool tryConnect()
+        public bool TryConnectAndSave(ConnectionParams param)
         {
-            dbcon = GetDBConnection(host, port, sid, network_user, network_pass);
-            try
-            {
-                dbcon.Open();
-            }
-            catch (System.Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-                return false;
-            }
-            dbcon.Close();
-            return true;
-        }
-        public bool tryConnectAndSave()
-        {
-            dbcon = GetDBConnection(host, port, sid, network_user, network_pass);
+            dbcon = GetDBConnection(host, port, sid, param);
             try
             {
                 dbcon.Open();
@@ -121,37 +109,30 @@ namespace Plugins
             }
             return true;
         }
-        public bool closeConnectAndSave()
-        {
-            try
-            {
-                dbcon.Close();
-            }
-            catch (System.Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-                return false;
-            }
-            return true;
-        }
-        public static OracleConnection GetDBConnection(string host, int port, String sid, String user, String password)
+        public static OracleConnection GetDBConnection(string host, int port, string sid, ConnectionParams param)
         {
             // 'Connection String' подключается напрямую к Oracle.
             string connString = "Data Source=(DESCRIPTION =(ADDRESS = (PROTOCOL = TCP)(HOST = "
                     + host + ")(PORT = " + port + "))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = "
-                    + sid + ")));Password=" + password + ";User ID=" + user + ";Connection Timeout = 360;";
+                    + sid + ")));Password=" + param.password + ";User ID=" + param.userName + ";Connection Timeout = 360;";
 
             return new OracleConnection { ConnectionString = connString };
         }
-        public bool askPassword()
+        public bool TryGetPassword(out string username, out string password)
         {
             SimpleLoginWindow window = new SimpleLoginWindow();
-            if (window.ShowDialog() == false) return false;
-            network_user = window.LoginDto.Username;
-            network_pass = window.LoginDto.Password;
+            if (window.ShowDialog() == false)
+            {
+                username = password = string.Empty;
+                return false;
+            }
+            // network_user = window.LoginDto.Username;
+            // network_pass = window.LoginDto.Password;
+            username = window.LoginDto.Username;
+            password = window.LoginDto.Password;
             return true;
         }
-        public bool parseExternalDBLINK(string BaseName, out string table_data_fin, OracleConnection dbcon)
+        public bool ParseExternalDbLink(string BaseName, out string table_data_fin, OracleConnection dbcon)
         {
             table_data_fin = "Empty";
             field_names.Clear();
@@ -219,7 +200,7 @@ namespace Plugins
             }
             return true;
         }
-        public bool getExternalDB(string BaseName, string BaseCaption, string ChildField, int SystemID, OracleConnection dbcon)
+        public bool GetExternalDb(string BaseName, string BaseCaption, string ChildField, int SystemID, OracleConnection dbcon)
         {
             try
             {

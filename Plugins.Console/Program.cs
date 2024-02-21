@@ -4,6 +4,9 @@
 //#define LINE_TYPE_READER
 //#define LINE_TYPE_PARSER
 //#define DB_FULL // Проверка базы данных на целостность
+//#define CONF_TO_XML // Преобразование conf файла MapManager в xml формат
+
+// GEOServer ГИС - система в браузере
 
 #if CONVERTER
 using Plugins.Chr;
@@ -184,5 +187,71 @@ start:
         }
     }
     Console.WriteLine("Все данные проверены!");
+}
+#endif
+
+#if CONF_TO_XML
+const string root = @"C:\Users\grinm\Documents\_Job_\_MapManager_\Programs\MapMan\UserData";
+const string pattern_conf = "Pattern.conf";
+
+string content = "";
+
+using (StreamReader sr = new(Path.Combine(root, pattern_conf)))
+{
+	content = sr.ReadToEnd();
+	sr.Close();
+}
+
+content = content.Replace("[/", "</t").Replace("[", "<t").Replace("]", ">");
+
+using (StreamWriter sw = new(Path.Combine(root, pattern_conf + ".xml")))
+{
+	sw.Write(content);
+	sw.Close();
+}
+
+Console.WriteLine("Закончена запись файла!");
+#endif
+
+#if false
+using System.Xml.Linq;
+using Newtonsoft.Json.Linq;
+
+const string filename = @"C:\Users\grinm\Documents\_Job_\_MapManager_\Programs\MapMan\UserData\Pattern.conf.xml";
+
+PatternSettings pattern = new ConfReader().LoadSettings("{\"DrawType\": \"Polyline\", \"PenColor\": 0, \"BrushColor\": 16777042, \"BrushBkColor\": 11382189, \"Width\": 1, \"Closed\": \"true\", \"BitmapName\":\"DRO32\", \"BitmapIndex\": 47, \"Transparent\": \"true\", \"nPenStyle\": 0}");
+
+XDocument doc = XDocument.Load(filename);
+
+var root = doc.Element("AcadPatterns");
+
+var patternDescriptionElement = root.Element(pattern.name).Element($"t{pattern.index}");
+
+string value = patternDescriptionElement.Value.Trim();
+Console.WriteLine(value.Split('=')[1]);
+
+Console.WriteLine("Закончена обработка xml файла!");
+
+public struct PatternSettings
+{
+    public readonly string name;
+	public readonly int index;
+    public PatternSettings(string name, int index)
+    {
+        this.name = name;
+		this.index = index;
+    }
+}
+
+public class ConfReader
+{
+	public PatternSettings LoadSettings(string json)
+	{
+		JObject obj = JObject.Parse(json);
+		string name = obj.Value<string>("BitmapName");
+		int index = obj.Value<int>("BitmapIndex");
+
+		return new PatternSettings(name, index);
+	}
 }
 #endif

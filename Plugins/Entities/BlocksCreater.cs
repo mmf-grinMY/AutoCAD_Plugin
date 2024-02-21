@@ -68,8 +68,8 @@ namespace Plugins.Entities
         private void CreatePntOld100(ResourceManager manager)
         {
             manager.AddCircle(3);
-            manager.AddLine(new Point3d(-1 * Scale, 0, 0), new Point3d(1 * Scale, 0, 0));
-            manager.AddLine(new Point3d(0, -1 * Scale, 0), new Point3d(0, 1 * Scale, 0));
+            manager.AddLine(new Point3d(-1 * SCALE, 0, 0), new Point3d(1 * SCALE, 0, 0));
+            manager.AddLine(new Point3d(0, -1 * SCALE, 0), new Point3d(0, 1 * SCALE, 0));
         }
         /// <summary>
         /// Создать блок, описывающий символ 117 из pnt!.chr

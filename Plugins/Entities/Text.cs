@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.Json;
 
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
@@ -18,43 +19,31 @@ namespace Plugins.Entities
         /// <param name="db">Внутренняя база данных AutoCAD</param>
         /// <param name="draw">Параметры отрисовки</param>
         /// <param name="box">Общий для всех рисуемых объектов BoundingBox</param>
-        /// <param name="counter">Счетчик ошибок</param>
-        public Text(Database db, DrawParams draw, Box box
-#if DEBUG
-            , ErrorCounter counter
-#endif
-            ) : base(db, draw, box
-#if DEBUG
-                , counter
-#endif
-                ) { }
-        protected override void DrawLogic(Transaction transaction, BlockTableRecord record)
+        public Text(Database db, DrawParams draw, Box box) : base(db, draw, box) { }
+        public override void Draw()
         {
-            int fontSize = drawParams.DrawSettings.Value<int>("FontSize");
-            string textString = drawParams.DrawSettings.Value<string>("Text");
-            using (var text = new DBText())
-            {
-                var point = drawParams.Geometry as Aspose.Gis.Geometries.Point
+            var settings = drawParams.DrawSettings;
+            var fontSize = settings.GetProperty("FontSize").GetInt32() * SCALE;
+
+            var point = drawParams.Geometry as Aspose.Gis.Geometries.Point
                 ?? throw new ArgumentNullException($"Не удалось преобразовать объект {drawParams.Geometry} в тип {nameof(Aspose.Gis.Geometries.Point)}");
-                Point3d position = new Point3d(point.X * Scale, point.Y * Scale, 0);
-                text.AddXData(drawParams);
-                text.SetDatabaseDefaults();
-                text.Position = position;
-                if (fontSize >= 0)
-                    text.Height = fontSize * Scale;
-                else
-                    throw new ArgumentException($"Невозможно задать тексту шрифт {fontSize} {drawParams.Geometry.AsText()}");
-                text.TextString = textString;
-                text.Layer = drawParams.LayerName;
-                const string ANGLE = "Angle";
-                if (drawParams.DrawSettings.ContainsKey(ANGLE))
-                    text.Rotation = Convert.ToDouble(drawParams.DrawSettings.Value<string>(ANGLE).Replace('_', ',')) / 180 * Math.PI;
-                text.Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0);
 
-                CheckBounds(text);
+            using (var text = new DBText()
+            {
+                TextString = settings.GetProperty("Text").GetString(),
+                Layer = drawParams.LayerName,
+                Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0),
+                Position = new Point3d(point.X * SCALE, point.Y * SCALE, 0),
+                Height = fontSize > 0 
+                    ? fontSize 
+                    : throw new ArgumentException($"Невозможно задать тексту шрифт {fontSize} {drawParams.Geometry.AsText()}")
+            })
+            {
+                // TODO: Проверить параметры установки поворота текста
+                if (settings.TryGetProperty("Angle", out JsonElement angle))
+                    text.Rotation = Convert.ToDouble(angle.GetString().Replace('_', ',')) / 180 * Math.PI;
 
-                record.AppendEntity(text);
-                transaction.AddNewlyCreatedDBObject(text, true);
+                AppendToDb(text);
             }
         }
     }

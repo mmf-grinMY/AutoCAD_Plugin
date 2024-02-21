@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Text.Json;
 
 using Aspose.Gis.Geometries;
-using Newtonsoft.Json.Linq;
 
 namespace Plugins
 {
@@ -22,11 +22,11 @@ namespace Plugins
         /// <summary>
         /// Параметры легендаризации
         /// </summary>
-        public JObject DrawSettings { get; }
+        public JsonElement DrawSettings { get; }
         /// <summary>
         /// Общие параметры отрисовки
         /// </summary>
-        public JObject Param { get; }
+        public JsonElement Param { get; }
         /// <summary>
         /// Имя слоя
         /// </summary>
@@ -61,8 +61,8 @@ namespace Plugins
         protected DrawParams(string wkt, string settings, string param, string layername, string systemid, LinkedDBFields linkedDBFields)
         {
             Geometry = Aspose.Gis.Geometries.Geometry.FromText(wkt);
-            DrawSettings = JObject.Parse(settings);
-            Param = JObject.Parse(param);
+            DrawSettings = JsonDocument.Parse(settings).RootElement;
+            Param = JsonDocument.Parse(param).RootElement;
             LayerName = layername;
             SystemId = Convert.ToInt32(systemid);
             LinkedDBFields = linkedDBFields;
