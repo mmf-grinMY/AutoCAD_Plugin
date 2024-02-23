@@ -1,4 +1,6 @@
-﻿namespace Plugins
+﻿using System.IO;
+
+namespace Plugins
 {
     /// <summary>
     /// Хранилище общих констант
@@ -12,11 +14,15 @@
         public static readonly string SYSTEM_ID = "varMM_SystemID";
         public static readonly string BASE_NAME = "varMM_BaseName";
         public static readonly string LINK_FIELD = "varMM_LinkField";
+        private static string dbConfigFilePath;
         private static string supportPath;
         public static string SupportPath => supportPath;
+        public static string DbConfigFilePath => dbConfigFilePath;
         public static void SetSupportPath(string path)
         {
             supportPath = path;
+            dbConfigFilePath = System.IO.Path.GetTempFileName();
+            // File.WriteAllText(dbConfigFilePath, path);
         }
     }
 }

@@ -5,7 +5,6 @@
 #define DB_BOUNDING_BOX // Отслеживание границ по БД
 #endif
 
-using Plugins.View;
 using Plugins.Entities;
 
 using System;
@@ -18,6 +17,7 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.ApplicationServices;
 using ALine = Autodesk.AutoCAD.DatabaseServices.Line;
 using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
+using System.Text.Json;
 
 namespace Plugins
 {
@@ -308,7 +308,6 @@ namespace Plugins
 
                 layer = draw.LayerName;
                 CreateLayer(db, draw.LayerName);
-
                 using (var entity = factory.Create(db, draw, box))
                 {
                     entity?.Draw();
@@ -318,9 +317,9 @@ namespace Plugins
             {
                 return;
             }
-            catch (Autodesk.AutoCAD.Runtime.Exception)
+            catch (Autodesk.AutoCAD.Runtime.Exception ex)
             {
-                // TODO: Обработать исключение
+                MessageBox.Show(ex.GetType() + "\n" + ex.Message + "\n" + ex.StackTrace + "\n" + ex.Source);
             }
             catch (Exception ex) 
             {
@@ -331,7 +330,7 @@ namespace Plugins
         /// Начать отрисовку объектов
         /// </summary>
         /// <param name="window">Окно отображения пргресса отрисовки</param>
-        public void Start()
+        public void Draw()
         {
             var db = doc.Database;
 
@@ -352,7 +351,7 @@ namespace Plugins
             const string basename = "basename";
             const string childfields = "childfields";
 
-            // TODO: Переписать SQl-запрос специальным классом
+            // TODO: Переписать SQL-запрос специальным классом
             string command =
                 SELECT +
                 $" {drawjson}, {geowkt}, {paramjson}, {layername}, {sublayername}, " +
@@ -372,49 +371,18 @@ namespace Plugins
                     JOIN + $" {gorizont}_trans_open_sublayers b " +
                     ON + $" a.{sublayerguid} = b.{sublayerguid}" +
                 ")";
-                //") WHERE layername = 'Смежные ШП' AND sublayername <> 'Текст' AND drawjson NOT LIKE '%BitmapIndex\": 47%'";
             using (var reader = new OracleCommand(command, connection).ExecuteReader())
             {
                 int counter = 0;
-                string sublayer = string.Empty;
-#if CHECK_TIME
-                TimeSpan now = DateTime.Now.TimeOfDay;
-#endif
                 while (reader.Read() && counter < limit)
                 {
                     counter++;
-#if MULTI_THREAD
-                    if (window.isCancelOperation)
-                        return;
-
-                    window.Dispatcher.Invoke(() =>
-                    {
-                        window.ReportProgress(counter);
-                    });
-#endif
                     PipelineIteration(db, reader);
                 }
-#if MULTI_THREAD
-                window.Dispatcher.Invoke(() =>
-                {
-                    window.Close();
-                });
-#endif
-#if CHECK_TIME
-                MessageBox.Show((DateTime.Now.TimeOfDay - now).TotalMilliseconds.ToString());
-#endif
-                MessageBox.Show($"Закончена отрисовка геометрии!" +
-#if DEBUG
-                    $"\nУспешно отрисовано {factory.Counter}!\nНе удалось отрисовать {factory.Error}"
-#else
-                    ""
-#endif
-                    );
-#if ZOOM
-                Zoom(new Point3d(box.Left, box.Bottom, 0), new Point3d(box.Right, box.Top, 0), new Point3d(0, 0, 0), 1.0);
-#endif
             }
+            MessageBox.Show($"Закончена отрисовка геометрии!");
+            Zoom(new Point3d(box.Left, box.Bottom, 0), new Point3d(box.Right, box.Top, 0), new Point3d(0, 0, 0), 1.0);
         }
-#endregion
+        #endregion
     }
 }

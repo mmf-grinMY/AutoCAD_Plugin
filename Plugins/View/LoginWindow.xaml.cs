@@ -1,5 +1,5 @@
-﻿#define OLD
-
+﻿using System.IO;
+using System.Text.Json;
 using System.Windows;
 
 namespace Plugins.View
@@ -13,16 +13,12 @@ namespace Plugins.View
         /// <summary>
         /// Строка подключения
         /// </summary>
-#if OLD
-        public (string, string, bool) ConnectionString { get; private set; }
-#else
-        public string ConnectionString { get; private set; }
-#endif
+        public ConnectionParams Params { get; private set; }
         /// <summary>
         /// Результат ввода информации
         /// </summary>
         public bool InputResult { get; private set; }
-#endregion
+        #endregion
 
         #region Ctors
         /// <summary>
@@ -36,7 +32,6 @@ namespace Plugins.View
             DataContext = model;
             model.SaveCommand = new RelayCommand(obj =>
             {
-                string[] vars = { "NORMAL", "SYSDBA", "SYSOPER" };
                 string message = string.Empty;
                 if (string.IsNullOrWhiteSpace(model.UserName))
                     message += "имя пользователя";
@@ -45,10 +40,6 @@ namespace Plugins.View
                     message += message == string.Empty ? "пароль" : ", пароль";
                 if (string.IsNullOrWhiteSpace(model.Host))
                     message += message == string.Empty ? "имя базы данных" : ", имя базы данных";
-#if OLD
-                if (model.SelectedGorizont == -1)
-                    message += message == string.Empty ? "Не выбран горизонт!" : "! Не выбран горизонт!";
-#endif
                 if (message != string.Empty)
                 {
                     message = "Некорректно введено " + message;
@@ -60,22 +51,29 @@ namespace Plugins.View
                 {
                     InputResult = true;
                     Hide();
-#if OLD
-                    ConnectionString = ($"Data Source={model.Host};Password={password};User Id={model.UserName};Connection Timeout = 360;" + 
-                        (vars[model.Privilege] == "NORMAL" ? string.Empty : $"DBA Privilege={vars[model.Privilege]};"), model.Gorizonts[model.SelectedGorizont], model.CheckingBoundingBox);
-#else
-                    ConnectionString = $"Data Source={model.Host};Password={password};User Id={model.UserName};Connection Timeout = 360;" +
-                        (vars[model.Privilege] == "NORMAL" ? string.Empty : $"DBA Privilege={vars[model.Privilege]};");
-#endif
+                    var strings = model.Host.Split('/');
+                    string host = string.Empty;
+                    string sid = string.Empty;
+                    int port = 1521;
+                    if (strings.Length == 1)
+                    {
+                        sid = strings[0];
+                    }
+                    else if (strings.Length == 2)
+                    {
+                        host = strings[0];
+                        sid = strings[1];
+                    }
+                    Params = new ConnectionParams(model.UserName, password, host, port, sid);
                 }
             });
             model.CancelCommand = new RelayCommand(obj => 
             {
                 InputResult = false;
-                Close();
+                Hide();
             });
         }
-#endregion
+        #endregion
 
         #region Private Methods
         /// <summary>
@@ -89,5 +87,79 @@ namespace Plugins.View
             Left = (SystemParameters.FullPrimaryScreenHeight - ActualWidth) / 2;
         }
         #endregion
+        /// <summary>
+        /// Модель предстваления для класса LoginWindow
+        /// </summary>
+        internal class LoginViewModel : BaseViewModel
+        {
+            #region Private Fields
+            /// <summary>
+            /// Имя пользователя
+            /// </summary>
+            private string username;
+            /// <summary>
+            /// Местоположение базы данных
+            /// </summary>
+            private string host;
+            #endregion
+
+            #region Ctors
+            /// <summary>
+            /// Создание объекта
+            /// </summary>
+            public LoginViewModel()
+            {
+                string content = File.ReadAllText(Constants.DbConfigFilePath);
+                if (content != string.Empty)
+                {
+                    MessageBox.Show(content);
+                    var root = JsonDocument.Parse(content).RootElement;
+                    if (root.TryGetProperty("UserName", out JsonElement username))
+                    {
+                        UserName = username.GetString();
+                        Host = root.GetProperty("Host").GetString() + "/" + root.GetProperty("Sid").GetString();
+                    }
+                }
+            }
+            #endregion
+
+            #region Public Properties
+            /// <summary>
+            /// Имя пользователя
+            /// </summary>
+            public string UserName
+            {
+                get => username;
+                set
+                {
+                    username = value;
+                    OnPropertyChanged(nameof(UserName));
+                }
+            }
+            /// <summary>
+            /// Местоположение базы данных
+            /// </summary>
+            public string Host
+            {
+                get => host;
+                set
+                {
+                    host = value;
+                    OnPropertyChanged(nameof(Host));
+                }
+            }
+            #endregion
+
+            #region Commands
+            /// <summary>
+            /// Поключиться
+            /// </summary>
+            public RelayCommand SaveCommand { get; set; }
+            /// <summary>
+            /// Отменить подключение
+            /// </summary>
+            public RelayCommand CancelCommand { get; set; }
+            #endregion
+        }
     }
 }

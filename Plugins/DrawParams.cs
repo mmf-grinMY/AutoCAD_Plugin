@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Text.Json;
-
+using System.Windows.Forms;
 using Aspose.Gis.Geometries;
 
 namespace Plugins
@@ -61,11 +61,15 @@ namespace Plugins
         protected DrawParams(string wkt, string settings, string param, string layername, string systemid, LinkedDBFields linkedDBFields)
         {
             Geometry = Aspose.Gis.Geometries.Geometry.FromText(wkt);
+            //MessageBox.Show("1");
             DrawSettings = JsonDocument.Parse(settings).RootElement;
+            //MessageBox.Show("2");
             Param = JsonDocument.Parse(param).RootElement;
+            //MessageBox.Show("3");
             LayerName = layername;
             SystemId = Convert.ToInt32(systemid);
             LinkedDBFields = linkedDBFields;
+            //MessageBox.Show("4");
         }
         #endregion
     }

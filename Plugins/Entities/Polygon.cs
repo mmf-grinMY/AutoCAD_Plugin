@@ -1,5 +1,5 @@
 ﻿using System;
-
+using System.Windows.Forms;
 using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Plugins.Entities
@@ -22,17 +22,23 @@ namespace Plugins.Entities
             {
                 try
                 {
+                    //MessageBox.Show("q1");
                     polyline.SetDrawSettings(drawParams);
-
+                    //MessageBox.Show("q2");
+                    AppendToDb(polyline);
+                    //MessageBox.Show("q3");
                     using (var hatch = new Hatch())
                     {
+                        //MessageBox.Show("q4");
+
                         hatch.SetDrawSettings(drawParams);
-
+                        //MessageBox.Show("q5");
                         AppendToDb(hatch);
-
+                        //MessageBox.Show("q6");
                         hatch.Associative = true;
                         hatch.AppendLoop(HatchLoopTypes.Outermost, new ObjectIdCollection { polyline.ObjectId });
                         hatch.EvaluateHatch(true);
+                        //MessageBox.Show("q7");
                     }
                 }
                 catch (Exception ex)

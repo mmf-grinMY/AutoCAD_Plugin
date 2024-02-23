@@ -1,5 +1,5 @@
 ﻿//#define MULTI_THREAD // Отрисовка объектов как фоновая задача с показом прогресса
-//#define LIMIT_1 // Ограничение количества рисуемых объектов равно 1
+#define LIMIT_1 // Ограничение количества рисуемых объектов равно 1
 
 #define DB_BOUNDING_BOX
 
@@ -9,11 +9,11 @@
 using System;
 using System.IO;
 using System.Windows;
+using System.Text.Json;
 
 using Oracle.ManagedDataAccess.Client;
 
 using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
-using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
@@ -109,7 +109,10 @@ namespace Plugins
         /// <summary>
         /// Завершить работу плагина
         /// </summary>
-        public void Terminate() { }
+        public void Terminate() 
+        {
+            File.Delete(Path.Combine(Path.GetTempPath(), DbConfigFilePath));
+        }
         #endregion
 
         #region Command Methods
@@ -126,17 +129,10 @@ namespace Plugins
             string connectionString = string.Empty;
             string gorizont = string.Empty;
             var loginWindow = new Plugins.View.LoginWindow();
+            Plugins.View.GorizontSelecterWindow gorizontSelecter = null;
 
             var db = doc.Database;
 #if !DEBUG
-            void Login()
-            {
-                loginWindow.ShowDialog();
-                if (loginWindow.InputResult)
-                {
-                    (connectionString, gorizont, isBoundingBoxChecked) = loginWindow.ConnectionString;
-                }
-            }
 #if !DB_BOUNDING_BOX
             Point3d[] GetBoundingBox()
             {
@@ -151,10 +147,10 @@ namespace Plugins
             }
 #endif
 #endif
-        connect:
+connect:
             try
             {
-#if DEBUG
+#if !DEBUG
                 connection = new OracleConnection("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
                 connection.Open();
 
@@ -163,10 +159,46 @@ namespace Plugins
 #endif
                 gorizont = "K450E";
 #else
-                Login();
+                loginWindow.ShowDialog();
+                if (!loginWindow.InputResult)
+                {
+                    return;
+                }
+#if OLD
+                connectionString = loginWindow.ConnectionString;
                 connection = new OracleConnection(connectionString);
+#else
+                var config = loginWindow.Params;
+
+                var options = new JsonSerializerOptions(JsonSerializerOptions.Default)
+                {
+                    WriteIndented = true,
+                };
+                string content = string.Empty;
+                try
+                {
+                    MessageBox.Show("123");
+                    content = JsonSerializer.Serialize(config, options);
+                    MessageBox.Show("content");
+                }
+                catch (System.Exception ex)
+                {
+                    MessageBox.Show("!" + ex.InnerException.ToString());
+                    return;
+                }
+                var path = DbConfigFilePath;
+                File.WriteAllText(DbConfigFilePath, content);
+
+                connection = VarOpenTrans.GetDBConnection(config);
+#endif
                 connection.Open();
-                loginWindow.Close();
+                gorizontSelecter = new Plugins.View.GorizontSelecterWindow(connection);
+                gorizontSelecter.ShowDialog();
+                if (!gorizontSelecter.InputResult)
+                {
+                    return;
+                }
+                gorizont = gorizontSelecter.Gorizont;
 #if OLD
                 Point3d[] points = Array.Empty<Point3d>();
 
@@ -180,12 +212,7 @@ namespace Plugins
                 int limit = 100;
 #else
                 int limit = 0;
-                var query =
-#if OLD
-                $"SELECT count(*) FROM {gorizont}_trans_clone";
-#else
-                new SqlQuery().Count(gorizont + "_trans_clone").ToString();
-#endif
+                var query = new SqlQuery().Count(gorizont + "_trans_clone").ToString();
                 using (var reader = new OracleCommand(query, connection).ExecuteReader())
                 {
                     if (reader.Read())
@@ -194,12 +221,7 @@ namespace Plugins
                     }
                 }
 #endif
-#if MULTI_THREAD
-                var window = new WorkProgressWindow(args);
-                window.ShowDialog();
-#else
-                new ObjectDispatcher(doc, gorizont, connection, limit).Start();
-#endif
+                new ObjectDispatcher(doc, gorizont, connection, limit).Draw();
             }
             catch (OracleException ex)
             {
@@ -228,6 +250,7 @@ namespace Plugins
             {
                 if (loginWindow.IsLoaded)
                     loginWindow.Close();
+                gorizontSelecter?.Close();
                 connection?.Dispose();
             }
         }
@@ -235,11 +258,10 @@ namespace Plugins
         public void InspectExtDB()
         {
             VarOpenTrans vot = new VarOpenTrans();
-            if (!vot.InitConnectionParams())
+            // vot.InitConnectionParams();
+            if (!vot.TryGetPassword(out ConnectionParams param))
                 return;
-            if (!vot.TryGetPassword(out string username, out string password))
-                return;
-            if (!vot.TryConnectAndSave(new ConnectionParams(username, password)))
+            if (!vot.TryConnectAndSave(param))
                 return;
 
             var document = AApplication.DocumentManager.MdiActiveDocument;
@@ -274,7 +296,7 @@ namespace Plugins
                             string[] f = outData.Split('\n');
                             if (f.Length > 2)
                                 baseCapture = f[1];
-                            vot.GetExternalDb(baseName, baseCapture, linkField, systemId, vot.dbcon);
+                            vot.GetExternalDb(baseName, baseCapture, linkField, systemId);
                         }
                         else
                         {
@@ -283,35 +305,8 @@ namespace Plugins
                     }
                 }
             }
-            vot.dbcon.Close();
+            vot.Close();
         }
-#endregion
-
-#if DEBUG_COMMANDS
-        Func<DrawParameters> readAction = () =>
-        {
-            if (transactionReader.Read())
-            {
-                // draw read from db
-                return draw;
-            }
-            else
-            {
-                Thread.CurrentThread.Abort();
-                return null;
-            }
-        };
-
-        Action<DrawParameters> writeAction = (draw) =>
-        {
-            // create layer if not exists
-        };
-
-        var pipeline = new Pipeline<DrawParameters>(readAction, writeAction, limitItemsCount: 1);
-        var thread = new Thread(pipeline.Run);
-
-        thread.Start();
-        thread.Join();
-#endif
+        #endregion
     }
 }

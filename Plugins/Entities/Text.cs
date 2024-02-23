@@ -23,7 +23,7 @@ namespace Plugins.Entities
         public override void Draw()
         {
             var settings = drawParams.DrawSettings;
-            var fontSize = settings.GetProperty("FontSize").GetInt32() * SCALE;
+            var fontSize = settings.GetProperty("FontSize").GetInt32() * 500;
 
             var point = drawParams.Geometry as Aspose.Gis.Geometries.Point
                 ?? throw new ArgumentNullException($"Не удалось преобразовать объект {drawParams.Geometry} в тип {nameof(Aspose.Gis.Geometries.Point)}");

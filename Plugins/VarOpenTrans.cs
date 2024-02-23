@@ -2,45 +2,29 @@
 using System.Windows;
 using System.Linq;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 using Oracle.ManagedDataAccess.Client;
 
 using Plugins.View;
-using System.Text.Json;
 
 namespace Plugins
 {
     // TODO: Сделать рефакторинг кода
-    public class SubLayerGuid
+    public class ConnectionParams
     {
-        public string SubGuid;
-        public string SubName;
-        public string LayerGuid;
-        public string LayerName;
-        public string SubLayerBaseName;
-        public string SubLayerParentFiedls;
-        public string SubLayerChildFields;
-
-        public SubLayerGuid(string s1, string s2, string s3, string s4, string s5, string s6, string s7)
+        public string UserName { get; }
+        public string Password { get; }
+        public string Host { get; }
+        public int Port { get; }
+        public string Sid { get; }
+        public ConnectionParams(string name, string pass, string host, int port, string sid)
         {
-            SubGuid = s1;
-            SubName = s2;
-            LayerGuid = s3;
-            LayerName = s4;
-            SubLayerBaseName = s5;
-            SubLayerParentFiedls = s6;
-            SubLayerChildFields = s7;
-        }
-
-    }
-    internal readonly struct ConnectionParams
-    {
-        public readonly string userName;
-        public readonly string password;
-        public ConnectionParams(string name, string pass)
-        {
-            userName = name;
-            password = pass;
+            UserName = name;
+            Password = pass;
+            Host = host;
+            Port = port;
+            Sid = sid;
         }
     }
     class VarOpenTrans
@@ -54,50 +38,29 @@ namespace Plugins
         public int port;
         public string sid;
 
-        public List<string> WktStringList;
-        public List<string> DrawStringList;
-        public List<string> ParamStringList;
-        public List<SubLayerGuid> NameGuidList;
-        public List<string> SubLayerGuidList;
-        public List<string> SubLayerNameList;
-        public List<string> LayerGuidList;
-        public List<string> LayerNameList;
-        public List<int> SystemIdList;
-        public Dictionary<string, string> field_names;
-        public int WktCount = 0;
+        public Dictionary<string, string> fieldNames;
         public OracleConnection dbcon = null;
-        public bool InitConnectionParams()
+        public VarOpenTrans()
         {
-            WktStringList = new List<string>();
-            DrawStringList = new List<string>();
-            ParamStringList = new List<string>();
-            SubLayerGuidList = new List<string>();
-            SubLayerNameList = new List<string>();
-            LayerGuidList = new List<string>();
-            LayerNameList = new List<string>();
-            NameGuidList = new List<SubLayerGuid>();
-            SystemIdList = new List<int>();
-            field_names = new Dictionary<string, string>();
-#if OLD
-            host = "data-pc";
-            port = 1521;
-            sid = "GEO";
-#else
-            using (var reader = new System.IO.StreamReader(System.IO.Path.Combine(Constants.SupportPath, "db.config"))) 
-            {
-                string content = reader.ReadToEnd();
-                var obj = JsonDocument.Parse(content).RootElement;
-                host = obj.GetProperty("host").GetString();
-                port = obj.GetProperty("port").GetInt32();
-                sid = obj.GetProperty("sid").GetString();
-            }
-#endif
-
-            return true;
+            fieldNames = new Dictionary<string, string>();
         }
+//        public void InitConnectionParams()
+//        {
+//#if OLD
+//            using (var reader = new System.IO.StreamReader(System.IO.Path.Combine(Constants.SupportPath, "db.config"))) 
+//            {
+//                string content = reader.ReadToEnd();
+//                var obj = JsonDocument.Parse(content).RootElement;
+//                host = obj.GetProperty("host").GetString();
+//                port = obj.GetProperty("port").GetInt32();
+//                sid = obj.GetProperty("sid").GetString();
+//            }
+//#else
+//#endif
+//        }
         public bool TryConnectAndSave(ConnectionParams param)
         {
-            dbcon = GetDBConnection(host, port, sid, param);
+            dbcon = GetDBConnection(param);
             try
             {
                 dbcon.Open();
@@ -109,33 +72,43 @@ namespace Plugins
             }
             return true;
         }
-        public static OracleConnection GetDBConnection(string host, int port, string sid, ConnectionParams param)
+        public static OracleConnection GetDBConnection(ConnectionParams param)
         {
-            // 'Connection String' подключается напрямую к Oracle.
             string connString = "Data Source=(DESCRIPTION =(ADDRESS = (PROTOCOL = TCP)(HOST = "
-                    + host + ")(PORT = " + port + "))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = "
-                    + sid + ")));Password=" + param.password + ";User ID=" + param.userName + ";Connection Timeout = 360;";
+                    + param.Host + ")(PORT = " + param.Port + "))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = "
+                    + param.Sid + ")));Password=" + param.Password + ";User ID=" + param.UserName + ";Connection Timeout = 360;";
 
             return new OracleConnection { ConnectionString = connString };
         }
-        public bool TryGetPassword(out string username, out string password)
+        public bool TryGetPassword(out ConnectionParams connectionParams)
         {
+#if OLD
             SimpleLoginWindow window = new SimpleLoginWindow();
             if (window.ShowDialog() == false)
             {
                 username = password = string.Empty;
                 return false;
             }
-            // network_user = window.LoginDto.Username;
-            // network_pass = window.LoginDto.Password;
             username = window.LoginDto.Username;
             password = window.LoginDto.Password;
+#else
+            var loginWindow = new LoginWindow();
+            loginWindow.ShowDialog();
+            if (!loginWindow.InputResult)
+            {
+                loginWindow.Close();
+                connectionParams = null;
+                return false;
+            }
+            connectionParams = loginWindow.Params;
+            loginWindow.Close();
+#endif
             return true;
         }
         public bool ParseExternalDbLink(string BaseName, out string table_data_fin, OracleConnection dbcon)
         {
             table_data_fin = "Empty";
-            field_names.Clear();
+            fieldNames.Clear();
             try
             {
                 if (true)
@@ -186,9 +159,9 @@ namespace Plugins
                                 field_value += row_0[j] + "_";
                             }
 
-                            if (!field_names.ContainsKey(row_0[0]))
+                            if (!fieldNames.ContainsKey(row_0[0]))
                             {
-                                field_names.Add(row_0[0], field_value);
+                                fieldNames.Add(row_0[0], field_value);
                             }
                         }
                     }
@@ -200,7 +173,7 @@ namespace Plugins
             }
             return true;
         }
-        public bool GetExternalDb(string BaseName, string BaseCaption, string ChildField, int SystemID, OracleConnection dbcon)
+        public bool GetExternalDb(string BaseName, string BaseCaption, string ChildField, int SystemID)
         {
             try
             {
@@ -208,7 +181,7 @@ namespace Plugins
                 {
                     string command_str = "SELECT ";
                     int field_count = 0;
-                    foreach (var item in field_names)
+                    foreach (var item in fieldNames)
                     {
                         if (field_count > 0)
                             command_str += " , ";
@@ -241,6 +214,10 @@ namespace Plugins
                 MessageBox.Show(ex.Message);
             }
             return true;
+        }
+        public void Close()
+        {
+            dbcon.Close();
         }
     }
 }

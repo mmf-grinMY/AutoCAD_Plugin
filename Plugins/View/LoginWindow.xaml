@@ -8,7 +8,6 @@
         WindowStyle="None"
         SizeToContent="WidthAndHeight"
         ResizeMode="NoResize"
-        d:DataContext="{d:DesignInstance Type=local:LoginViewModel}"
         WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.Resources>
@@ -44,10 +43,6 @@
         <Grid 
             Grid.ColumnSpan="2">
             <Grid.RowDefinitions>
-                <RowDefinition/>
-                <RowDefinition/>
-                <RowDefinition/>
-                <RowDefinition/>
                 <RowDefinition/>
                 <RowDefinition/>
                 <RowDefinition/>
@@ -109,42 +104,6 @@
                         Grid.Row="2"
                         Grid.Column="1"
                         Style="{StaticResource TextBoxStyle}"/>
-            <TextBlock
-                Text="Соединяться как"
-                Grid.Row="3"
-                Style="{StaticResource TextBlockStyle}"/>
-            <ComboBox
-                    Grid.Row="3"
-                    Grid.Column="1"
-                    Style="{StaticResource ComboBoxStyle}"
-                    MaxHeight="{Binding ElementName=usernamebox, Path=ActualHeight}"
-                    SelectedIndex="{Binding Privilege}"
-                    Width="{Binding Converter={StaticResource ProcentConverter}, ConverterParameter=2, ElementName=username, Path=ActualWidth}">
-                <ComboBoxItem Content="Normal"/>
-                <ComboBoxItem Content="SYSDBA"/>
-                <ComboBoxItem Content="SYSOPER"/>
-            </ComboBox>
-            <TextBlock
-                Text="Имя горизонта"
-                Grid.Row="4"
-                Style="{StaticResource TextBlockStyle}"/>
-            <ComboBox 
-                ItemsSource="{Binding Gorizonts}"
-                Grid.Column="1"
-                Grid.Row="4"
-                Style="{StaticResource ComboBoxStyle}"
-                MaxHeight="{Binding ElementName=usernamebox, Path=ActualHeight}"
-                SelectedIndex="{Binding SelectedGorizont}"
-                Width="{Binding Converter={StaticResource ProcentConverter}, ConverterParameter=2, ElementName=username, Path=ActualWidth}"/>
-            <!--<CheckBox
-                Margin="4"
-                Padding="3,-3,0,0"
-                FontSize="14"
-                Height="18"
-                Grid.ColumnSpan="2"
-                Grid.Row="5"
-                Content="Рисовать только объекты внутри области"
-                IsChecked="{Binding CheckingBoundingBox}"/>-->
         </Grid>
         <Button
             x:Name="savebutton"
