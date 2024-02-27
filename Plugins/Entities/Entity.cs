@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Windows;
+
 using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Plugins.Entities
@@ -20,11 +18,27 @@ namespace Plugins.Entities
         /// Параметры отрисовки объекта
         /// </summary>
         protected readonly DrawParams drawParams;
+        /// <summary>
+        /// Транзакция отрисовки объекта
+        /// </summary>
         private readonly Transaction transaction;
+        /// <summary>
+        /// Запись объекта отрисовки в таблицу
+        /// </summary>
         private readonly BlockTableRecord record;
+        /// <summary>
+        /// Таблица записей примитивов
+        /// </summary>
         private readonly BlockTable table;
+        #endregion
+
+        #region Protected Fields
+        /// <summary>
+        /// Ключевое слово
+        /// </summary>
         protected readonly string COLOR = "Color";
         #endregion
+
         #region Ctors
         /// <summary>
         /// Создание объекта
@@ -42,7 +56,12 @@ namespace Plugins.Entities
             this.box = box;
         }
         #endregion
+
         #region Protected Methods
+        /// <summary>
+        /// Запись объекта в БД
+        /// </summary>
+        /// <param name="entity">Объект для записи</param>
         protected void AppendToDb(Autodesk.AutoCAD.DatabaseServices.Entity entity)
         {
             entity.SetDatabaseDefaults();
@@ -52,7 +71,7 @@ namespace Plugins.Entities
             CheckBounds(entity);
         }
         /// <summary>
-        /// Перепроверить BoundingBox
+        /// Перепроверка BoundingBox
         /// </summary>
         /// <param name="entity"></param>
         protected void CheckBounds(Autodesk.AutoCAD.DatabaseServices.Entity entity)
@@ -66,11 +85,15 @@ namespace Plugins.Entities
             }
         }
         #endregion
+
         #region Public Methods
         /// <summary>
-        /// Нарисовать объект
+        /// Рисование объекта
         /// </summary>
         public virtual void Draw() { }
+        /// <summary>
+        /// Освобождение ресурсов объекта
+        /// </summary>
         public void Dispose()
         {
             transaction.Commit();
@@ -78,10 +101,20 @@ namespace Plugins.Entities
             table.Dispose();
             transaction.Dispose();
         }
+        /// <summary>
+        /// Проверка на наличие ключа
+        /// </summary>
+        /// <param name="key">Проверяемый ключ</param>
+        /// <returns>true, если ключ имеется, false в противном случае</returns>
         public bool HasKey(string key)
         {
             return table.Has(key);
         }
+        /// <summary>
+        /// Изъятие Id объекта
+        /// </summary>
+        /// <param name="key">Ключ объекта</param>
+        /// <returns>Id искомого объекта</returns>
         public ObjectId GetByKey(string key)
         {
             return table[key];

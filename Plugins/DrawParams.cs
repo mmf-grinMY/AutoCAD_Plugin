@@ -1,19 +1,17 @@
 ﻿using System;
-using System.Text.Json;
-using System.Windows.Forms;
+
 using Aspose.Gis.Geometries;
+
+using Newtonsoft.Json.Linq;
 
 namespace Plugins
 {
+    // FIXME: ??? Нужен ли отдельный класс для хранения | Стоит ли заменить на Tuple? ???
     /// <summary>
     /// Параметры отрисовки
     /// </summary>
     public class DrawParams
     {
-        #region Private Fields
-        private string layername;
-        #endregion
-
         #region Public Properties
         /// <summary>
         /// Геометрический объект
@@ -22,26 +20,22 @@ namespace Plugins
         /// <summary>
         /// Параметры легендаризации
         /// </summary>
-        public JsonElement DrawSettings { get; }
+        public JObject DrawSettings { get; }
         /// <summary>
         /// Общие параметры отрисовки
         /// </summary>
-        public JsonElement Param { get; }
+        public JObject Param { get; }
         /// <summary>
         /// Имя слоя
         /// </summary>
-        public string LayerName 
-        {
-            get => layername;
-            private set
-            {
-                if (string.IsNullOrWhiteSpace(value))
-                    throw new ArgumentException(nameof(value));
-
-                layername = value;
-            }
-        }
+        public string LayerName { get; }
+        /// <summary>
+        /// Уникальный номер примитива
+        /// </summary>
         public int SystemId { get; }
+        /// <summary>
+        /// Линкованные столбцы
+        /// </summary>
         public LinkedDBFields LinkedDBFields { get; }
         #endregion
 
@@ -61,15 +55,11 @@ namespace Plugins
         protected DrawParams(string wkt, string settings, string param, string layername, string systemid, LinkedDBFields linkedDBFields)
         {
             Geometry = Aspose.Gis.Geometries.Geometry.FromText(wkt);
-            //MessageBox.Show("1");
-            DrawSettings = JsonDocument.Parse(settings).RootElement;
-            //MessageBox.Show("2");
-            Param = JsonDocument.Parse(param).RootElement;
-            //MessageBox.Show("3");
+            DrawSettings = JObject.Parse(settings);
+            Param = JObject.Parse(param);
             LayerName = layername;
             SystemId = Convert.ToInt32(systemid);
             LinkedDBFields = linkedDBFields;
-            //MessageBox.Show("4");
         }
         #endregion
     }

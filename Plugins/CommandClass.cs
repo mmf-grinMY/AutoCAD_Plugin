@@ -1,21 +1,14 @@
-﻿//#define MULTI_THREAD // Отрисовка объектов как фоновая задача с показом прогресса
-#define LIMIT_1 // Ограничение количества рисуемых объектов равно 1
+﻿using Plugins.View;
 
-#define DB_BOUNDING_BOX
-
-// Из-за плохого сглаживания линий для приемлемого вида объектов при увеличении приходится вводить команду _REGEN
-// Либо необходимо изменить переменные VIEWRES=20_000 и WHIPARC=1, что отразится на размере файла и производительности AutoCAD
-
-using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Windows;
-using System.Text.Json;
-
-using Oracle.ManagedDataAccess.Client;
+using System.Text;
+using System.IO;
+using System;
 
 using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
-using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
@@ -24,61 +17,6 @@ namespace Plugins
 {
     public partial class Commands : IExtensionApplication
     {
-        #region Private Static Methods
-#if OLD
-        /// <summary>
-        /// Взять граничные точки области
-        /// </summary>
-        /// <param name="doc">Текущий документ</param>
-        /// <returns>Граничные точки, в случае успеха и UndefinedType в противном случае</returns>
-        /// <exception cref="ArgumentException">Вызывается, если не удалось выбрать граничные точки рамки</exception>
-        private static object GetPoints(Document doc)
-        {
-            var editor = doc.Editor;
-            bool bound_fl = true;
-
-            PromptPointOptions ppo = new PromptPointOptions("\n\tЛевый нижний угол: ");
-
-            PromptPointResult pprLeft = editor.GetPoint(ppo);
-
-            bound_fl = bound_fl && pprLeft.Status == PromptStatus.OK;
-
-            PromptCornerOptions pco = new PromptCornerOptions("\n\tПравый верхний угол: ", pprLeft.Value);
-
-            PromptPointResult pprRight = editor.GetCorner(pco);
-
-            bound_fl = bound_fl && pprRight.Status == PromptStatus.OK;
-
-            if (bound_fl)
-            {
-                return new Point3d[] { pprLeft.Value, pprRight.Value };
-            }
-            else
-            {
-                throw new ArgumentException(nameof(bound_fl));
-            }
-        }
-#endif
-        private static string GetXData(ResultBuffer rb, string RegAppName)
-        {
-            var proc_fl_1 = false;
-            var result = string.Empty;
-            foreach (var tv in rb)
-            {
-                if (proc_fl_1)
-                {
-                    result = tv.Value.ToString();
-                    proc_fl_1 = false;
-                }
-                if ((tv.TypeCode == (int)DxfCode.ExtendedDataRegAppName) && (tv.Value.ToString() == RegAppName))
-                {
-                    proc_fl_1 = true;
-                }
-            }
-            return result;
-        }
-#endregion
-
         #region Public Methods
         /// <summary>
         /// Инициализировать плагин
@@ -97,8 +35,8 @@ namespace Plugins
                 var editor = doc.Editor;
                 var db = doc.Database;
 
-                Constants.SetSupportPath(Path.Combine(Directory.GetParent(
-                    Path.GetDirectoryName(db.Filename)).FullName, "Support").Replace("Local", "Roaming"));
+                Constants.SupportPath = Path.Combine(Directory.GetParent(
+                    Path.GetDirectoryName(db.Filename)).FullName, "Support").Replace("Local", "Roaming");
 
                 // TODO: Добавить подгрузку всех типов линий
                 db.LoadLineTypeFile("Contur", Path.Combine(SupportPath, "linetype.lin"));
@@ -123,124 +61,28 @@ namespace Plugins
         [CommandMethod("MMP_DRAW")]
         public void DrawCommand()
         {
-            var doc = AApplication.DocumentManager.MdiActiveDocument;
-            OracleConnection connection = null;
-            bool isBoundingBoxChecked = false;
-            string connectionString = string.Empty;
-            string gorizont = string.Empty;
-            var loginWindow = new Plugins.View.LoginWindow();
-            Plugins.View.GorizontSelecterWindow gorizontSelecter = null;
-
-            var db = doc.Database;
-#if !DEBUG
-#if !DB_BOUNDING_BOX
-            Point3d[] GetBoundingBox()
-            {
-                do
-                {
-                    if (GetPoints(doc) is Point3d[] points)
-                    {
-                        return points;
-                    }
-                }
-                while (true);
-            }
-#endif
-#endif
-connect:
+            OracleDbDispatcher connection = null;
             try
             {
-#if !DEBUG
-                connection = new OracleConnection("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
-                connection.Open();
-
-#if OLD
-                var points = Array.Empty<Point3d>();
-#endif
-                gorizont = "K450E";
+#if DEBUG
+                connection = new OracleDbDispatcher("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
+                string gorizont = "K450E";
 #else
-                loginWindow.ShowDialog();
-                if (!loginWindow.InputResult)
-                {
-                    return;
-                }
-#if OLD
-                connectionString = loginWindow.ConnectionString;
-                connection = new OracleConnection(connectionString);
-#else
-                var config = loginWindow.Params;
+                if (!OracleDbDispatcher.TryGetConnection(out connection)) return;
 
-                var options = new JsonSerializerOptions(JsonSerializerOptions.Default)
-                {
-                    WriteIndented = true,
-                };
-                string content = string.Empty;
-                try
-                {
-                    MessageBox.Show("123");
-                    content = JsonSerializer.Serialize(config, options);
-                    MessageBox.Show("content");
-                }
-                catch (System.Exception ex)
-                {
-                    MessageBox.Show("!" + ex.InnerException.ToString());
-                    return;
-                }
-                var path = DbConfigFilePath;
-                File.WriteAllText(DbConfigFilePath, content);
+                string gorizont;
 
-                connection = VarOpenTrans.GetDBConnection(config);
-#endif
-                connection.Open();
-                gorizontSelecter = new Plugins.View.GorizontSelecterWindow(connection);
-                gorizontSelecter.ShowDialog();
-                if (!gorizontSelecter.InputResult)
+                using (var gorizontSelecter = new View.GorizontSelecterWindow(connection.Gorizonts))
                 {
-                    return;
-                }
-                gorizont = gorizontSelecter.Gorizont;
-#if OLD
-                Point3d[] points = Array.Empty<Point3d>();
-
-                if (isBoundingBoxChecked)
-                {
-                    points = GetBoundingBox();
-                }
-#endif
-#endif
-#if LIMIT_1
-                int limit = 100;
-#else
-                int limit = 0;
-                var query = new SqlQuery().Count(gorizont + "_trans_clone").ToString();
-                using (var reader = new OracleCommand(query, connection).ExecuteReader())
-                {
-                    if (reader.Read())
+                    gorizontSelecter.ShowDialog();
+                    if (!gorizontSelecter.InputResult)
                     {
-                        limit = reader.GetInt32(0);
+                        return;
                     }
+                    gorizont = gorizontSelecter.Gorizont;
                 }
 #endif
-                new ObjectDispatcher(doc, gorizont, connection, limit).Draw();
-            }
-            catch (OracleException ex)
-            {
-                if (ex.Number == 12154)
-                {
-                    if (MessageBox.Show("Неправильно указаны данные подключения к базе данных!\n\nЖелаете еще раз попробовать подключиться к базе данных?", "Ошибка подключения", MessageBoxButton.YesNo, MessageBoxImage.Error) == MessageBoxResult.Yes)
-                    {
-                        goto connect;
-                    }
-                }
-                else if (ex.Number == 1017)
-                {
-                    MessageBox.Show("Неправильный логин или пароль!");
-                    goto connect;
-                }
-                else
-                {
-                    MessageBox.Show(ex.Message);
-                }
+                new ObjectDispatcher(connection, gorizont).Draw();
             }
             catch (System.Exception ex)
             {
@@ -248,21 +90,16 @@ connect:
             }
             finally
             {
-                if (loginWindow.IsLoaded)
-                    loginWindow.Close();
-                gorizontSelecter?.Close();
                 connection?.Dispose();
             }
         }
+        /// <summary>
+        /// Команда инспектирования отрисованных примитивов
+        /// </summary>
         [CommandMethod("VRM_INSPECT_EXT_DB")]
         public void InspectExtDB()
         {
-            VarOpenTrans vot = new VarOpenTrans();
-            // vot.InitConnectionParams();
-            if (!vot.TryGetPassword(out ConnectionParams param))
-                return;
-            if (!vot.TryConnectAndSave(param))
-                return;
+            if (!OracleDbDispatcher.TryGetConnection(out OracleDbDispatcher connection)) return;
 
             var document = AApplication.DocumentManager.MdiActiveDocument;
             var editor = document.Editor;
@@ -276,37 +113,119 @@ connect:
                     if (buffer == null)
                     {
                         editor.WriteMessage("\nУ объекта отсутствуют параметры XData");
+                        continue;
                     }
-                    else
+
+                    string xData;
+                    const int ERROR_SYSTEM_ID = -1;
+
+                    int systemId;
+                    string[] row;
+                    string linkField;
+
+                    if ((linkField = buffer.GetXData(LINK_FIELD)) == string.Empty
+                        || (systemId = (xData = buffer.GetXData(SYSTEM_ID)) == string.Empty ? ERROR_SYSTEM_ID : Convert.ToInt32(xData)) == ERROR_SYSTEM_ID
+                        || (xData = buffer.GetXData(BASE_NAME)) == string.Empty
+                        || (row = xData.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)).Length <= 1)
                     {
-                        string xData;
-                        const int ERROR_SYSTEM_ID = -1;
+                        editor.WriteMessage("Атрибутивная таблица к объекту отсутствует!");
+                        continue;
+                    }
+                        
+                    string baseName = row[1];
+                    string baseCapture = baseName;
+                    var link = connection.GetExternalDbLink(baseName);
 
-                        int systemId;
-                        string[] row;
-                        string linkField;
+                    var fields = link.Split('\n');
+                    var fieldNames = new Dictionary<string, string>();
 
-                        if ((linkField = GetXData(buffer, LINK_FIELD)) != string.Empty
-                            && (systemId = (xData = GetXData(buffer, SYSTEM_ID)) == string.Empty ? ERROR_SYSTEM_ID : Convert.ToInt32(xData)) != ERROR_SYSTEM_ID
-                            && (xData = GetXData(buffer, BASE_NAME)) != string.Empty && (row = xData.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)).Length > 1)
-                        {
-                            string baseName = row[1];
-                            string baseCapture = baseName;
-                            vot.ParseExternalDbLink(baseName, out string outData, vot.dbcon);
-                            string[] f = outData.Split('\n');
-                            if (f.Length > 2)
-                                baseCapture = f[1];
-                            vot.GetExternalDb(baseName, baseCapture, linkField, systemId);
-                        }
-                        else
-                        {
-                            editor.WriteMessage("Атрибутивная таблица к объекту отсутствует!");
-                        }
+                    if (fields.Length > 5) fieldNames = ParseFieldNames(fields);
+
+                    if (fields.Length > 2) baseCapture = fields[1];
+
+                    // FIXME: Неадо ли заполнять DataTable пустыми столбцами?
+                    using (ExternalDBWindow window = new ExternalDBWindow(connection.GetDataTable(CreateCommand(baseName, linkField, systemId, fieldNames))))
+                    {
+                        window.Title = baseCapture;
+                        window.ShowDialog();
                     }
                 }
             }
-            vot.Close();
         }
-        #endregion
+#endregion
+        /// <summary>
+        /// Создание команды выборки данных
+        /// </summary>
+        /// <param name="baseName">Имя линкованной таблицы</param>
+        /// <param name="linkField">Столбец линковки</param>
+        /// <param name="systemId">Уникальный номер примитива</param>
+        /// <param name="fieldNames">Список столбцов таблицы</param>
+        /// <returns>Команда для получения данных</returns>
+        private string CreateCommand(string baseName, string linkField, int systemId, IDictionary<string, string> fieldNames)
+        {
+            var builder = new StringBuilder().Append("SELECT ");
+
+            foreach (var item in fieldNames)
+            {
+                builder.Append(item.Key).Append(" as \"").Append(item.Value).Append("\"").Append(",");
+            }
+
+            builder
+                .Remove(builder.Length - 1, 1)
+                .Append(" FROM ")
+                .Append(baseName)
+                .Append(" WHERE ")
+                .Append(linkField)
+                .Append(" = ")
+                .Append(systemId);
+
+            return builder.ToString();
+        }
+        /// <summary>
+        /// Получение списка столбцов таблицы
+        /// </summary>
+        /// <param name="fields">Исходные столбцы</param>
+        /// <returns>Список столбцов</returns>
+        private Dictionary<string, string> ParseFieldNames(IEnumerable<string> fields)
+        {
+            bool fieldsFlag = true;
+            var result = new Dictionary<string, string>();
+
+            foreach (var field in fields)
+            {
+                if (fieldsFlag)
+                {
+                    if (field == "FIELDS")
+                    {
+                        fieldsFlag = false;
+                    }
+                    continue;
+                }
+                else if (field == "ENDFIELDS")
+                {
+                    break;
+                }
+                else if (field.Contains("+"))
+                {
+                    continue;
+                }
+                var rows = field.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (rows.Length <= 1) continue;
+
+                var builder = new StringBuilder();
+
+                for (int j = 1; j < rows.Length; ++j)
+                {
+                    builder.Append(rows[j]).Append("_");
+                }
+
+                if (!result.ContainsKey(rows[0]))
+                {
+                    result.Add(rows[0], builder.ToString());
+                }
+            }
+
+            return result;
+        }
     }
 }

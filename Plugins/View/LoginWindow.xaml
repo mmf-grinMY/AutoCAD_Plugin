@@ -77,33 +77,34 @@
             </Grid.Resources>
 
             <TextBlock 
-                        x:Name="username"
-                        Text="Имя пользователя"
-                        Style="{StaticResource TextBlockStyle}"/>
+                x:Name="username"
+                Text="Имя пользователя"
+                Style="{StaticResource TextBlockStyle}"/>
             <TextBox
-                        x:Name="usernamebox"
-                        Text="{Binding UserName}" 
-                        Grid.Column="1"
-                        Style="{StaticResource TextBoxStyle}"/>
+                x:Name="usernamebox"
+                Text="{Binding UserName}" 
+                Grid.Column="1"
+                Style="{StaticResource TextBoxStyle}"
+                Width="{Binding Converter={StaticResource ProcentConverter}, ConverterParameter=2, ElementName=username, Path=ActualWidth}"/>
             <TextBlock
-                        Text="Пароль"
-                        Grid.Row="1"
-                        Style="{StaticResource TextBlockStyle}"/>
+                Text="Пароль"
+                Grid.Row="1"
+                Style="{StaticResource TextBlockStyle}"/>
             <PasswordBox
-                        x:Name="passwordBox"
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Margin="2 4 4 0"
-                        FontSize="14"/>
+                x:Name="passwordBox"
+                Grid.Row="1"
+                Grid.Column="1"
+                Margin="2 4 4 0"
+                FontSize="14"/>
             <TextBlock
-                        Text="База данных"
-                        Grid.Row="2"
-                        Style="{StaticResource TextBlockStyle}"/>
+                Text="База данных"
+                Grid.Row="2"
+                Style="{StaticResource TextBlockStyle}"/>
             <TextBox
-                        Text="{Binding Host}"
-                        Grid.Row="2"
-                        Grid.Column="1"
-                        Style="{StaticResource TextBoxStyle}"/>
+                Text="{Binding Host}"
+                Grid.Row="2"
+                Grid.Column="1"
+                Style="{StaticResource TextBoxStyle}"/>
         </Grid>
         <Button
             x:Name="savebutton"

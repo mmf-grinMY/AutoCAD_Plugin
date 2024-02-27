@@ -1,21 +1,37 @@
-﻿using Oracle.ManagedDataAccess.Client;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
+using System;
 
 namespace Plugins.View
 {
     /// <summary>
-    /// Логика взаимодействия для GorizontSelecter.xaml
+    /// Логика взаимодействия для GorizontSelecterWindow.xaml
     /// </summary>
-    public partial class GorizontSelecterWindow : Window
+    public partial class GorizontSelecterWindow : Window, IDisposable
     {
+        /// <summary>
+        /// Выбранный горизонт
+        /// </summary>
         public string Gorizont { get; private set; }
+        /// <summary>
+        /// Результат ввода
+        /// </summary>
         public bool InputResult { get; private set; }
-        public GorizontSelecterWindow(OracleConnection connection)
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        /// <param name="dbGorizonts">Список доступных горизонтов</param>
+        public GorizontSelecterWindow(ObservableCollection<string> dbGorizonts)
         {
             InitializeComponent();
-            var model = new GorizontSelecterViewModel(connection);
+            var model = new GorizontSelecterViewModel(dbGorizonts)
+            {
+                CancelCommand = new RelayCommand(obj =>
+                {
+                    InputResult = false;
+                    Hide();
+                })
+            };
             DataContext = model;
             model.SelectCommand = new RelayCommand(obj =>
             {
@@ -23,45 +39,34 @@ namespace Plugins.View
                 Gorizont = model.Gorizonts[model.SelectedGorizont];
                 Hide();
             });
-            model.CancelCommand = new RelayCommand(obj =>
-            {
-                InputResult = false;
-                Hide();
-            });
         }
+        /// <summary>
+        /// Освобождение занятых ресурсов
+        /// </summary>
+        public void Dispose()
+        {
+            Close();
+        }
+        /// <summary>
+        /// Модель представления для GorizontSelecterWindow.xaml
+        /// </summary>
         private class GorizontSelecterViewModel : BaseViewModel
         {
             /// <summary>
             /// Выбранный горизонт
             /// </summary>
             private int selectedGorizont;
+            /// <summary>
+            /// Список доступных для чтения горизонтов
+            /// </summary>
             private readonly ObservableCollection<string> gorizonts;
-            public GorizontSelecterViewModel(OracleConnection connection)
+            /// <summary>
+            /// Создание объекта
+            /// </summary>
+            /// <param name="dbGorizonts">Список доступных для чтения горизонтов</param>
+            public GorizontSelecterViewModel(ObservableCollection<string> dbGorizonts)
             {
-                gorizonts = new ObservableCollection<string>();
-                IDictionary<string, bool> selectedGorizonts = new Dictionary<string, bool>();
-                using (var reader = new OracleCommand("SELECT table_name FROM all_tables WHERE table_name LIKE 'K%_TRANS_CLONE' OR table_name LIKE 'K%_TRANS_OPEN_SUBLAYERS'", connection).ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        string tableName = reader.GetString(0).Split('_')[0];
-                        if (selectedGorizonts.ContainsKey(tableName))
-                        {
-                            selectedGorizonts[tableName] = true;
-                        }
-                        else
-                        {
-                            selectedGorizonts.Add(tableName, false);
-                        }
-                    }
-                }
-                foreach (var key in selectedGorizonts.Keys)
-                {
-                    if (selectedGorizonts[key])
-                    {
-                        gorizonts.Add(key);
-                    }
-                }
+                gorizonts = dbGorizonts;
             }
             /// <summary>
             /// Выбранный горизонт
@@ -79,7 +84,13 @@ namespace Plugins.View
             /// Список доступных для отрисовки горизонтов
             /// </summary>
             public ObservableCollection<string> Gorizonts => gorizonts;
+            /// <summary>
+            /// Команда продолжения
+            /// </summary>
             public RelayCommand SelectCommand { get; set; }
+            /// <summary>
+            /// Команда прекращения действий
+            /// </summary>
             public RelayCommand CancelCommand { get; set; }
         }
     }

@@ -1,6 +1,6 @@
-﻿using Autodesk.AutoCAD.DatabaseServices;
+﻿using Autodesk.AutoCAD.ApplicationServices.Core;
+using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.ApplicationServices.Core;
 
 using static Plugins.Constants;
 
@@ -9,7 +9,7 @@ namespace Plugins.Entities
     /// <summary>
     /// Создатель блоков
     /// </summary>
-    class BlocksCreater
+    sealed class BlocksCreater
     {
         /// <summary>
         /// Внутренняя база данных AutoCAD
@@ -26,7 +26,7 @@ namespace Plugins.Entities
         /// Создать блок
         /// </summary>
         /// <param name="blockName">Имя блока</param>
-        /// <returns></returns>
+        /// <returns>true, если блок отрисован, false в противном случае</returns>
         public bool Create(string blockName)
         {
             using (var manager = new ResourceManager(db))
@@ -35,6 +35,7 @@ namespace Plugins.Entities
 
                 switch (blockName)
                 {
+                    // TODO: Сделать создание блоков по описанию в файле
                     case "pnt!.chr_48": CreatePntOld48(manager); break;
                     case "pnt!.chr_53": CreatePntOld53(manager); break;
                     case "pnt!.chr_100": CreatePntOld100(manager); break;

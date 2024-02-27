@@ -1,6 +1,4 @@
-﻿using System;
-
-using Autodesk.AutoCAD.DatabaseServices;
+﻿using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 
 using static Plugins.Constants;
@@ -16,6 +14,9 @@ namespace Plugins.Entities
         /// Создатель блоков
         /// </summary>
         private readonly static BlocksCreater creater;
+        /// <summary>
+        /// Статическое создание
+        /// </summary>
         static Sign()
         {
             creater = new BlocksCreater();
@@ -27,22 +28,24 @@ namespace Plugins.Entities
         /// <param name="draw">Параметры отрисовки</param>
         /// <param name="box">Общий для всех рисуемых объектов BoundingBox</param>
         public Sign(Database db, DrawParams draw, Box box) : base(db, draw, box) { }
+        /// <summary>
+        /// Рисование объекта
+        /// </summary>
         public override void Draw()
         {
             var settings = drawParams.DrawSettings;
-            var key = settings.GetProperty("FontName").GetString() + "_" + settings.GetProperty("Symbol").GetString();
+            var key = settings.Value<string>("FontName") + "_" + settings.Value<string>("Symbol");
 
             if (!HasKey(key) && !creater.Create(key))
                 return;
 
-            var point = drawParams.Geometry as Aspose.Gis.Geometries.Point
-                ?? throw new ArgumentNullException($"Не удалось преобразовать объект {drawParams.Geometry} в тип {nameof(Aspose.Gis.Geometries.Point)}");
-
+            var point = drawParams.Geometry as Aspose.Gis.Geometries.Point;
+            
             using (var reference = new BlockReference(new Point3d(point.X * SCALE, point.Y * SCALE, 0), GetByKey(key))
             {
-                Color = ColorConverter.FromMMColor(settings.GetProperty(COLOR).GetInt32()),
+                Color = ColorConverter.FromMMColor(settings.Value<int>(COLOR)),
                 Layer = drawParams.LayerName,
-                ScaleFactors = new Scale3d(settings.GetProperty("FontScaleY").GetDouble())
+                ScaleFactors = new Scale3d(settings.Value<double>("FontScaleY"))
             })
             {
                 AppendToDb(reference);

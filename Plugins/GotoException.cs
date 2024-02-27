@@ -1,11 +1,9 @@
-﻿using System;
-
-namespace Plugins
+﻿namespace Plugins
 {
     /// <summary>
     /// Пользовательское исключение для экстренного перехода в вызывающую функцию
     /// </summary>
-    internal class GotoException : Exception
+    internal class GotoException : System.Exception
     {
         /// <summary>
         /// Порядковый номер исключительной ситуации
@@ -14,6 +12,7 @@ namespace Plugins
         /// <summary>
         /// Причина исключения
         /// </summary>
+        /// <exception cref="System.ArgumentOutOfRangeException">Возникает при выходе индекса за границы</exception>
         public string RowName
         {
             get
@@ -25,7 +24,7 @@ namespace Plugins
                     case 2: return "paramjson";
                     case 3: return "sublayerguid";
                     case 4: return "Ошибка при создании объекта DrawParams";
-                    default: throw new ArgumentOutOfRangeException(nameof(index), "должен быть в диапазоне от 0 до 4");
+                    default: throw new System.ArgumentOutOfRangeException(nameof(index), "должен быть в диапазоне от 0 до 4");
                 }
             }
         }

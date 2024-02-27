@@ -1,13 +1,12 @@
-﻿using System;
-using System.Globalization;
-using System.Windows.Data;
+﻿using System.Globalization;
+using System;
 
 namespace Plugins.View
 {
     /// <summary>
     /// Конвертер размеров
     /// </summary>
-    internal class ProcentConverter : IValueConverter
+    internal class ProcentConverter : System.Windows.Data.IValueConverter
     {
         /// <summary>
         /// Конвертировать в единицы измерения
@@ -21,7 +20,7 @@ namespace Plugins.View
         {
             if ((double)value is double.NaN)
             {
-                return 108;
+                return 108; // FIXME: ??? Почему именно такое число ???
             }
             return System.Convert.ToDouble(value) * System.Convert.ToDouble(parameter);
         }

@@ -1,59 +1,44 @@
-﻿#define ZOOM // Прибилижение к отрисовываемым объектам
-// #define MULTI_THREAD // Отрисовывать объекты в качестве сторонней задачи
-#define MY_BOUNDING_BOX // Отслеживание границ по координатам
-#if !MY_BOUNDING_BOX
-#define DB_BOUNDING_BOX // Отслеживание границ по БД
-#endif
+﻿#define MY_BOUNDING_BOX
 
 using Plugins.Entities;
 
-using System;
 using System.Windows;
+using System;
 
 using Oracle.ManagedDataAccess.Client;
 
+using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
+using ALine = Autodesk.AutoCAD.DatabaseServices.Line;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.ApplicationServices;
-using ALine = Autodesk.AutoCAD.DatabaseServices.Line;
-using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
-using System.Text.Json;
 
 namespace Plugins
 {
+    /// <summary>
+    /// Диспетчер управления отрисовкой примитивов
+    /// </summary>
     internal class ObjectDispatcher
     {
         #region Private Fields
 
         private readonly EntitiesFactory factory;
         /// <summary>
-        /// Текущий документ
-        /// </summary>
-        private readonly Document doc;
-        /// <summary>
         /// Рисуемый горизонт
         /// </summary>
         private readonly string gorizont;
-        /// <summary>
-        /// Подключение к БД
-        /// </summary>
-        private readonly OracleConnection connection;
-        /// <summary>
-        /// Предельное количество рисуемых объектов
-        /// </summary>
-        private readonly int limit;
+        private readonly OracleDbDispatcher connection;
+        private readonly Database db;
         /// <summary>
         /// Текущий слой
         /// </summary>
         private string currentLayer = string.Empty;
 #if MY_BOUNDING_BOX
-        readonly Box box = new Box() { Bottom = long.MaxValue, Left = long.MaxValue, Right = long.MinValue, Top = long.MinValue };
+        readonly Box box;
 #endif
 
 #endregion
 
         #region Private Static Methods
-
         /// <summary>
         /// Проверить на наличие данных во всех столбцах строки
         /// </summary>
@@ -153,41 +138,6 @@ namespace Plugins
                 transaction.Commit();
             }
         }
-
-#if DB_BOUNDING_BOX
-        /// <summary>
-        /// Сортировать объекты с учетом граничной рамки
-        /// </summary>
-        /// <param name="draw">Строковые параметры рисования</param>
-        /// <param name="points">Граничные точки рамки</param>
-        /// <returns>Параметры рисования</returns>
-        /// <exception cref="GotoException">Вызывается, если объект не принадлежит рамке</exception>
-        private DrawParams Sort(Draw draw, Point3d[] points)
-        {
-            try
-            {
-                const string LEFT_BOUND = "LeftBound";
-                const string RIGHT_BOUND = "RightBound";
-                const string BOTTOM_BOUND = "BottomBound";
-                const string TOP_BOUND = "TopBound";
-
-                var drawParams = new DrawParams(draw);
-
-                string value = drawParams.Param[LEFT_BOUND].Value<string>();
-                if (value.Contains("1_=INF")) throw new GotoException(5);
-                if (Convert.ToDouble(value.Replace("_", "")) * SCALE < points[0].X) throw new GotoException(5);
-                if (Convert.ToDouble(drawParams.Param[BOTTOM_BOUND].Value<string>().Replace("_", "")) * SCALE < points[0].Y) throw new GotoException(5);
-                if (Convert.ToDouble(drawParams.Param[RIGHT_BOUND].Value<string>().Replace("_", "")) * SCALE > points[1].X) throw new GotoException(5);
-                if (Convert.ToDouble(drawParams.Param[TOP_BOUND].Value<string>().Replace("_", "")) * SCALE > points[1].Y) throw new GotoException(5);
-
-                return drawParams;
-            }
-            catch
-            {
-                throw new GotoException(4);
-            }
-        }
-#else
         /// <summary>
         /// Сортировать параметры рисования
         /// </summary>
@@ -206,7 +156,6 @@ namespace Plugins
                 throw new GotoException(4);
             }
         }
-#endif
 
         #endregion
 
@@ -215,9 +164,8 @@ namespace Plugins
         /// <summary>
         /// Создать новый слой
         /// </summary>
-        /// <param name="db">Внутренняя БД AutoCAD</param>
         /// <param name="layerName">Имя слоя</param>
-        private void CreateLayer(Database db, string layerName)
+        private void CreateLayer(string layerName)
         {
             if (currentLayer != layerName)
             {
@@ -249,9 +197,23 @@ namespace Plugins
             if (!IsDBNull(reader, 5))
             {
                 if (reader.IsDBNull(6) || reader.IsDBNull(7))
-                    return new Draw(reader.GetString(1), reader.GetString(0), reader.GetString(2), $"{reader.GetString(3)} | {reader.GetString(4)}", reader.GetString(5), null);
+                {
+                    return new Draw(reader.GetString(1),
+                                    reader.GetString(0),
+                                    reader.GetString(2),
+                                    $"{reader.GetString(3)} | {reader.GetString(4)}",
+                                    reader.GetString(5),
+                                    null);
+                }
                 else
-                    return new Draw(reader.GetString(1), reader.GetString(0), reader.GetString(2), $"{reader.GetString(3)} | {reader.GetString(4)}", reader.GetString(5), new LinkedDBFields(reader.GetString(6), reader.GetString(7)));
+                {
+                    return new Draw(reader.GetString(1),
+                                    reader.GetString(0),
+                                    reader.GetString(2),
+                                    $"{reader.GetString(3)} | {reader.GetString(4)}",
+                                    reader.GetString(5),
+                                    new LinkedDBFields(reader.GetString(6), reader.GetString(7)));
+                }
             }
 
             return new Draw();
@@ -259,128 +221,53 @@ namespace Plugins
         #endregion
 
         #region Ctors
-
-        public ObjectDispatcher(Document document, string gorizont, OracleConnection connection, int limit)
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        /// <param name="connection">Менеджер подключения</param>
+        /// <param name="selectedGorizont">Выбранный горизонт</param>
+        public ObjectDispatcher(OracleDbDispatcher connection, string selectedGorizont)
         {
-            doc = document;
-            this.gorizont = gorizont;
             this.connection = connection;
-            this.limit = limit;
-            factory = new EntitiesFactory();
+            gorizont = selectedGorizont;
+            db = AApplication.DocumentManager.MdiActiveDocument.Database;
+            box = new Box() { Bottom = long.MaxValue, Left = long.MaxValue, Right = long.MinValue, Top = long.MinValue };
+            factory = new EntitiesFactory(AApplication.DocumentManager.MdiActiveDocument.Database, box);
         }
-
         #endregion
 
         #region Public Methods
-
-        /// <summary>
-        /// Проделать полную итерацию отрисовки
-        /// </summary>
-        /// <param name="db">Внутренняя БД AutoCAD</param>
-        /// <param name="reader">Читатель БД</param>
-        public void PipelineIteration(Database db, OracleDataReader reader)
-        {
-            string layer = string.Empty;
-            try
-            {
-#if DB_BOUNDING_BOX
-                Draw InnerRead(OracleDataReader dataReader)
-                {
-                    if (IsDBNull(dataReader, 8))
-                    {
-                        throw new GotoException();
-                    }
-                    else
-                    {
-                        left = Math.Min(Convert.ToInt64(dataReader.GetString(4)), left);
-                        right = Math.Max(Convert.ToInt64(dataReader.GetString(5)), right);
-                        bottom = Math.Min(Convert.ToInt64(dataReader.GetString(6)), bottom);
-                        top = Math.Max(Convert.ToInt64(dataReader.GetString(7)), top);
-                        return new Draw(dataReader.GetString(1), dataReader.GetString(0), dataReader.GetString(2), dataReader.GetString(3));
-                    }
-                }
-
-                var param = InnerRead(reader);                    
-#else
-                var param = Read(reader);
-#endif
-                var draw = Sort(param);
-
-                layer = draw.LayerName;
-                CreateLayer(db, draw.LayerName);
-                using (var entity = factory.Create(db, draw, box))
-                {
-                    entity?.Draw();
-                }
-            }
-            catch (GotoException)
-            {
-                return;
-            }
-            catch (Autodesk.AutoCAD.Runtime.Exception ex)
-            {
-                MessageBox.Show(ex.GetType() + "\n" + ex.Message + "\n" + ex.StackTrace + "\n" + ex.Source);
-            }
-            catch (Exception ex) 
-            {
-                MessageBox.Show(ex.GetType() + "\n" + ex.Message + "\n" + ex.StackTrace + "\n" + ex.Source);
-            }
-        }
         /// <summary>
         /// Начать отрисовку объектов
         /// </summary>
         /// <param name="window">Окно отображения пргресса отрисовки</param>
         public void Draw()
         {
-            var db = doc.Database;
-
-            // SQL commands
-            const string SELECT = "SELECT";
-            const string FROM = "FROM";
-            const string JOIN = "JOIN";
-            const string ON = "ON";
-            // Rows
-            const string layername = "layername";
-            const string sublayername = "sublayername";
-            const string geowkt = "geowkt";
-            const string drawjson = "drawjson";
-            const string paramjson = "paramjson";
-            const string sublayerguid = "sublayerguid";
-            // Linked table
-            const string systemid = "systemid";
-            const string basename = "basename";
-            const string childfields = "childfields";
-
-            // TODO: Переписать SQL-запрос специальным классом
-            string command =
-                SELECT +
-                $" {drawjson}, {geowkt}, {paramjson}, {layername}, {sublayername}, " +
-                $"{systemid}, {basename}, {childfields} " +
-#if DB_BOUNDING_BOX
-                ", leftbound, rightbound, bottombound, topbound " +
-#endif
-                FROM +
-                "(" +
-                    SELECT +
-                    $" b.{layername}, b.{sublayername}, a.{geowkt}, a.{drawjson}, a.{paramjson}, a.{sublayerguid}, " +
-                    $"a.{systemid}, b.{childfields}, b.{basename} " +
-#if DB_BOUNDIG_BOX
-                ", a.leftbound, a.rightbound, a.topbound, a.bottombound " +
-#endif
-                    FROM + $" {gorizont}_trans_clone a " +
-                    JOIN + $" {gorizont}_trans_open_sublayers b " +
-                    ON + $" a.{sublayerguid} = b.{sublayerguid}" +
-                ")";
-            using (var reader = new OracleCommand(command, connection).ExecuteReader())
+            using (var reader = connection.GetDrawParams(gorizont))
             {
-                int counter = 0;
-                while (reader.Read() && counter < limit)
+                while(reader.Read())
                 {
-                    counter++;
-                    PipelineIteration(db, reader);
+                    try
+                    {
+                        var param = Read(reader);
+                        var draw = Sort(param);
+                        CreateLayer(draw.LayerName);
+                        using (var entity = factory.Create(draw))
+                        {
+                            entity?.Draw();
+                        }
+                    }
+                    catch (GotoException)
+                    {
+                        continue;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.GetType() + "\n" + ex.Message + "\n" + ex.StackTrace + "\n" + ex.Source);
+                    }
                 }
             }
-            MessageBox.Show($"Закончена отрисовка геометрии!");
+            MessageBox.Show("Закончена отрисовка геометрии!");
             Zoom(new Point3d(box.Left, box.Bottom, 0), new Point3d(box.Right, box.Top, 0), new Point3d(0, 0, 0), 1.0);
         }
         #endregion

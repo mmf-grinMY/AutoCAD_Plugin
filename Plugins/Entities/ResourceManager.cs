@@ -31,6 +31,7 @@ namespace Plugins.Entities
         /// </summary>
         private readonly Database db;
         #endregion
+
         #region Ctors
         /// <summary>
         /// Создание объекта
@@ -43,6 +44,7 @@ namespace Plugins.Entities
             isMustAborted = false;
         }
         #endregion
+
         #region Public Properties
         /// <summary>
         /// Имя создаваемого блока
@@ -60,6 +62,7 @@ namespace Plugins.Entities
             } 
         }
         #endregion
+
         #region Public Methods
         /// <summary>
         /// Сохрнаить объект отрисовки

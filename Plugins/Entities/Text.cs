@@ -1,8 +1,9 @@
 ﻿using System;
-using System.Text.Json;
 
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
+
+using Newtonsoft.Json.Linq;
 
 using static Plugins.Constants;
 
@@ -11,7 +12,7 @@ namespace Plugins.Entities
     /// <summary>
     /// Подпись
     /// </summary>
-    class Text : Entity
+    sealed class Text : Entity
     {
         /// <summary>
         /// Создание объекта
@@ -20,30 +21,37 @@ namespace Plugins.Entities
         /// <param name="draw">Параметры отрисовки</param>
         /// <param name="box">Общий для всех рисуемых объектов BoundingBox</param>
         public Text(Database db, DrawParams draw, Box box) : base(db, draw, box) { }
+        /// <summary>
+        /// Рисование примитива
+        /// </summary>
         public override void Draw()
         {
+            const string FONT_SIZE = "FontSize";
+            const string ANGLE = "Angle";
+            const string TEXT = "Text";
+
             var settings = drawParams.DrawSettings;
-            var fontSize = settings.GetProperty("FontSize").GetInt32() * 500;
+            var fontSize = settings.Value<int>(FONT_SIZE) * TEXT_SCALE;
 
-            var point = drawParams.Geometry as Aspose.Gis.Geometries.Point
-                ?? throw new ArgumentNullException($"Не удалось преобразовать объект {drawParams.Geometry} в тип {nameof(Aspose.Gis.Geometries.Point)}");
-
+            var point = drawParams.Geometry as Aspose.Gis.Geometries.Point;
+            
             using (var text = new DBText()
             {
-                TextString = settings.GetProperty("Text").GetString(),
                 Layer = drawParams.LayerName,
                 Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0),
                 Position = new Point3d(point.X * SCALE, point.Y * SCALE, 0),
-                Height = fontSize > 0 
-                    ? fontSize 
-                    : throw new ArgumentException($"Невозможно задать тексту шрифт {fontSize} {drawParams.Geometry.AsText()}")
             })
             {
-                // TODO: Проверить параметры установки поворота текста
-                if (settings.TryGetProperty("Angle", out JsonElement angle))
-                    text.Rotation = Convert.ToDouble(angle.GetString().Replace('_', ',')) / 180 * Math.PI;
+                if (fontSize > 0)
+                    text.Height = fontSize;
 
                 AppendToDb(text);
+
+                // TODO: Проверить параметры установки поворота текста
+                if (settings.TryGetValue(ANGLE, StringComparison.CurrentCulture, out JToken angle))
+                    text.Rotation = angle.Value<string>().ToDouble().ToRad();
+
+                text.TextString = settings.Value<string>(TEXT);
             }
         }
     }

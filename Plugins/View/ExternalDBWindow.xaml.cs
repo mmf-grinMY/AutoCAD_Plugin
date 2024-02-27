@@ -1,6 +1,6 @@
-﻿using System;
+﻿using System.Windows;
 using System.Data;
-using System.Windows;
+using System;
 
 namespace Plugins.View
 {
@@ -9,15 +9,21 @@ namespace Plugins.View
     /// </summary>
     public partial class ExternalDBWindow : Window, IDisposable
     {
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        /// <param name="dataTable">Таблица данных</param>
         public ExternalDBWindow(DataTable dataTable)
         {
             InitializeComponent();
             dataGrid.ItemsSource = dataTable.DefaultView;
         }
+        /// <summary>
+        /// Освобождение занятых ресурсов
+        /// </summary>
         public void Dispose()
         {
-            if (IsLoaded)
-                Close();
+            Close();
         }
     }
 }

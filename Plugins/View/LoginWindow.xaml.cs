@@ -1,13 +1,15 @@
-﻿using System.IO;
-using System.Text.Json;
-using System.Windows;
+﻿using System.Windows;
+using System.IO;
+using System;
+
+using Newtonsoft.Json;
 
 namespace Plugins.View
 {
     /// <summary>
     /// Окно ввода параметров для подключения к БД
     /// </summary>
-    public partial class LoginWindow : Window
+    public partial class LoginWindow : Window, IDisposable
     {
         #region Public Properties
         /// <summary>
@@ -26,8 +28,9 @@ namespace Plugins.View
         /// </summary>
         public LoginWindow()
         {
+            // TODO: Добавить поля для ввода хоста и порта подключения
             InitializeComponent();
-            SizeChanged += LoginWindow_SizeChanged;
+            SizeChanged += HandleSizeChanged;
             LoginViewModel model = new LoginViewModel();
             DataContext = model;
             model.SaveCommand = new RelayCommand(obj =>
@@ -64,7 +67,12 @@ namespace Plugins.View
                         host = strings[0];
                         sid = strings[1];
                     }
-                    Params = new ConnectionParams(model.UserName, password, host, port, sid);
+                    File.WriteAllText(Constants.DbConfigFilePath,
+                                      JsonConvert.SerializeObject(Params = new ConnectionParams(model.UserName,
+                                                                                                password,
+                                                                                                host,
+                                                                                                port,
+                                                                                                sid)));
                 }
             });
             model.CancelCommand = new RelayCommand(obj => 
@@ -77,20 +85,27 @@ namespace Plugins.View
 
         #region Private Methods
         /// <summary>
-        /// Изменить размер окна
+        /// Изменение размера окна
         /// </summary>
         /// <param name="sender">Вызывающий объект</param>
         /// <param name="e">Параметры вызова</param>
-        private void LoginWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void HandleSizeChanged(object sender, SizeChangedEventArgs e)
         {
+            // TODO: Исправить изменение размеров окна
             Top = (SystemParameters.FullPrimaryScreenWidth - ActualHeight) / 2;
             Left = (SystemParameters.FullPrimaryScreenHeight - ActualWidth) / 2;
         }
         #endregion
+
+        public void Dispose()
+        {
+            Close();
+        }
+
         /// <summary>
         /// Модель предстваления для класса LoginWindow
         /// </summary>
-        internal class LoginViewModel : BaseViewModel
+        private class LoginViewModel : BaseViewModel
         {
             #region Private Fields
             /// <summary>
@@ -112,13 +127,9 @@ namespace Plugins.View
                 string content = File.ReadAllText(Constants.DbConfigFilePath);
                 if (content != string.Empty)
                 {
-                    MessageBox.Show(content);
-                    var root = JsonDocument.Parse(content).RootElement;
-                    if (root.TryGetProperty("UserName", out JsonElement username))
-                    {
-                        UserName = username.GetString();
-                        Host = root.GetProperty("Host").GetString() + "/" + root.GetProperty("Sid").GetString();
-                    }
+                    var obj = JsonConvert.DeserializeObject<ConnectionParams>(content);
+                    UserName = obj.UserName;
+                    Host = obj.Host + "/" + obj.Sid;
                 }
             }
             #endregion
@@ -152,7 +163,7 @@ namespace Plugins.View
 
             #region Commands
             /// <summary>
-            /// Поключиться
+            /// Поключиться к БД
             /// </summary>
             public RelayCommand SaveCommand { get; set; }
             /// <summary>

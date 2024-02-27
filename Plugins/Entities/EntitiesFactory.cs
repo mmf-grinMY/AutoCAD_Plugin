@@ -10,16 +10,33 @@ namespace Plugins.Entities
     class EntitiesFactory
     {
         /// <summary>
-        /// Создать объект отрисовки
+        /// Внутренняя БД AutoCAD
+        /// </summary>
+        private readonly Database db;
+        /// <summary>
+        /// Грагичная рамка рисуемых объектов
+        /// </summary>
+        private readonly Box box;
+        /// <summary>
+        /// Создание объекта
         /// </summary>
         /// <param name="db">Внутренняя база данных AutoCAD</param>
-        /// <param name="draw">Параметры отрисовки</param>
         /// <param name="box">Общий BoundingBox всех рисуемых объектов</param>
-        /// <returns>Объект отрисовки</returns>
-        /// <exception cref="NotImplementedException">Возникает при отрисовке неизвестных геометрий</exception>
-        public Entity Create(Database db, DrawParams draw, Box box )
+        public EntitiesFactory(Database db, Box box)
         {
-            switch (draw.DrawSettings.GetProperty("DrawType").GetString())
+            this.db = db;
+            this.box = box;
+        }
+        /// <summary>
+        /// Создание объекта отрисовки
+        /// </summary>
+        /// <param name="draw">Параметры отрисовки</param>
+        /// <returns>Объект отрисовки</returns>
+        /// <exception cref="NotImplementedException">Возникает при отрисовке объектов типа Polyline</exception>
+        /// <exception cref="ArgumentException">Возникает при отрисовке неизвестных геометрий</exception>
+        public Entity Create(DrawParams draw)
+        {
+            switch (draw.DrawSettings.Value<string>("DrawType"))
             {
                 case "Polyline":
                     {
@@ -31,15 +48,9 @@ namespace Plugins.Entities
                         }
                     }
                 case "BasicSignDrawParams":
-                case "TMMTTFSignDrawParams":
-                    {
-                        return new Sign(db, draw, box);
-                    }
-                case "LabelDrawParams":
-                    {
-                        return new Text(db, draw, box);
-                    }
-                // FIXME: Возможно более логичным будет при обнаружении нового типа просто пропускать данный объект
+                case "TMMTTFSignDrawParams": return new Sign(db, draw, box);
+                case "LabelDrawParams": return new Text(db, draw, box);
+                // FIXME: ??? Возможно более логичным будет при обнаружении нового типа просто пропускать данный объект
                 default: throw new ArgumentException("Неизвестный тип рисуемого объекта");
             }
         }

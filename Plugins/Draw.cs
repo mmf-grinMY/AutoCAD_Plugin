@@ -1,5 +1,6 @@
 ﻿namespace Plugins
 {
+    // FIXME: ??? Нужен ли отдельный класс для хранения | Стоит ли заменить на Tuple? ???
     /// <summary>
     /// Строковые параметры отрисовки
     /// </summary>
@@ -44,15 +45,5 @@
             LinkedFields = linkedFields;
         }
         #endregion
-    }
-    public class LinkedDBFields
-    {
-        public string BaseName { get; }
-        public string LinkedField { get; }
-        public LinkedDBFields(string bseName, string linkedField)
-        {
-            BaseName = bseName;
-            LinkedField = linkedField;
-        }
     }
 }
