@@ -8,6 +8,7 @@ using Autodesk.AutoCAD.Colors;
 using Newtonsoft.Json.Linq;
 
 using static Plugins.Constants;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace Plugins.Entities
 {
@@ -72,24 +73,24 @@ namespace Plugins.Entities
         /// <param name="layer">Слой отрисовки</param>
         public static APolyline SetDrawSettings(this APolyline polyline, JObject settings, string layer)
         {
-            const string BRUSH_BK_COLOR = "BrushBkColor";
+            const string PEN_COLOR = "PenColor";
             const string WIDTH = "Width";
             const string BORDER_DESCRIPRION = "BorderDescription";
 
-            polyline.Color = ColorConverter.FromMMColor(settings.Value<int>(BRUSH_BK_COLOR));
+            polyline.Color = ColorConverter.FromMMColor(settings.Value<int>(PEN_COLOR));
             polyline.Thickness = settings.Value<double>(WIDTH);
             polyline.Layer = layer;
 
-            // TODO: Добавить выбор типа линии (через nPenStyle)
-            if (settings.TryGetValue(BORDER_DESCRIPRION,
-                                                    StringComparison.CurrentCulture,
-                                                    out JToken borderDescription))
+            if (settings.TryGetValue(BORDER_DESCRIPRION, StringComparison.CurrentCulture, out JToken borderDescription)
+               && borderDescription.Value<string>() == "{D075F160-4C94-11D3-A90B-A8163E53382F}")
             {
-                if (borderDescription.Value<string>() == "{D075F160-4C94-11D3-A90B-A8163E53382F}")
-                {
-                    polyline.Linetype = "Contur";
-                    polyline.Color = Color.FromRgb(0, 128, 0);
-                }
+                // FIXME: ??? Данные линии не должны существовать ???
+                polyline.Linetype = "MMP_1";
+                polyline.Color = Color.FromRgb(0, 255, 0);
+            }
+            else if (settings.Value<int>("nPenStyle") == 1)
+            {
+                polyline.Linetype = "MMP_2";
             }
 
             return polyline;

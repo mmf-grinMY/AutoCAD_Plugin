@@ -63,7 +63,7 @@ namespace Plugins
         /// <param name="max">Максимальная точка</param>
         /// <param name="center">Центр рамки</param>
         /// <param name="factor">Масштаб приближения</param>
-        private static void Zoom(Point3d min, Point3d max, Point3d center, double factor)
+        public static void Zoom(Point3d min, Point3d max, Point3d center, double factor)
         {
             var doc = AApplication.DocumentManager.MdiActiveDocument;
             var db = doc.Database;

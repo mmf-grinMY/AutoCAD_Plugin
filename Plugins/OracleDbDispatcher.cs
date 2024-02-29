@@ -156,8 +156,7 @@ connect:
             // TODO: Упростить команду (все имена полей заменить на *)
             string command =
                 "SELECT drawjson, geowkt, paramjson, layername, sublayername, systemid, basename, childfields " +
-                "FROM ( SELECT b.layername, b.sublayername, a.geowkt, a.drawjson, a.paramjson, a.sublayerguid, " +
-                "a.systemid, b.childfields, b.basename FROM " + gorizont + "_trans_clone a JOIN " + gorizont +
+                "FROM ( SELECT * FROM " + gorizont + "_trans_clone a JOIN " + gorizont +
                 "_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid)";
 
             return new OracleCommand(command, connection).ExecuteReader();

@@ -11,12 +11,43 @@ using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 
+using Newtonsoft.Json.Linq;
+
 using static Plugins.Constants;
 
 namespace Plugins
 {
     public partial class Commands : IExtensionApplication
     {
+        #region Private Methods
+
+        /// <summary>
+        /// Проверка загрузки всех необходимый стилей линий MapManager
+        /// </summary>
+        /// <param name="db">Внутренняя БД AutoCAD</param>
+        /// <param name="types">Список необходимых стилей</param>
+        /// <returns>true, если все стили корректно загружены, false в противном случае</returns>
+        private bool VerifyLoadingLineTypes(Database db, IEnumerable<string> types)
+        {
+            using (var transaction = db.TransactionManager.StartTransaction())
+            {
+                var table = transaction.GetObject(db.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
+
+                foreach (var name in types)
+                {
+                    if (!table.Has(name))
+                    {
+                        MessageBox.Show($"Не подгружен тип линии {name}");
+                        return false;
+                    }
+                }
+            }
+            
+            return true;
+        }
+
+        #endregion
+
         #region Public Methods
         /// <summary>
         /// Инициализировать плагин
@@ -32,16 +63,24 @@ namespace Plugins
             }
             else
             {
-                var editor = doc.Editor;
                 var db = doc.Database;
 
                 Constants.SupportPath = Path.Combine(Directory.GetParent(
                     Path.GetDirectoryName(db.Filename)).FullName, "Support").Replace("Local", "Roaming");
 
-                // TODO: Добавить подгрузку всех типов линий
-                db.LoadLineTypeFile("Contur", Path.Combine(SupportPath, "linetype.lin"));
+                var typeNames = JObject
+                    .Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, "plugin.config.json")))
+                    .Value<JArray>("LineTypes")
+                    .Values<string>();
 
-                editor.WriteMessage("Загрузка плагина прошла успешно!");
+                foreach (var name in typeNames)
+                {
+                    db.LoadLineTypeFile(name, "acad.lin");
+                }
+
+                if (!VerifyLoadingLineTypes(db, typeNames)) return;
+
+                doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
             }
         }
         /// <summary>
@@ -51,7 +90,7 @@ namespace Plugins
         {
             File.Delete(Path.Combine(Path.GetTempPath(), DbConfigFilePath));
         }
-        #endregion
+#endregion
 
         #region Command Methods
         /// <summary>
