@@ -65,9 +65,6 @@ namespace Plugins
             {
                 var db = doc.Database;
 
-                Constants.SupportPath = Path.Combine(Directory.GetParent(
-                    Path.GetDirectoryName(db.Filename)).FullName, "Support").Replace("Local", "Roaming");
-
                 var typeNames = JObject
                     .Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, "plugin.config.json")))
                     .Value<JArray>("LineTypes")

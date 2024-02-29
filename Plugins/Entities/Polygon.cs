@@ -61,7 +61,8 @@ namespace Plugins.Entities
                     const string PAT_SCALE = "PatScale";
                     const string brushColor = "BrushColor";
 
-                    // TODO: Добавить поддержку свойства ForeColor
+                    // FIXME: Добавить поддержку свойства ForeColor
+                    // На горизонте K450E нет заливок, требующих это свойство
                     hatch.PatternScale = Constants.HATCH_SCALE * GetValue(PAT_SCALE);
                     hatch.SetHatchPattern(HatchPatternType.PreDefined, dictionary[PAT_NAME]);
 

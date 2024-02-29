@@ -1,23 +1,42 @@
-﻿namespace Plugins
+﻿using System.IO;
+
+using Autodesk.AutoCAD.ApplicationServices;
+using Newtonsoft.Json.Linq;
+
+namespace Plugins
 {
     /// <summary>
     /// Хранилище общих констант
     /// </summary>
     class Constants
     {
+        static Constants()
+        {
+            var fileName = Application.DocumentManager.MdiActiveDocument.Database.Filename;
+            supportPath = Path.Combine(Directory.GetParent(
+                    Path.GetDirectoryName(fileName)).FullName, "Support").Replace("Local", "Roaming");
+            dbConfigFilePath = System.IO.Path.GetTempFileName();
+
+            var config = JObject.Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, "plugin.config.json")));
+
+            SCALE = config.Value<double>("Scale");
+            TEXT_SCALE = config.Value<double>("TextScale") * SCALE;
+            HATCH_SCALE = config.Value<double>("HatchScale") * SCALE * SCALE;
+        }
+
         #region Константы масштабирования
         /// <summary>
         /// Масштаб рисуемых примитивов
         /// </summary>
-        public static readonly int SCALE = 1_000;
+        public static readonly double SCALE;
         /// <summary>
         /// Масштаб рисуемого текста относительно общего масштаба примитивов
         /// </summary>
-        public static readonly double TEXT_SCALE = 0.5 * SCALE;
+        public static readonly double TEXT_SCALE;
         /// <summary>
         /// Масштаб штриховки относительно общего масштаба примитивов
         /// </summary>
-        public static readonly double HATCH_SCALE = 0.8 * SCALE * SCALE;
+        public static readonly double HATCH_SCALE;
         #endregion
 
         #region Ключевые слова для XData
@@ -54,16 +73,7 @@
         /// <summary>
         /// Расположение папки AutoCAD Support
         /// </summary>
-        public static string SupportPath
-        {
-            get => supportPath;
-            set
-            {
-                supportPath = value;
-                dbConfigFilePath = System.IO.Path.GetTempFileName();
-                // TODO: Добавить загрузку констант масштабирования из конфигурационного файла
-            }
-        }
+        public static string SupportPath => supportPath;
         #endregion
     }
 }
