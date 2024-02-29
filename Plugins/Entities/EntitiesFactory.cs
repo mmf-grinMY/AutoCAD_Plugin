@@ -34,7 +34,7 @@ namespace Plugins.Entities
         /// <returns>Объект отрисовки</returns>
         /// <exception cref="NotImplementedException">Возникает при отрисовке объектов типа Polyline</exception>
         /// <exception cref="ArgumentException">Возникает при отрисовке неизвестных геометрий</exception>
-        public Entity Create(DrawParams draw)
+        public Entity Create(Primitive draw)
         {
             switch (draw.DrawSettings.Value<string>("DrawType"))
             {

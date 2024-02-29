@@ -8,7 +8,6 @@ using Autodesk.AutoCAD.Colors;
 using Newtonsoft.Json.Linq;
 
 using static Plugins.Constants;
-using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace Plugins.Entities
 {
@@ -41,7 +40,7 @@ namespace Plugins.Entities
         /// </summary>
         /// <param name="entity">Связываемый объект</param>
         /// <param name="drawParams">Параметры отрисовки</param>
-        public static void AddXData(this Autodesk.AutoCAD.DatabaseServices.Entity entity, DrawParams drawParams)
+        public static void AddXData(this Autodesk.AutoCAD.DatabaseServices.Entity entity, Primitive drawParams)
         {
             AddRegAppTableRecord(SYSTEM_ID);
             AddRegAppTableRecord(BASE_NAME);
@@ -50,17 +49,17 @@ namespace Plugins.Entities
             var buffer = new ResultBuffer(new TypedValue(1001, SYSTEM_ID),
                                                    new TypedValue((int)DxfCode.ExtendedDataInteger32, drawParams.SystemId));
 
-            if (drawParams.LinkedDBFields != null)
+            if (drawParams.BaseName != null && drawParams.ChildField != null)
             {
                 buffer = new ResultBuffer(new TypedValue(1001, SYSTEM_ID),
                                           new TypedValue((int)DxfCode.ExtendedDataInteger32,
                                                          drawParams.SystemId),
                                           new TypedValue(1001, BASE_NAME),
                                           new TypedValue((int)DxfCode.ExtendedDataAsciiString,
-                                                         drawParams.LinkedDBFields.BaseName),
+                                                         drawParams.BaseName),
                                           new TypedValue(1001, LINK_FIELD),
                                           new TypedValue((int)DxfCode.ExtendedDataAsciiString,
-                                                         drawParams.LinkedDBFields.LinkedField));
+                                                         drawParams.ChildField));
             }
 
             entity.XData = buffer;

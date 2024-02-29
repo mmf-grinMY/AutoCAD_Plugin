@@ -27,7 +27,7 @@ namespace Plugins.Entities
         /// <param name="db">Внутренняя база данных AutoCAD</param>
         /// <param name="draw">Параметры отрисовки</param>
         /// <param name="box">Общий для всех рисуемых объектов BoundingBox</param>
-        public Sign(Database db, DrawParams draw, Box box) : base(db, draw, box) { }
+        public Sign(Database db, Primitive draw, Box box) : base(db, draw, box) { }
         /// <summary>
         /// Рисование объекта
         /// </summary>

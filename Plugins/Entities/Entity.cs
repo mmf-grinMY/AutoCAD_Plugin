@@ -17,7 +17,7 @@ namespace Plugins.Entities
         /// <summary>
         /// Параметры отрисовки объекта
         /// </summary>
-        protected readonly DrawParams drawParams;
+        protected readonly Primitive drawParams;
         /// <summary>
         /// Транзакция отрисовки объекта
         /// </summary>
@@ -47,7 +47,7 @@ namespace Plugins.Entities
         /// <param name="drawParams">Параметры отрисовки объекта</param>
         /// <param name="box">Общий BoundingBox рисуемых объектов</param>
         /// <param name="counter">Счетчик ошибок</param>
-        public Entity(Database db, DrawParams drawParams, Box box)
+        public Entity(Database db, Primitive drawParams, Box box)
         {
             transaction = db.TransactionManager.StartTransaction();
             table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;

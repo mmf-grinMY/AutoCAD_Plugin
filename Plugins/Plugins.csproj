@@ -152,8 +152,7 @@
   <ItemGroup>
     <Compile Include="Entities\Box.cs" />
     <Compile Include="ConnectionParams.cs" />
-    <Compile Include="Draw.cs" />
-    <Compile Include="DrawParams.cs" />
+    <Compile Include="Primitive.cs" />
     <Compile Include="Entities\BlocksCreater.cs" />
     <Compile Include="Entities\ColorConverter.cs" />
     <Compile Include="Constants.cs" />
@@ -162,12 +161,10 @@
     <Compile Include="Entities\ResourceManager.cs" />
     <Compile Include="Entities\StringExtensions.cs" />
     <Compile Include="Entities\Text.cs" />
-    <Compile Include="GotoException.cs" />
     <Compile Include="Entities\Entity.cs" />
     <Compile Include="Entities\Polyline.cs" />
     <Compile Include="Entities\Polygon.cs" />
     <Compile Include="Entities\Sign.cs" />
-    <Compile Include="LinkedDBFields.cs" />
     <Compile Include="ObjectDispatcher.cs" />
     <Compile Include="OracleDbDispatcher.cs" />
     <Compile Include="ResultBufferExtensions.cs" />

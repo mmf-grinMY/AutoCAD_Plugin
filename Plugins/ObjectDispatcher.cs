@@ -5,12 +5,11 @@ using Plugins.Entities;
 using System.Windows;
 using System;
 
-using Oracle.ManagedDataAccess.Client;
-
 using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 using ALine = Autodesk.AutoCAD.DatabaseServices.Line;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
+using System.Collections.Generic;
 
 namespace Plugins
 {
@@ -26,36 +25,22 @@ namespace Plugins
         /// Рисуемый горизонт
         /// </summary>
         private readonly string gorizont;
-        private readonly OracleDbDispatcher connection;
-        private readonly Database db;
         /// <summary>
-        /// Текущий слой
+        /// Менеджер поключения к Oracle БД
         /// </summary>
-        private string currentLayer = string.Empty;
+        private readonly OracleDbDispatcher connection;
+        /// <summary>
+        /// Внутренняя БД AutoCAD
+        /// </summary>
+        private static readonly Database db;
 #if MY_BOUNDING_BOX
         readonly Box box;
 #endif
 
-#endregion
-
+        #endregion
+        
         #region Private Static Methods
-        /// <summary>
-        /// Проверить на наличие данных во всех столбцах строки
-        /// </summary>
-        /// <param name="dataReader">Читатель БД</param>
-        /// <param name="length">Количество читаемых столбцов</param>
-        /// <exception cref="GotoException">Вызывается, если один из столбцов хранит NULL</exception>
-        /// <returns>true, если все столбцы содержат данные и false в противном случае</returns>
-        private static bool IsDBNull(OracleDataReader dataReader, int length)
-        {
-            for (int i = 0; i < length; i++)
-            {
-                if (dataReader.IsDBNull(i))
-                    throw new GotoException(i);
-            }
 
-            return false;
-        }
         /// <summary>
         /// Прибилизить к рамке
         /// </summary>
@@ -138,24 +123,6 @@ namespace Plugins
                 transaction.Commit();
             }
         }
-        /// <summary>
-        /// Сортировать параметры рисования
-        /// </summary>
-        /// <param name="draw">Строковые параметры рисования</param>
-        /// <param name="points">Точки</param>
-        /// <returns>Сконвертированные параметры рисования</returns>
-        /// <exception cref="GotoException">Вызывается, если не удается сконвертировать параметры рисования</exception>
-        private DrawParams Sort(Draw draw)
-        {
-            try
-            {
-                return new DrawParams(draw);
-            }
-            catch
-            {
-                throw new GotoException(4);
-            }
-        }
 
         #endregion
 
@@ -167,60 +134,32 @@ namespace Plugins
         /// <param name="layerName">Имя слоя</param>
         private void CreateLayer(string layerName)
         {
-            if (currentLayer != layerName)
+            using (var transaction = db.TransactionManager.StartTransaction())
             {
-                currentLayer = layerName;
-                using (Transaction transaction = db.TransactionManager.StartTransaction())
+                using (var table = transaction.GetObject(db.LayerTableId, OpenMode.ForWrite) as LayerTable)
                 {
-                    var layerTable = transaction.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
-
-                    if (layerTable.Has(layerName) == false)
+                    using (var record = new LayerTableRecord { Name = layerName })
                     {
-                        LayerTableRecord layerTableRecord = new LayerTableRecord { Name = layerName };
-                        layerTable.UpgradeOpen();
-                        layerTable.Add(layerTableRecord);
-                        transaction.AddNewlyCreatedDBObject(layerTableRecord, true);
-                        db.Clayer = layerTable[layerName];
+                        table.Add(record);
+                        transaction.AddNewlyCreatedDBObject(record, true);
                     }
-
-                    transaction.Commit();
                 }
+
+                transaction.Commit();
             }
         }
-        /// <summary>
-        /// Прочитать строку из БД
-        /// </summary>
-        /// <param name="reader">Читатель БД</param>
-        /// <returns>Строковое представление параметров отрисовки</returns>
-        private Draw Read(OracleDataReader reader)
-        {
-            if (!IsDBNull(reader, 5))
-            {
-                if (reader.IsDBNull(6) || reader.IsDBNull(7))
-                {
-                    return new Draw(reader.GetString(1),
-                                    reader.GetString(0),
-                                    reader.GetString(2),
-                                    $"{reader.GetString(3)} | {reader.GetString(4)}",
-                                    reader.GetString(5),
-                                    null);
-                }
-                else
-                {
-                    return new Draw(reader.GetString(1),
-                                    reader.GetString(0),
-                                    reader.GetString(2),
-                                    $"{reader.GetString(3)} | {reader.GetString(4)}",
-                                    reader.GetString(5),
-                                    new LinkedDBFields(reader.GetString(6), reader.GetString(7)));
-                }
-            }
 
-            return new Draw();
-        }
         #endregion
 
         #region Ctors
+
+        /// <summary>
+        /// Статическое создание
+        /// </summary>
+        static ObjectDispatcher()
+        {
+            db = AApplication.DocumentManager.MdiActiveDocument.Database;
+        }
         /// <summary>
         /// Создание объекта
         /// </summary>
@@ -230,19 +169,22 @@ namespace Plugins
         {
             this.connection = connection;
             gorizont = selectedGorizont;
-            db = AApplication.DocumentManager.MdiActiveDocument.Database;
             box = new Box() { Bottom = long.MaxValue, Left = long.MaxValue, Right = long.MinValue, Top = long.MinValue };
             factory = new EntitiesFactory(AApplication.DocumentManager.MdiActiveDocument.Database, box);
         }
+
         #endregion
 
         #region Public Methods
+
         /// <summary>
         /// Начать отрисовку объектов
         /// </summary>
         /// <param name="window">Окно отображения пргресса отрисовки</param>
         public void Draw()
         {
+            var layersCache = new HashSet<string>();
+
             using (var reader = connection.GetDrawParams(gorizont))
             {
                 // TODO: Добавить индикатор прогресса
@@ -250,17 +192,45 @@ namespace Plugins
                 {
                     try
                     {
-                        var param = Read(reader);
-                        var draw = Sort(param);
-                        CreateLayer(draw.LayerName);
+                        var draw = new Primitive(reader["geowkt"].ToString(),
+                                                  reader["drawjson"].ToString(),
+                                                  reader["paramjson"].ToString(),
+                                                  reader["layername"] + " | " + reader["sublayername"],
+                                                  reader["systemid"].ToString(),
+                                                  reader["basename"].ToString(),
+                                                  reader["childfields"].ToString());
+
+                        var layer = draw.LayerName;
+
+                        if (!layersCache.Contains(layer)) 
+                        {
+                            layersCache.Add(layer);
+                            CreateLayer(layer);
+                        }
+                        
                         using (var entity = factory.Create(draw))
                         {
                             entity?.Draw();
                         }
                     }
-                    catch (GotoException)
+                    catch (FormatException)
                     {
-                        continue;
+                        var rows = new string[]
+                        {
+                            "geowkt",
+                            "drawjson",
+                            "paramjson",
+                            "layername",
+                            "sublayername",
+                            "systemid",
+                            "basename",
+                            "childfields"
+                        };
+
+                        foreach (var row in rows) {
+                            if (reader[row] == null)
+                                MessageBox.Show("Столбец " + row + " принимает значение NULL!" + '\n' + reader["geowkt"]);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -271,6 +241,7 @@ namespace Plugins
             MessageBox.Show("Закончена отрисовка геометрии!");
             Zoom(new Point3d(box.Left, box.Bottom, 0), new Point3d(box.Right, box.Top, 0), new Point3d(0, 0, 0), 1.0);
         }
+
         #endregion
     }
 }

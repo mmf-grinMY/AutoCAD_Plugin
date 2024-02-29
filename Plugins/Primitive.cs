@@ -6,11 +6,10 @@ using Newtonsoft.Json.Linq;
 
 namespace Plugins
 {
-    // FIXME: ??? Нужен ли отдельный класс для хранения | Стоит ли заменить на Tuple? ???
     /// <summary>
     /// Параметры отрисовки
     /// </summary>
-    public class DrawParams
+    public class Primitive
     {
         #region Public Properties
         /// <summary>
@@ -34,33 +33,38 @@ namespace Plugins
         /// </summary>
         public int SystemId { get; }
         /// <summary>
-        /// Линкованные столбцы
+        /// Имя слинкованной таблицы
         /// </summary>
-        public LinkedDBFields LinkedDBFields { get; }
+        public string BaseName { get; }
+        /// <summary>
+        /// Столбец линковки
+        /// </summary>
+        public string ChildField { get; }
         #endregion
 
         #region Ctors
+        
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="draw">Строковые параметры отрисовки</param>
-        public DrawParams(Draw draw) : this(draw.WKT, draw.DrawSettings, draw.Param, draw.Layername, draw.SystemId, draw.LinkedFields) { }
-        /// <summary>
-        /// Создание объекта
-        /// </summary>
-        /// <param name="wkt">Геометрия в формате WKT</param>
-        /// <param name="draw">Легендаризация объекта</param>
-        /// <param name="param">Общие параметры</param>
+        /// <param name="wkt">Геометрия примитива в формате WKT</param>
+        /// <param name="settings">Параметры отрисовки</param>
+        /// <param name="param">Дополнительные параметры</param>
         /// <param name="layername">Имя слоя</param>
-        protected DrawParams(string wkt, string settings, string param, string layername, string systemid, LinkedDBFields linkedDBFields)
+        /// <param name="systemid">Уникальный номер</param>
+        /// <param name="baseName">Имя слинкованной таблицы</param>
+        /// <param name="childFields">Столбец линковки</param>
+        public Primitive(string wkt, string settings, string param, string layername, string systemid, string baseName, string childFields)
         {
             Geometry = Aspose.Gis.Geometries.Geometry.FromText(wkt);
             DrawSettings = JObject.Parse(settings);
             Param = JObject.Parse(param);
             LayerName = layername;
             SystemId = Convert.ToInt32(systemid);
-            LinkedDBFields = linkedDBFields;
+            BaseName = baseName;
+            ChildField = childFields;
         }
+
         #endregion
     }
 }

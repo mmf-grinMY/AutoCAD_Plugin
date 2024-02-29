@@ -153,10 +153,8 @@ connect:
         /// <returns>Читатель данных</returns>
         public OracleDataReader GetDrawParams(string gorizont)
         {
-            // TODO: Упростить команду (все имена полей заменить на *)
             string command =
-                "SELECT drawjson, geowkt, paramjson, layername, sublayername, systemid, basename, childfields " +
-                "FROM ( SELECT * FROM " + gorizont + "_trans_clone a JOIN " + gorizont +
+                "SELECT * FROM ( SELECT * FROM " + gorizont + "_trans_clone a JOIN " + gorizont +
                 "_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid)";
 
             return new OracleCommand(command, connection).ExecuteReader();
