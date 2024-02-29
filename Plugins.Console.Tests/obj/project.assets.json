@@ -647,24 +647,13 @@
           }
         }
       },
-      "Plugins.Chr/1.0.0": {
-        "type": "project",
-        "framework": ".NETCoreApp,Version=v7.0",
-        "compile": {
-          "bin/placeholder/Plugins.Chr.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/Plugins.Chr.dll": {}
-        }
-      },
       "Plugins.Console/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v7.0",
         "dependencies": {
           "Aspose.GIS": "24.1.0",
           "Newtonsoft.Json": "13.0.3",
-          "Oracle.ManagedDataAccess.Core": "3.21.130",
-          "Plugins.Chr": "1.0.0"
+          "Oracle.ManagedDataAccess.Core": "3.21.130"
         },
         "compile": {
           "bin/placeholder/Plugins.Console.dll": {}
@@ -1606,11 +1595,6 @@
         "system.windows.extensions.nuspec",
         "useSharedDesignerContext.txt"
       ]
-    },
-    "Plugins.Chr/1.0.0": {
-      "type": "project",
-      "path": "../Plugins.Chr/Plugins.Chr.csproj",
-      "msbuildProject": "../Plugins.Chr/Plugins.Chr.csproj"
     },
     "Plugins.Console/1.0.0": {
       "type": "project",

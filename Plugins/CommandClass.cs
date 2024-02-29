@@ -144,6 +144,7 @@ namespace Plugins
                     .Value<JArray>("LineTypes")
                     .Values<string>();
 
+                // TODO: В зависииости от общего масштаба изменять шаблон типа линии
                 foreach (var name in typeNames)
                 {
                     db.LoadLineTypeFile(name, "acad.lin");
