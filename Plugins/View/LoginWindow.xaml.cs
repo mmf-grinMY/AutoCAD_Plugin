@@ -28,7 +28,6 @@ namespace Plugins.View
         /// </summary>
         public LoginWindow()
         {
-            // TODO: Добавить поля для ввода хоста и порта подключения
             InitializeComponent();
             SizeChanged += HandleSizeChanged;
             LoginViewModel model = new LoginViewModel();
@@ -54,25 +53,8 @@ namespace Plugins.View
                 {
                     InputResult = true;
                     Hide();
-                    var strings = model.Host.Split('/');
-                    string host = string.Empty;
-                    string sid = string.Empty;
-                    int port = 1521;
-                    if (strings.Length == 1)
-                    {
-                        sid = strings[0];
-                    }
-                    else if (strings.Length == 2)
-                    {
-                        host = strings[0];
-                        sid = strings[1];
-                    }
-                    File.WriteAllText(Constants.DbConfigFilePath,
-                                      JsonConvert.SerializeObject(Params = new ConnectionParams(model.UserName,
-                                                                                                password,
-                                                                                                host,
-                                                                                                port,
-                                                                                                sid)));
+                    File.WriteAllText(Constants.DbConfigFilePath, JsonConvert.SerializeObject(
+                        Params = new ConnectionParams(model.UserName, password, model.Host, model.Port, model.DbName)));
                 }
             });
             model.CancelCommand = new RelayCommand(obj => 
@@ -116,6 +98,14 @@ namespace Plugins.View
             /// Местоположение базы данных
             /// </summary>
             private string host;
+            /// <summary>
+            /// Имя БД
+            /// </summary>
+            private string dbName;
+            /// <summary>
+            /// Номер порта
+            /// </summary>
+            private int port;
             #endregion
 
             #region Ctors
@@ -129,7 +119,13 @@ namespace Plugins.View
                 {
                     var obj = JsonConvert.DeserializeObject<ConnectionParams>(content);
                     UserName = obj.UserName;
-                    Host = obj.Host + "/" + obj.Sid;
+                    Host = obj.Host;
+                    DbName = obj.Sid;
+                    Port = obj.Port;
+                }
+                else
+                {
+                    Port = 1521;
                 }
             }
             #endregion
@@ -157,6 +153,30 @@ namespace Plugins.View
                 {
                     host = value;
                     OnPropertyChanged(nameof(Host));
+                }
+            }
+            /// <summary>
+            /// Имя базы данных
+            /// </summary>
+            public string DbName
+            {
+                get => dbName;
+                set
+                {
+                    dbName = value;
+                    OnPropertyChanged(nameof(DbName));
+                }
+            }
+            /// <summary>
+            /// Номер порта
+            /// </summary>
+            public int Port
+            {
+                get => port;
+                set
+                {
+                    port = value;
+                    OnPropertyChanged(nameof(Port));
                 }
             }
             #endregion

@@ -46,6 +46,8 @@
                 <RowDefinition/>
                 <RowDefinition/>
                 <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
             </Grid.RowDefinitions>
 
             <Grid.ColumnDefinitions>
@@ -85,7 +87,7 @@
                 Text="{Binding UserName}" 
                 Grid.Column="1"
                 Style="{StaticResource TextBoxStyle}"
-                Width="{Binding Converter={StaticResource ProcentConverter}, ConverterParameter=2, ElementName=username, Path=ActualWidth}"/>
+                Width="{Binding ElementName=username, Path=ActualWidth}"/>
             <TextBlock
                 Text="Пароль"
                 Grid.Row="1"
@@ -97,12 +99,30 @@
                 Margin="2 4 4 0"
                 FontSize="14"/>
             <TextBlock
-                Text="База данных"
+                Text="Имя хоста"
                 Grid.Row="2"
                 Style="{StaticResource TextBlockStyle}"/>
             <TextBox
                 Text="{Binding Host}"
                 Grid.Row="2"
+                Grid.Column="1"
+                Style="{StaticResource TextBoxStyle}"/>
+            <TextBlock
+                Text="База данных"
+                Grid.Row="3"
+                Style="{StaticResource TextBlockStyle}"/>
+            <TextBox
+                Text="{Binding DbName}"
+                Grid.Row="3"
+                Grid.Column="1"
+                Style="{StaticResource TextBoxStyle}"/>
+            <TextBlock
+                Text="Номер порта"
+                Grid.Row="4"
+                Style="{StaticResource TextBlockStyle}"/>
+            <TextBox
+                Text="{Binding Port}"
+                Grid.Row="4"
                 Grid.Column="1"
                 Style="{StaticResource TextBoxStyle}"/>
         </Grid>
