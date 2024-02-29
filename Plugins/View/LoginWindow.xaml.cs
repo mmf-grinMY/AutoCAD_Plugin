@@ -32,6 +32,7 @@ namespace Plugins.View
             SizeChanged += HandleSizeChanged;
             LoginViewModel model = new LoginViewModel();
             DataContext = model;
+            Top = (SystemParameters.FullPrimaryScreenHeight - ActualHeight) / 2;
             model.SaveCommand = new RelayCommand(obj =>
             {
                 string message = string.Empty;
@@ -73,9 +74,9 @@ namespace Plugins.View
         /// <param name="e">Параметры вызова</param>
         private void HandleSizeChanged(object sender, SizeChangedEventArgs e)
         {
-            // TODO: Исправить изменение размеров окна
-            Top = (SystemParameters.FullPrimaryScreenWidth - ActualHeight) / 2;
-            Left = (SystemParameters.FullPrimaryScreenHeight - ActualWidth) / 2;
+            double left = (SystemParameters.FullPrimaryScreenWidth - ActualWidth) / 2;
+            if (Left != left)
+                Left = left;
         }
         #endregion
 

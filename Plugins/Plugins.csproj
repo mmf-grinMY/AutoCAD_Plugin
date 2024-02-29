@@ -180,7 +180,6 @@
     <Compile Include="View\GorizontSelecterWindow.xaml.cs">
       <DependentUpon>GorizontSelecterWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="View\ProcentConverter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="View\LoginWindow.xaml.cs">
       <DependentUpon>LoginWindow.xaml</DependentUpon>

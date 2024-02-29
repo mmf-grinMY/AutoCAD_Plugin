@@ -19,13 +19,13 @@
             </Style>
 
             <Style x:Key="ConnectButtonStyle" BasedOn="{StaticResource ButtonStyle}" TargetType="{x:Type Button}">
-                <Setter Property="Margin" Value="4 4 2 4"/>
+                <Setter Property="Margin" Value="4"/>
                 <Setter Property="Content" Value="Подключиться"/>
                 <Setter Property="Command" Value="{Binding SaveCommand}"/>
             </Style>
 
             <Style x:Key="CancelButtonStyle" BasedOn="{StaticResource ButtonStyle}" TargetType="{x:Type Button}">
-                <Setter Property="Margin" Value="2 4 4 4"/>
+                <Setter Property="Margin" Value="0 4 4 4"/>
                 <Setter Property="Content" Value="Отмена"/>
                 <Setter Property="Width" Value="{Binding ElementName=savebutton, Path=ActualWidth}"/>
                 <Setter Property="Command" Value="{Binding CancelCommand}"/>
@@ -52,13 +52,11 @@
 
             <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
-                <ColumnDefinition/>
+                <ColumnDefinition MinWidth="{Binding ElementName=savebutton, Path=ActualWidth}"/>
             </Grid.ColumnDefinitions>
 
             <Grid.Resources>
-
-                <local:ProcentConverter x:Key="ProcentConverter"/>
-
+                
                 <Style x:Key="TextBlockStyle" TargetType="{x:Type TextBlock}">
                     <Setter Property="Margin" Value="4"/>
                     <Setter Property="HorizontalAlignment" Value="Right"/>
@@ -67,13 +65,10 @@
                 </Style>
 
                 <Style x:Key="TextBoxStyle" TargetType="{x:Type TextBox}">
-                    <Setter Property="Margin" Value="2 4 4 0"/>
+                    <Setter Property="MaxWidth" Value="1000"/>
+                    <Setter Property="Margin" Value="2 4 5 0"/>
                     <Setter Property="FontSize" Value="14"/>
-                </Style>
-
-                <Style x:Key="ComboBoxStyle" TargetType="{x:Type ComboBox}">
-                    <Setter Property="Margin" Value="2 4 4 0"/>
-                    <Setter Property="FontSize" Value="14"/>
+                    <Setter Property="MinWidth" Value="{Binding ElementName=username, Path=ActualWidth}"/>
                 </Style>
 
             </Grid.Resources>
@@ -86,8 +81,7 @@
                 x:Name="usernamebox"
                 Text="{Binding UserName}" 
                 Grid.Column="1"
-                Style="{StaticResource TextBoxStyle}"
-                Width="{Binding ElementName=username, Path=ActualWidth}"/>
+                Style="{StaticResource TextBoxStyle}"/>
             <TextBlock
                 Text="Пароль"
                 Grid.Row="1"
@@ -96,7 +90,7 @@
                 x:Name="passwordBox"
                 Grid.Row="1"
                 Grid.Column="1"
-                Margin="2 4 4 0"
+                Margin="2 4 5 0"
                 FontSize="14"/>
             <TextBlock
                 Text="Имя хоста"
@@ -129,6 +123,7 @@
         <Button
             x:Name="savebutton"
             Style="{StaticResource ConnectButtonStyle}"
+            MinWidth="{Binding ElementName=username, Path=ActualWidth}"
             Grid.Row="1"/>
         <Button
             Style="{StaticResource CancelButtonStyle}"

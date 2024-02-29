@@ -8,10 +8,10 @@
         WindowStyle="None"
         SizeToContent="WidthAndHeight"
         ResizeMode="NoResize"
-        d:DataContext="{d:DesignInstance Type=local:GorizontSelecterViewModel}"
         WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.Resources>
+            
             <Style x:Key="ButtonStyle" TargetType="{x:Type Button}">
                 <Setter Property="Background" Value="#912BBD"/>
                 <Setter Property="FontSize" Value="14"/>
@@ -19,17 +19,30 @@
             </Style>
 
             <Style x:Key="SelectButtonStyle" BasedOn="{StaticResource ButtonStyle}" TargetType="{x:Type Button}">
-                <Setter Property="Margin" Value="4 4 2 4"/>
+                <Setter Property="Margin" Value="4"/>
                 <Setter Property="Content" Value="Выбрать"/>
                 <Setter Property="Command" Value="{Binding SelectCommand}"/>
             </Style>
 
             <Style x:Key="CancelButtonStyle" BasedOn="{StaticResource ButtonStyle}" TargetType="{x:Type Button}">
-                <Setter Property="Margin" Value="2 4 4 4"/>
+                <Setter Property="Margin" Value="0 4 4 4"/>
                 <Setter Property="Content" Value="Отмена"/>
                 <Setter Property="Width" Value="{Binding ElementName=savebutton, Path=ActualWidth}"/>
                 <Setter Property="Command" Value="{Binding CancelCommand}"/>
             </Style>
+
+            <Style x:Key="ComboBoxStyle" TargetType="{x:Type ComboBox}">
+                <Setter Property="Margin" Value="0 4 4 0"/>
+                <Setter Property="FontSize" Value="14"/>
+            </Style>
+
+            <Style x:Key="TextBlockStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="Margin" Value="4"/>
+                <Setter Property="HorizontalAlignment" Value="Right"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+            </Style>
+
         </Grid.Resources>
         
         <Grid.RowDefinitions>
@@ -41,44 +54,16 @@
             <ColumnDefinition/>
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
-        <Grid Grid.ColumnSpan="2">
 
-            <Grid.RowDefinitions>
-                <RowDefinition/>
-            </Grid.RowDefinitions>
-
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
-            </Grid.ColumnDefinitions>
-
-            <Grid.Resources>
-                <local:ProcentConverter x:Key="ProcentConverter"/>
-
-                <Style x:Key="ComboBoxStyle" TargetType="{x:Type ComboBox}">
-                    <Setter Property="Margin" Value="2 4 4 0"/>
-                    <Setter Property="FontSize" Value="14"/>
-                </Style>
-
-                <Style x:Key="TextBlockStyle" TargetType="{x:Type TextBlock}">
-                    <Setter Property="Margin" Value="4"/>
-                    <Setter Property="HorizontalAlignment" Value="Right"/>
-                    <Setter Property="FontSize" Value="14"/>
-                    <Setter Property="VerticalAlignment" Value="Center"/>
-                </Style>
-            </Grid.Resources>
-
-            <TextBlock
-                x:Name="gorizontName"
-                Text="Имя горизонта"
-                Style="{StaticResource TextBlockStyle}"/>
-            <ComboBox 
-                ItemsSource="{Binding Gorizonts}"
-                Grid.Column="1"
-                Style="{StaticResource ComboBoxStyle}"
-                SelectedIndex="{Binding SelectedGorizont}"
-                Width="{Binding Converter={StaticResource ProcentConverter}, ConverterParameter=2, ElementName=gorizontName, Path=ActualWidth}"/>
-        </Grid>
+        <TextBlock
+            x:Name="gorizontName"
+            Text="Имя горизонта"
+            Style="{StaticResource TextBlockStyle}"/>
+        <ComboBox 
+            ItemsSource="{Binding Gorizonts}"
+            Grid.Column="1"
+            Style="{StaticResource ComboBoxStyle}"
+            SelectedIndex="{Binding SelectedGorizont}"/>
         <Button
             x:Name="savebutton"
             Style="{StaticResource SelectButtonStyle}"
