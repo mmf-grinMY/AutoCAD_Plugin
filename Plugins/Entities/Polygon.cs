@@ -86,6 +86,10 @@ namespace Plugins.Entities
         private static class HatchPatternLoader
         {
             /// <summary>
+            /// Кэш параметров заливок
+            /// </summary>
+            private static Dictionary<string, Dictionary<string, string>> cache;
+            /// <summary>
             /// Корневой узел файла конфигурации паттернов штриховки
             /// </summary>
             private readonly static XElement root;
@@ -95,6 +99,7 @@ namespace Plugins.Entities
             static HatchPatternLoader()
             {
                 root = XDocument.Load(System.IO.Path.Combine(Constants.SupportPath, "Pattern.conf.xml")).Element("AcadPatterns");
+                cache = new Dictionary<string, Dictionary<string, string>>();
             }
             /// <summary>
             /// Загрузка параметров штриховки
@@ -106,10 +111,13 @@ namespace Plugins.Entities
                 const string BITMAP_NAME = "BitmapName";
                 const string BITMAP_INDEX = "BitmapIndex";
 
-                // TODO: Хранить в кеше уже прочитанные параметры отрисовки
-                var dictionary = new Dictionary<string, string>();
                 var bitmapName = (settings.Value<string>(BITMAP_NAME) ?? string.Empty).Replace('!', '-');
                 var bitmapIndex = settings.Value<int>(BITMAP_INDEX);
+
+                if (cache.TryGetValue(bitmapName+bitmapIndex.ToString(), out var dictionary))
+                    return dictionary;
+
+                dictionary = new Dictionary<string, string>();
                 var args = root.Element(bitmapName).Element($"t{bitmapIndex}").Value.Trim().Split('\n');
                 foreach (var param in args)
                 {
