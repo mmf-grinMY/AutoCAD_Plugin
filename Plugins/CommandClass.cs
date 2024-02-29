@@ -45,6 +45,80 @@ namespace Plugins
             
             return true;
         }
+        /// <summary>
+        /// Создание команды выборки данных
+        /// </summary>
+        /// <param name="baseName">Имя линкованной таблицы</param>
+        /// <param name="linkField">Столбец линковки</param>
+        /// <param name="systemId">Уникальный номер примитива</param>
+        /// <param name="fieldNames">Список столбцов таблицы</param>
+        /// <returns>Команда для получения данных</returns>
+        private string CreateCommand(string baseName, string linkField, int systemId, IDictionary<string, string> fieldNames)
+        {
+            var builder = new StringBuilder().Append("SELECT ");
+
+            foreach (var item in fieldNames)
+            {
+                builder.Append(item.Key).Append(" as \"").Append(item.Value).Append("\"").Append(",");
+            }
+
+            builder
+                .Remove(builder.Length - 1, 1)
+                .Append(" FROM ")
+                .Append(baseName)
+                .Append(" WHERE ")
+                .Append(linkField)
+                .Append(" = ")
+                .Append(systemId);
+
+            return builder.ToString();
+        }
+        /// <summary>
+        /// Получение списка столбцов таблицы
+        /// </summary>
+        /// <param name="fields">Исходные столбцы</param>
+        /// <returns>Список столбцов</returns>
+        private Dictionary<string, string> ParseFieldNames(IEnumerable<string> fields)
+        {
+            bool fieldsFlag = true;
+            var result = new Dictionary<string, string>();
+
+            foreach (var field in fields)
+            {
+                if (fieldsFlag)
+                {
+                    if (field == "FIELDS")
+                    {
+                        fieldsFlag = false;
+                    }
+                    continue;
+                }
+                else if (field == "ENDFIELDS")
+                {
+                    break;
+                }
+                else if (field.Contains("+"))
+                {
+                    continue;
+                }
+                var rows = field.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (rows.Length <= 1) continue;
+
+                var builder = new StringBuilder();
+
+                for (int j = 1; j < rows.Length; ++j)
+                {
+                    builder.Append(rows[j]).Append("_");
+                }
+
+                if (!result.ContainsKey(rows[0]))
+                {
+                    result.Add(rows[0], builder.ToString());
+                }
+            }
+
+            return result;
+        }
 
         #endregion
 
@@ -188,80 +262,6 @@ namespace Plugins
                 }
             }
         }
-#endregion
-        /// <summary>
-        /// Создание команды выборки данных
-        /// </summary>
-        /// <param name="baseName">Имя линкованной таблицы</param>
-        /// <param name="linkField">Столбец линковки</param>
-        /// <param name="systemId">Уникальный номер примитива</param>
-        /// <param name="fieldNames">Список столбцов таблицы</param>
-        /// <returns>Команда для получения данных</returns>
-        private string CreateCommand(string baseName, string linkField, int systemId, IDictionary<string, string> fieldNames)
-        {
-            var builder = new StringBuilder().Append("SELECT ");
-
-            foreach (var item in fieldNames)
-            {
-                builder.Append(item.Key).Append(" as \"").Append(item.Value).Append("\"").Append(",");
-            }
-
-            builder
-                .Remove(builder.Length - 1, 1)
-                .Append(" FROM ")
-                .Append(baseName)
-                .Append(" WHERE ")
-                .Append(linkField)
-                .Append(" = ")
-                .Append(systemId);
-
-            return builder.ToString();
-        }
-        /// <summary>
-        /// Получение списка столбцов таблицы
-        /// </summary>
-        /// <param name="fields">Исходные столбцы</param>
-        /// <returns>Список столбцов</returns>
-        private Dictionary<string, string> ParseFieldNames(IEnumerable<string> fields)
-        {
-            bool fieldsFlag = true;
-            var result = new Dictionary<string, string>();
-
-            foreach (var field in fields)
-            {
-                if (fieldsFlag)
-                {
-                    if (field == "FIELDS")
-                    {
-                        fieldsFlag = false;
-                    }
-                    continue;
-                }
-                else if (field == "ENDFIELDS")
-                {
-                    break;
-                }
-                else if (field.Contains("+"))
-                {
-                    continue;
-                }
-                var rows = field.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (rows.Length <= 1) continue;
-
-                var builder = new StringBuilder();
-
-                for (int j = 1; j < rows.Length; ++j)
-                {
-                    builder.Append(rows[j]).Append("_");
-                }
-
-                if (!result.ContainsKey(rows[0]))
-                {
-                    result.Add(rows[0], builder.ToString());
-                }
-            }
-
-            return result;
-        }
+        #endregion
     }
 }

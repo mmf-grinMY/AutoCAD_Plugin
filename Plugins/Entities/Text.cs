@@ -47,9 +47,10 @@ namespace Plugins.Entities
 
                 AppendToDb(text);
 
-                // TODO: Проверить параметры установки поворота текста
-                if (settings.TryGetValue(ANGLE, StringComparison.CurrentCulture, out JToken angle))
-                    text.Rotation = angle.Value<string>().ToDouble().ToRad();
+                if (drawParams.Param.TryGetValue(ANGLE, StringComparison.CurrentCulture, out JToken angle))
+                {
+                    text.Rotation = angle.Value<string>().Replace('_', '.').ToDouble().ToRad();
+                }
 
                 text.TextString = settings.Value<string>(TEXT);
             }

@@ -1,4 +1,6 @@
-﻿namespace Plugins.Entities
+﻿using System.Globalization;
+
+namespace Plugins.Entities
 {
     /// <summary>
     /// Расшрение стандартных классов
@@ -10,7 +12,7 @@
         /// </summary>
         /// <param name="str">Строковое представление числа</param>
         /// <returns>Вещественное число</returns>
-        public static double ToDouble(this string str) => System.Convert.ToDouble(str.Replace('.', ','));
+        public static double ToDouble(this string str) => System.Convert.ToDouble(str);
         /// <summary>
         /// Конвертация градусов в радианы
         /// </summary>
