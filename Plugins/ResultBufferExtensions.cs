@@ -10,23 +10,23 @@ namespace Plugins
         /// <summary>
         /// Получение XData
         /// </summary>
-        /// <param name="rb">Исходный буфер</param>
+        /// <param name="buffer">Исходный буфер</param>
         /// <param name="RegAppName">Зарегестрированное имя</param>
         /// <returns></returns>
-        public static string GetXData(this ResultBuffer rb, string RegAppName)
+        public static string GetXData(this ResultBuffer buffer, string RegAppName)
         {
-            var proc_fl_1 = false;
+            var flag = false;
             var result = string.Empty;
-            foreach (var tv in rb)
+            foreach (var tv in buffer)
             {
-                if (proc_fl_1)
+                if (flag)
                 {
                     result = tv.Value.ToString();
-                    proc_fl_1 = false;
+                    flag = false;
                 }
-                if ((tv.TypeCode == (int)DxfCode.ExtendedDataRegAppName) && (tv.Value.ToString() == RegAppName))
+                if ((tv.TypeCode == (short)DxfCode.ExtendedDataRegAppName) && (tv.Value.ToString() == RegAppName))
                 {
-                    proc_fl_1 = true;
+                    flag = true;
                 }
             }
             return result;

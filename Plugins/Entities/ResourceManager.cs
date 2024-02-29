@@ -6,6 +6,7 @@ using Autodesk.AutoCAD.Colors;
 
 using static Plugins.Constants;
 
+// TODO: Убрать этот класс
 namespace Plugins.Entities
 {
     /// <summary>

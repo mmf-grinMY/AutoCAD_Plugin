@@ -5,18 +5,18 @@ using System;
 namespace Plugins.View
 {
     /// <summary>
-    /// Логика взаимодействия для ExternalDBWindow.xaml
+    /// Логика взаимодействия для ExternalDbWindow.xaml
     /// </summary>
-    public partial class ExternalDBWindow : Window, IDisposable
+    public partial class ExternalDbWindow : Window, IDisposable
     {
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="dataTable">Таблица данных</param>
-        public ExternalDBWindow(DataTable dataTable)
+        /// <param name="view">Данные для отображения</param>
+        public ExternalDbWindow(DataView view)
         {
             InitializeComponent();
-            dataGrid.ItemsSource = dataTable.DefaultView;
+            DataContext = new ExternalDbViewModel(view);
         }
         /// <summary>
         /// Освобождение занятых ресурсов
@@ -24,6 +24,24 @@ namespace Plugins.View
         public void Dispose()
         {
             Close();
+        }
+        /// <summary>
+        /// Внутренняя логика взаимодействия для ExternalDbWindow.xaml
+        /// </summary>
+        private sealed class ExternalDbViewModel : BaseViewModel
+        {
+            /// <summary>
+            /// Данные для отображения
+            /// </summary>
+            public DataView View { get; }
+            /// <summary>
+            /// Создание объекта
+            /// </summary>
+            /// <param name="view">Данные для отображения</param>
+            public ExternalDbViewModel(DataView view)
+            {
+                View = view;
+            }
         }
     }
 }

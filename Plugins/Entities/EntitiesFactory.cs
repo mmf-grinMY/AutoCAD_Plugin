@@ -50,7 +50,7 @@ namespace Plugins.Entities
                 case "BasicSignDrawParams":
                 case "TMMTTFSignDrawParams": return new Sign(db, draw, box);
                 case "LabelDrawParams": return new Text(db, draw, box);
-                // FIXME: ??? Возможно более логичным будет при обнаружении нового типа просто пропускать данный объект
+                // FIXME: ??? Возможно более логичным будет при обнаружении нового типа просто пропускать данный объект ???
                 default: throw new ArgumentException("Неизвестный тип рисуемого объекта");
             }
         }

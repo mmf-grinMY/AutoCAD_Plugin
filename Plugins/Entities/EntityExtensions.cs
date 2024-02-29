@@ -85,12 +85,12 @@ namespace Plugins.Entities
                && borderDescription.Value<string>() == "{D075F160-4C94-11D3-A90B-A8163E53382F}")
             {
                 // FIXME: ??? Данные линии не должны существовать ???
-                polyline.Linetype = "MMP_1";
+                polyline.Linetype = LineTypeLoader.STYLE_NAME + "2";
                 polyline.Color = Color.FromRgb(0, 255, 0);
             }
             else if (settings.Value<int>("nPenStyle") == 1)
             {
-                polyline.Linetype = "MMP_2";
+                polyline.Linetype = LineTypeLoader.STYLE_NAME + "1";
             }
 
             return polyline;

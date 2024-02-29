@@ -17,6 +17,7 @@
         {
             get
             {
+                // TODO: Упростить индексацию
                 switch (index)
                 {
                     case 0: return "drawjson";

@@ -245,6 +245,7 @@ namespace Plugins
         {
             using (var reader = connection.GetDrawParams(gorizont))
             {
+                // TODO: Добавить индикатор прогресса
                 while(reader.Read())
                 {
                     try

@@ -14,6 +14,7 @@ using Autodesk.AutoCAD.Runtime;
 using Newtonsoft.Json.Linq;
 
 using static Plugins.Constants;
+using System.Linq;
 
 namespace Plugins
 {
@@ -25,16 +26,18 @@ namespace Plugins
         /// Проверка загрузки всех необходимый стилей линий MapManager
         /// </summary>
         /// <param name="db">Внутренняя БД AutoCAD</param>
-        /// <param name="types">Список необходимых стилей</param>
+        /// <param name="count">Количество подгруженных стилей</param>
         /// <returns>true, если все стили корректно загружены, false в противном случае</returns>
-        private bool VerifyLoadingLineTypes(Database db, IEnumerable<string> types)
+        private bool VerifyLoadingLineTypes(Database db, int count)
         {
             using (var transaction = db.TransactionManager.StartTransaction())
             {
                 var table = transaction.GetObject(db.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
 
-                foreach (var name in types)
+                for (int i = 0; i < count; ++i)
                 {
+                    var name = LineTypeLoader.STYLE_NAME + (i + 1);
+
                     if (!table.Has(name))
                     {
                         MessageBox.Show($"Не подгружен тип линии {name}");
@@ -120,7 +123,7 @@ namespace Plugins
             return result;
         }
 
-        #endregion
+#endregion
 
         #region Public Methods
         /// <summary>
@@ -137,22 +140,27 @@ namespace Plugins
             }
             else
             {
-                var db = doc.Database;
-
-                var typeNames = JObject
-                    .Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, "plugin.config.json")))
-                    .Value<JArray>("LineTypes")
-                    .Values<string>();
-
-                // TODO: В зависииости от общего масштаба изменять шаблон типа линии
-                foreach (var name in typeNames)
+                try
                 {
-                    db.LoadLineTypeFile(name, "acad.lin");
+                    var db = doc.Database;
+                    int count = new LineTypeLoader().Load();
+                    for (int i = 0; i < count; ++i)
+                    {
+                        db.LoadLineTypeFile(LineTypeLoader.STYLE_NAME + (i + 1).ToString(), LineTypeLoader.STYLE_FILE);
+                    }
+
+                    if (!VerifyLoadingLineTypes(db, count))
+                    {
+                        throw new LineTypeNotFoundException();
+                    }
+
+                    doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
                 }
-
-                if (!VerifyLoadingLineTypes(db, typeNames)) return;
-
-                doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
+                catch (LineTypeNotFoundException)
+                {
+                    MessageBox.Show("Не удалось найти все стили линии!");
+                    return;
+                }
             }
         }
         /// <summary>
@@ -161,6 +169,7 @@ namespace Plugins
         public void Terminate() 
         {
             File.Delete(Path.Combine(Path.GetTempPath(), DbConfigFilePath));
+            File.Delete(Path.Combine(SupportPath, LineTypeLoader.STYLE_FILE));
         }
 #endregion
 
@@ -172,6 +181,7 @@ namespace Plugins
         [CommandMethod("MMP_DRAW")]
         public void DrawCommand()
         {
+            // TODO: Добавить поддержку пользовательского BoundingBox
             OracleDbDispatcher connection = null;
             try
             {
@@ -254,8 +264,8 @@ namespace Plugins
 
                     if (fields.Length > 2) baseCapture = fields[1];
 
-                    // FIXME: Неадо ли заполнять DataTable пустыми столбцами?
-                    using (ExternalDBWindow window = new ExternalDBWindow(connection.GetDataTable(CreateCommand(baseName, linkField, systemId, fieldNames))))
+                    // FIXME: ??? Надо ли заполнять DataTable пустыми столбцами ???
+                    using (ExternalDbWindow window = new ExternalDbWindow(connection.GetDataTable(CreateCommand(baseName, linkField, systemId, fieldNames)).DefaultView))
                     {
                         window.Title = baseCapture;
                         window.ShowDialog();
@@ -265,4 +275,57 @@ namespace Plugins
         }
         #endregion
     }
+    sealed class LineTypeLoader
+    {
+        public static readonly string STYLE_FILE = ".tmp.lin";
+        public static readonly string STYLE_NAME = "MM_LineType";
+        public int Load()
+        {
+            var content = File.ReadAllLines(Path.Combine(Constants.SupportPath, "acad.lin"));
+
+            var styles = JObject
+                .Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, "plugin.config.json")))
+                .Value<JArray>("LineTypes")
+                .Values<string>();
+
+            int counter = 0;
+
+            using (var stream = new StreamWriter(Path.Combine(SupportPath, STYLE_FILE), false))
+            {
+                for (int i = 0; i < content.Length; ++i)
+                {
+                    var line = content[i];
+                    if (line.StartsWith(";;"))
+                    {
+                        continue;
+                    }
+                    else if (line.StartsWith("*"))
+                    {
+                        foreach (var style in styles)
+                        {
+                            if (line.StartsWith("*" + style))
+                            {
+                                stream.WriteLine("*" + STYLE_NAME + (++counter).ToString());
+                                var descriptionType = content[i + 1];
+                                var numbers = descriptionType.Substring(2, descriptionType.Length - 2).Split(',');
+                                var builder = new StringBuilder().Append('A');
+                                foreach(var number in numbers)
+                                {
+                                    builder.Append(',').Append(Convert.ToDouble(number.StartsWith(".") ? "0" + number : number) * SCALE);
+                                }
+                                stream.WriteLine(builder.ToString());
+                                ++i;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (counter == styles.Count())
+                return counter;
+            else
+                throw new LineTypeNotFoundException();
+        }
+    }
+    sealed class LineTypeNotFoundException : System.Exception { }
 }

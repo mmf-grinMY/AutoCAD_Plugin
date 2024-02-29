@@ -174,8 +174,8 @@
     <Compile Include="View\BaseViewModel.cs" />
     <Compile Include="CommandClass.cs" />
     <Compile Include="DrawType.cs" />
-    <Compile Include="View\ExternalDBWindow.xaml.cs">
-      <DependentUpon>ExternalDBWindow.xaml</DependentUpon>
+    <Compile Include="View\ExternalDbWindow.xaml.cs">
+      <DependentUpon>ExternalDbWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="View\GorizontSelecterWindow.xaml.cs">
       <DependentUpon>GorizontSelecterWindow.xaml</DependentUpon>
@@ -188,7 +188,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
-    <Page Include="View\ExternalDBWindow.xaml">
+    <Page Include="View\ExternalDbWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
