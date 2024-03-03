@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Text.RegularExpressions;
+using System.Collections.Generic;
 using System.Xml.Linq;
 
 using APolyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
@@ -22,63 +23,54 @@ namespace Plugins.Entities
         /// <param name="box">Общий для всех рисуемых объектов BoundingBox</param>
         public Polygon(Database db, Primitive draw, Box box) : base(db, draw, box) { }
         /// <summary>
-        /// Создание примитива 
-        /// </summary>
-        /// <param name="polygon">Исходный полигон</param>
-        /// <returns>Примитив</returns>
-        private static APolyline Create(Aspose.Gis.Geometries.Polygon polygon)
-        {
-            var polyline = new APolyline();
-
-            int i = 0;
-            foreach (var p in polygon.ExteriorRing)
-            {
-                var point = new Point2d(p.X * Constants.SCALE, p.Y * Constants.SCALE);
-                polyline.AddVertexAt(i, point, 0, 0, 0);
-                ++i;
-            }
-
-            return polyline;
-        }
-        /// <summary>
         /// Рисование объекта
         /// </summary>
         public override void Draw()
         {
-            using (var polyline = Create(drawParams.Geometry as Aspose.Gis.Geometries.Polygon))
+            const string PAT_NAME = "PatName";
+            const string PAT_ANGLE = "PatAngle";
+            const string PAT_SCALE = "PatScale";
+            const string brushColor = "BrushColor";
+
+            var dictionary = HatchPatternLoader.Load(drawParams.DrawSettings);
+
+            double GetValue(string key) => dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1;
+
+            var lines = Wkt.Lines.Parse(drawParams.Geometry);
+            var hatch = new Hatch
             {
-                AppendToDb(polyline.SetDrawSettings(drawParams.DrawSettings, drawParams.LayerName));
-                using (var hatch = new Hatch())
-                {
-                    AppendToDb(hatch);
+                PatternScale = Constants.HATCH_SCALE * GetValue(PAT_SCALE),
+                Color = ColorConverter.FromMMColor(drawParams.DrawSettings.Value<int>(brushColor)),
+                Layer = drawParams.LayerName
+            };
 
-                    var dictionary = HatchPatternLoader.Load(drawParams.DrawSettings);
+            AppendToDb(hatch);
 
-                    double GetValue(string key) => dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1;
+            // FIXME: Добавить поддержку свойства ForeColor
+            // На горизонте K450E нет заливок, требующих это свойство
+            hatch.SetHatchPattern(HatchPatternType.PreDefined, dictionary[PAT_NAME]);
 
-                    const string PAT_NAME = "PatName";
-                    const string PAT_ANGLE = "PatAngle";
-                    const string PAT_SCALE = "PatScale";
-                    const string brushColor = "BrushColor";
-
-                    // FIXME: Добавить поддержку свойства ForeColor
-                    // На горизонте K450E нет заливок, требующих это свойство
-                    hatch.PatternScale = Constants.HATCH_SCALE * GetValue(PAT_SCALE);
-                    hatch.SetHatchPattern(HatchPatternType.PreDefined, dictionary[PAT_NAME]);
-
-                    if (dictionary.TryGetValue(PAT_ANGLE, out var angle))
-                    {
-                        hatch.PatternAngle = angle.ToDouble().ToRad();
-                    }
-
-                    hatch.Associative = true;
-                    hatch.Color = ColorConverter.FromMMColor(drawParams.DrawSettings.Value<int>(brushColor));
-                    hatch.Layer = drawParams.LayerName;
-
-                    hatch.AppendLoop(HatchLoopTypes.Outermost, new ObjectIdCollection { polyline.ObjectId });
-                    hatch.EvaluateHatch(true);
-                }
+            if (dictionary.TryGetValue(PAT_ANGLE, out var angle))
+            {
+                hatch.PatternAngle = angle.ToDouble().ToRad();
             }
+
+            var collection = new ObjectIdCollection();
+
+            hatch.Associative = true;
+            AppendToDb(lines[0].SetDrawSettings(drawParams.DrawSettings, drawParams.LayerName));
+            collection.Add(lines[0].ObjectId);
+            hatch.AppendLoop(HatchLoopTypes.Default, collection);
+
+            for (int i = 1; i < lines.Length; i++)
+            {
+                collection.Clear();
+                AppendToDb(lines[i].SetDrawSettings(drawParams.DrawSettings, drawParams.LayerName));
+                collection.Add(lines[i].ObjectId);
+                hatch.AppendLoop(HatchLoopTypes.Default, collection);
+            }
+
+            hatch.EvaluateHatch(true);
         }
         /// <summary>
         /// Загрузчик параметров паттернов штриховки
@@ -88,7 +80,7 @@ namespace Plugins.Entities
             /// <summary>
             /// Кэш параметров заливок
             /// </summary>
-            private static Dictionary<string, Dictionary<string, string>> cache;
+            private static readonly Dictionary<string, Dictionary<string, string>> cache;
             /// <summary>
             /// Корневой узел файла конфигурации паттернов штриховки
             /// </summary>
@@ -126,6 +118,48 @@ namespace Plugins.Entities
                 }
 
                 return dictionary;
+            }
+        }
+    }
+    namespace Wkt
+    {
+        static class Lines
+        {
+            private readonly static Regex line;
+            private readonly static Regex point;
+            static Lines()
+            {
+                line = new Regex(@"\((\d+(\.\d{0,3})? \d+(\.\d{0,3})?,( ?))+\d+(\.\d{0,3})? \d+(\.\d{0,3})?\)");
+                point = new Regex(@"\d+(\.\d{0,3})? \d+(\.\d{0,3})?");
+            }
+            public static APolyline[] Parse(string wkt)
+            {
+                var matches = line.Matches(wkt);
+                var lines = new APolyline[matches.Count];
+
+                for (int i = 0; i < lines.Length; ++i)
+                {
+                    lines[i] = new APolyline();
+                    var match = point.Matches(matches[i].Value);
+
+                    for (int j = 0; j < match.Count; ++j)
+                    {
+                        var coords = match[j].Value.Split(' ');
+                        lines[i].AddVertexAt(j, new Point2d(coords[0].ToDouble()
+                            * Constants.SCALE, coords[1].ToDouble() * Constants.SCALE), 0, 0, 0);
+                    }
+
+                }
+
+                return lines;
+            }
+            public static Point3d ParsePoint(string wkt)
+            {
+                var coords = point.Match(wkt).Value.Split(' ');
+
+                return new Point3d(coords[0].ToDouble() * Constants.SCALE,
+                                   coords[1].ToDouble() * Constants.SCALE,
+                                   0);
             }
         }
     }

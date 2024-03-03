@@ -1,28 +1,58 @@
 ﻿using System;
 
+using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 using APolyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
-using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.Colors;
-
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Geometry;
 using Newtonsoft.Json.Linq;
 
 using static Plugins.Constants;
 
-namespace Plugins.Entities
+namespace Plugins
 {
-    /// <summary>
-    /// Методы расширения для класса Autodesk.AutoCAD.DatabaseServices.Entity
-    /// </summary>
-    public static class EntityExtensions
+    public static class ExtensionMethods
     {
+        private static Matrix3d EyeToWorld(this ViewTableRecord view)
+        {
+            return
+                Matrix3d.Rotation(-view.ViewTwist, view.ViewDirection, view.Target) *
+                Matrix3d.Displacement(view.Target - Point3d.Origin) *
+                Matrix3d.PlaneToWorld(view.ViewDirection);
+        }
+        private static Matrix3d WorldToEye(this ViewTableRecord view) => view.EyeToWorld().Inverse();
+        public static void Zoom(this Editor ed, Extents3d ext)
+        {
+            using (var view = ed.GetCurrentView())
+            {
+                ext.TransformBy(view.WorldToEye());
+                view.Width = ext.MaxPoint.X - ext.MinPoint.X;
+                view.Height = ext.MaxPoint.Y - ext.MinPoint.Y;
+                view.CenterPoint = new Point2d(
+                    (ext.MaxPoint.X + ext.MinPoint.X) / 2.0,
+                    (ext.MaxPoint.Y + ext.MinPoint.Y) / 2.0);
+                ed.SetCurrentView(view);
+            }
+        }
+        /// <summary>
+        /// Конвертация строки в вещественное число
+        /// </summary>
+        /// <param name="str">Строковое представление числа</param>
+        /// <returns>Вещественное число</returns>
+        public static double ToDouble(this string str) => System.Convert.ToDouble(str.Replace(',', '.'));
+        /// <summary>
+        /// Конвертация градусов в радианы
+        /// </summary>
+        /// <param name="degree">Угол в градусах</param>
+        /// <returns>Угол в радианах</returns>
+        public static double ToRad(this double degree) => degree / 180 * System.Math.PI;
         /// <summary>
         /// Добавить определение поля в таблицу символов
         /// </summary>
         /// <param name="regAppName">Имя поля</param>
         private static void AddRegAppTableRecord(string regAppName)
         {
-            var db = Application.DocumentManager.MdiActiveDocument.Database;
+            var db = AApplication.DocumentManager.MdiActiveDocument.Database;
             using (var transaction = db.TransactionManager.StartTransaction())
             {
                 var table = transaction.GetObject(db.RegAppTableId, OpenMode.ForWrite) as RegAppTable;
@@ -83,9 +113,7 @@ namespace Plugins.Entities
             if (settings.TryGetValue(BORDER_DESCRIPRION, StringComparison.CurrentCulture, out JToken borderDescription)
                && borderDescription.Value<string>() == "{D075F160-4C94-11D3-A90B-A8163E53382F}")
             {
-                // FIXME: ??? Данные линии не должны существовать ???
-                polyline.Linetype = LineTypeLoader.STYLE_NAME + "2";
-                polyline.Color = Color.FromRgb(0, 255, 0);
+                throw new NoDrawingLineException();
             }
             else if (settings.Value<int>("nPenStyle") == 1)
             {
@@ -93,6 +121,30 @@ namespace Plugins.Entities
             }
 
             return polyline;
-        } 
+        }
+        /// <summary>
+        /// Получение XData
+        /// </summary>
+        /// <param name="buffer">Исходный буфер</param>
+        /// <param name="RegAppName">Зарегестрированное имя</param>
+        /// <returns></returns>
+        public static string GetXData(this ResultBuffer buffer, string RegAppName)
+        {
+            var flag = false;
+            var result = string.Empty;
+            foreach (var tv in buffer)
+            {
+                if (flag)
+                {
+                    result = tv.Value.ToString();
+                    flag = false;
+                }
+                if ((tv.TypeCode == (short)DxfCode.ExtendedDataRegAppName) && (tv.Value.ToString() == RegAppName))
+                {
+                    flag = true;
+                }
+            }
+            return result;
+        }
     }
 }

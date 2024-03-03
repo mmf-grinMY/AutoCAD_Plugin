@@ -91,9 +91,6 @@
       <HintPath>..\packages\AutoCAD.NET.24.3.0\lib\net47\AdWindows.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Aspose.GIS, Version=23.12.0.0, Culture=neutral, PublicKeyToken=716fcc553a201e56, processorArchitecture=MSIL">
-      <HintPath>..\packages\Aspose.GIS.23.12.0\lib\net47\Aspose.GIS.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.8.0.0\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
     </Reference>
@@ -152,14 +149,13 @@
   <ItemGroup>
     <Compile Include="Entities\Box.cs" />
     <Compile Include="ConnectionParams.cs" />
+    <Compile Include="ExtensionMethods.cs" />
     <Compile Include="Primitive.cs" />
     <Compile Include="Entities\BlocksCreater.cs" />
     <Compile Include="Entities\ColorConverter.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="Entities\EntitiesFactory.cs" />
-    <Compile Include="Entities\EntityExtensions.cs" />
     <Compile Include="Entities\ResourceManager.cs" />
-    <Compile Include="Entities\StringExtensions.cs" />
     <Compile Include="Entities\Text.cs" />
     <Compile Include="Entities\Entity.cs" />
     <Compile Include="Entities\Polyline.cs" />
@@ -167,7 +163,6 @@
     <Compile Include="Entities\Sign.cs" />
     <Compile Include="ObjectDispatcher.cs" />
     <Compile Include="OracleDbDispatcher.cs" />
-    <Compile Include="ResultBufferExtensions.cs" />
     <Compile Include="View\BaseViewModel.cs" />
     <Compile Include="CommandClass.cs" />
     <Compile Include="DrawType.cs" />

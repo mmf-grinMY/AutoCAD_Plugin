@@ -1,6 +1,8 @@
 ﻿using System.IO;
 
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.DatabaseServices;
+
 using Newtonsoft.Json.Linq;
 
 namespace Plugins
@@ -75,5 +77,7 @@ namespace Plugins
         /// </summary>
         public static string SupportPath => supportPath;
         #endregion
+
+        public static ViewTableRecord OldView { get; set; }
     }
 }

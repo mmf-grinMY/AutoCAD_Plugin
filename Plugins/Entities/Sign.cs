@@ -35,17 +35,14 @@ namespace Plugins.Entities
         {
             var settings = drawParams.DrawSettings;
             var key = settings.Value<string>("FontName") + "_" + settings.Value<string>("Symbol");
-
             if (!HasKey(key) && !creater.Create(key))
                 return;
 
-            var point = drawParams.Geometry as Aspose.Gis.Geometries.Point;
-            
-            using (var reference = new BlockReference(new Point3d(point.X * SCALE, point.Y * SCALE, 0), GetByKey(key))
+            using (var reference = new BlockReference(Wkt.Lines.ParsePoint(drawParams.Geometry), GetByKey(key))
             {
                 Color = ColorConverter.FromMMColor(settings.Value<int>(COLOR)),
                 Layer = drawParams.LayerName,
-                ScaleFactors = new Scale3d(settings.Value<double>("FontScaleY"))
+                ScaleFactors = new Scale3d(settings.Value<string>("FontScaleX").ToDouble())
             })
             {
                 AppendToDb(reference);

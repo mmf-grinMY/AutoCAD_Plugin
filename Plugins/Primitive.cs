@@ -1,7 +1,5 @@
 ﻿using System;
 
-using Aspose.Gis.Geometries;
-
 using Newtonsoft.Json.Linq;
 
 namespace Plugins
@@ -15,7 +13,7 @@ namespace Plugins
         /// <summary>
         /// Геометрический объект
         /// </summary>
-        public IGeometry Geometry { get; }
+        public string Geometry { get; }
         /// <summary>
         /// Параметры легендаризации
         /// </summary>
@@ -56,7 +54,7 @@ namespace Plugins
         /// <param name="childFields">Столбец линковки</param>
         public Primitive(string wkt, string settings, string param, string layername, string systemid, string baseName, string childFields)
         {
-            Geometry = Aspose.Gis.Geometries.Geometry.FromText(wkt);
+            Geometry = wkt;
             DrawSettings = JObject.Parse(settings);
             Param = JObject.Parse(param);
             LayerName = layername;

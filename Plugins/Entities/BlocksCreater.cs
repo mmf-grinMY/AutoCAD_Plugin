@@ -1,6 +1,10 @@
-﻿using Autodesk.AutoCAD.ApplicationServices.Core;
+﻿using System.IO;
+
+using Autodesk.AutoCAD.ApplicationServices.Core;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
+
+using Newtonsoft.Json.Linq;
 
 using static Plugins.Constants;
 
@@ -29,10 +33,72 @@ namespace Plugins.Entities
         /// <returns>true, если блок отрисован, false в противном случае</returns>
         public bool Create(string blockName)
         {
+            //var def = JObject.Parse(File.ReadAllText(Path.Combine(SupportPath, "symbols.json")));
+            //var block = def.Value<JObject>("CHR Substitution").Value<string>(blockName);
+
+            //var symbolDef = def.Value<JObject>("Vector Symbol Definition");
+            //var values = symbolDef.Value<JObject>(block).Values();
+
+            //foreach (var item in values)
+            //{
+            //    var type = item.Value<string>("Type");
+            //    if (type == "Reference")
+            //    {
+            //        var reference = item.Value<string>("Ref");
+            //        var values1 = symbolDef.Value<JObject>(reference).Values();
+            //        foreach(var item1 in values1)
+            //        {
+            //            var type1 = item1.Value<string>("Type");
+            //            if (type1 == "Reference")
+            //            {
+            //                var reference1 = item1.Value<string>("Ref");
+            //                var values2 = symbolDef.Value<JObject>(reference1).Values();
+            //                foreach (var item2 in values2)
+            //                {
+            //                    var type2 = item2.Value<string>("Type");
+            //                    // Настройка кисти для отрисовки линии
+            //                    if (type2 == "Pen")
+            //                    {
+            //                        var color = item2.Value<string>("Color");
+            //                        var width = item2.Value<string>("Width");
+            //                        var style = item2.Value<string>("Style");
+            //                    }
+            //                    // Настройка заливки
+            //                    else if (type2 == "Brush")
+            //                    {
+            //                        var color = item2.Value<string>("Color");
+            //                        var style = item2.Value<string>("Style");
+            //                    }
+            //                    else if (type2 == "Reference")
+            //                    {
+            //                        foreach (var item3 in symbolDef.Value<JObject>(item2.Value<string>("Ref")).Values())
+            //                        {
+            //                            var type3 = item3.Value<string>("Type");
+            //                            // Настройка окружности
+            //                            if (type3 == "Circle")
+            //                            {
+            //                                CreateCircle(item);
+            //                            }
+            //                        }
+            //                    }
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+
+            //Circle CreateCircle(JToken item)
+            //{
+            //    return new Circle
+            //    {
+            //        Radius = item.Value<double>("Radius"),
+            //        Center = new Point3d(item.Value<double>("CenterX"), item.Value<double>("CenterY"), 0)
+            //    };
+            //}
+
             using (var manager = new ResourceManager(db))
             {
                 manager.Name = blockName;
-
                 switch (blockName)
                 {
                     // TODO: Сделать создание блоков по описанию в файле

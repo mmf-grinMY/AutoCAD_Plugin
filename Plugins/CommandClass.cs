@@ -1,8 +1,18 @@
-﻿using Plugins.View;
+﻿// TODO: Написать свой конвертер из WKT Polygon
+// Пункты замера мощностей ??? Нет объектов, принадлежащих слою
+
+// TODO: Убрать все using у объектов, полученных через транзакцию
+
+// Убрать все MesssageBox, которые не связаны с подключением к БД
+
+// Нужны данные для отрисовки, может попробовать реверснуть mpr?
+
+using Plugins.View;
 
 using System.Collections.Generic;
 using System.Windows;
 using System.Text;
+using System.Linq;
 using System.IO;
 using System;
 
@@ -14,7 +24,6 @@ using Autodesk.AutoCAD.Runtime;
 using Newtonsoft.Json.Linq;
 
 using static Plugins.Constants;
-using System.Linq;
 
 namespace Plugins
 {
@@ -123,7 +132,7 @@ namespace Plugins
             return result;
         }
 
-#endregion
+        #endregion
 
         #region Public Methods
         /// <summary>
@@ -143,6 +152,47 @@ namespace Plugins
                 try
                 {
                     var db = doc.Database;
+
+                    Constants.OldView = doc.Editor.GetCurrentView();
+
+                    doc.ViewChanged += (s, e) =>
+                    {
+                        doc.Editor.WriteMessage(e.ToString());
+
+                        // TODO: Найти базовый scale
+                        // Отталкиваясь от него перерисовать все объекты, находящиеся в области экрана
+#if false
+                        var view = doc.Editor.GetCurrentView();
+                        doc.Editor.WriteMessage($"{view.Height}x{view.Width}\n");
+                        var min = view.Bounds.Value.MinPoint;
+                        var max = view.Bounds.Value.MaxPoint;
+                        using (var transaction = db.TransactionManager.StartTransaction())
+                        {
+                            var table = transaction.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
+                            var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForRead) as BlockTableRecord;
+
+                            // TODO: Сделать итерацию только по слоям, которые содержат масштабируемые объекты
+                            // Типизация штрихованных линий
+                            // Масштаб текста
+                            // Масштаб штриховки
+                            foreach (var id in record)
+                            {
+                                var entity = transaction.GetObject(id, OpenMode.ForRead) as Entity;
+
+                                var bound = entity.Bounds.Value;
+                                var pMin = bound.MinPoint;
+                                var pMax = bound.MaxPoint;
+                                if ((pMax.X < min.X) || (pMin.X > max.X) || (pMax.Y < min.Y) || (pMin.Y > max.Y))
+                                {
+
+                                }
+                            }
+
+                            transaction.Commit();
+                        }
+#endif
+                    };
+
                     int count = new LineTypeLoader().Load();
                     for (int i = 0; i < count; ++i)
                     {
@@ -205,9 +255,15 @@ namespace Plugins
 #endif
                 new ObjectDispatcher(connection, gorizont).Draw();
             }
+            catch (CtorException)
+            {
+                return;
+            }
             catch (System.Exception ex)
             {
+#if !RELEASE
                 MessageBox.Show($"Error: {ex.Message}\n{ex.GetType()}\n{ex.StackTrace}");
+#endif
             }
             finally
             {
@@ -264,7 +320,6 @@ namespace Plugins
 
                     if (fields.Length > 2) baseCapture = fields[1];
 
-                    // FIXME: ??? Надо ли заполнять DataTable пустыми столбцами ???
                     using (ExternalDbWindow window = new ExternalDbWindow(connection.GetDataTable(CreateCommand(baseName, linkField, systemId, fieldNames)).DefaultView))
                     {
                         window.Title = baseCapture;

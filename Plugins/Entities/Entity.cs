@@ -46,7 +46,6 @@ namespace Plugins.Entities
         /// <param name="db">Внутренняя база данных AutoCAD</param>
         /// <param name="drawParams">Параметры отрисовки объекта</param>
         /// <param name="box">Общий BoundingBox рисуемых объектов</param>
-        /// <param name="counter">Счетчик ошибок</param>
         public Entity(Database db, Primitive drawParams, Box box)
         {
             transaction = db.TransactionManager.StartTransaction();

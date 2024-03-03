@@ -33,13 +33,11 @@ namespace Plugins.Entities
             var settings = drawParams.DrawSettings;
             var fontSize = settings.Value<int>(FONT_SIZE) * TEXT_SCALE;
 
-            var point = drawParams.Geometry as Aspose.Gis.Geometries.Point;
-            
             using (var text = new DBText()
             {
                 Layer = drawParams.LayerName,
                 Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0),
-                Position = new Point3d(point.X * SCALE, point.Y * SCALE, 0),
+                Position = Wkt.Lines.ParsePoint(drawParams.Geometry),
             })
             {
                 if (fontSize > 0)

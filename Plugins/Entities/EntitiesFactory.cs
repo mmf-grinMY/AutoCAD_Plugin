@@ -39,19 +39,31 @@ namespace Plugins.Entities
             switch (draw.DrawSettings.Value<string>("DrawType"))
             {
                 case "Polyline":
+                    if (draw.Geometry.StartsWith("MULTILINESTRING"))
                     {
-                        switch (draw.Geometry)
-                        {
-                            case Aspose.Gis.Geometries.MultiLineString _: return new Polyline(db, draw, box);
-                            case Aspose.Gis.Geometries.Polygon _: return new Polygon(db, draw, box);
-                            default: throw new NotImplementedException("При отрисовке полилинии произошла ошибка!");
-                        }
+                        return new Polyline(db, draw, box);
+                    }
+                    else if (draw.Geometry.StartsWith("POLYGON"))
+                    {
+                        return new Polygon(db, draw, box);
+                    }
+                    else
+                    {
+#if !RELEASE
+                        throw new NotImplementedException("При отрисовке полилинии произошла ошибка!");
+#else
+                            break;
+#endif
                     }
                 case "BasicSignDrawParams":
                 case "TMMTTFSignDrawParams": return new Sign(db, draw, box);
                 case "LabelDrawParams": return new Text(db, draw, box);
-                // FIXME: ??? Возможно более логичным будет при обнаружении нового типа просто пропускать данный объект ???
-                default: throw new ArgumentException("Неизвестный тип рисуемого объекта");
+                default:
+#if !RELEASE
+                    throw new ArgumentException("Неизвестный тип рисуемого объекта");
+#else
+                    break;
+#endif
             }
         }
     }

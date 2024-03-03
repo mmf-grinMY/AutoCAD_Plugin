@@ -18,6 +18,7 @@ namespace Plugins
         #endregion
 
         #region Public Static Methods
+
         /// <summary>
         /// Получение строки подключения из параметров подключения
         /// </summary>
@@ -44,32 +45,49 @@ namespace Plugins
         /// <returns>true, если удалось установить соединение, false в противном случае</returns>
         public static bool TryGetConnection(out OracleDbDispatcher connection)
         {
-            using (var loginWindow = new View.LoginWindow())
+            try
             {
-                loginWindow.ShowDialog();
-                if (!loginWindow.InputResult)
-                {
-                    connection = null;
-                    return false;
-                }
-                connection = new OracleDbDispatcher(loginWindow.Params);
+                connection = new OracleDbDispatcher();
+                return true;
             }
-
-            return true;
+            catch (CtorException)
+            {
+                connection = null;
+                return false;
+            }
         }
+        private static ConnectionParams ConnectionParams
+        {
+            get
+            {
+                using (var loginWindow = new View.LoginWindow())
+                {
+                    loginWindow.ShowDialog();
+
+                    if (!loginWindow.InputResult)
+                    {
+                        throw new CtorException();
+                    }
+
+                    return loginWindow.Params;
+                }
+            }
+        }
+
         #endregion
 
         #region Ctors
+
         /// <summary>
         /// Создание объекта
         /// </summary>
         /// <param name="connectionStr">Строка подключения к Oracle БД</param>
-        public OracleDbDispatcher(string connectionStr) 
+        public OracleDbDispatcher() 
         {
 connect:
             try
             {
-                connection = new OracleConnection(connectionStr);
+                connection = new OracleConnection(GetDbConnectionStr(ConnectionParams));
                 connection.Open();
             }
             catch (OracleException ex)
@@ -88,15 +106,27 @@ connect:
                 }
                 else
                 {
-                    MessageBox.Show(ex.Message);
+                    MessageBox.Show("При попытки подключения произошла ошибка! Перепроверьте параметры покдлюченя и повторите попытку!");
+                    goto connect;
                 }
             }
+            catch (CtorException ex)
+            {
+                throw ex;
+            }
+            catch (Exception)
+            {
+                goto connect;
+            }
         }
-        /// <summary>
-        /// Создание объекта
-        /// </summary>
-        /// <param name="param">Параметры подключения</param>
-        public OracleDbDispatcher(ConnectionParams param) : this(GetDbConnectionStr(param)) { }
+#if DEBUG
+        public OracleDbDispatcher(string connectionStr)
+        {
+            connection = new OracleConnection(connectionStr);
+            connection.Open();
+        }
+#endif
+
         #endregion
 
         #region Public Properties
@@ -155,7 +185,7 @@ connect:
         {
             string command =
                 "SELECT * FROM ( SELECT * FROM " + gorizont + "_trans_clone a JOIN " + gorizont +
-                "_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid)";
+                "_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid WHERE geowkt IS NOT NULL)";
 
             return new OracleCommand(command, connection).ExecuteReader();
         }
@@ -191,4 +221,5 @@ connect:
         }
         #endregion
     }
+    public sealed class CtorException : Exception { }
 }
