@@ -6,7 +6,7 @@ namespace Plugins
     /// <summary>
     /// Базовый класс модели представления
     /// </summary>
-    internal class BaseViewModel : INotifyPropertyChanged
+    public class BaseViewModel : INotifyPropertyChanged
     {
         /// <summary>
         /// Изменение свойства

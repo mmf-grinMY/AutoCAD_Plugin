@@ -1,13 +1,16 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Text;
 using System;
 
 using Oracle.ManagedDataAccess.Client;
+using System.Data.Common;
 
 namespace Plugins
 {
+    // TODO: Сделать по возможности все SQL-запросы читаемыми извне
     public class OracleDbDispatcher : IDisposable
     {
         #region Private Fields
@@ -188,6 +191,13 @@ connect:
                 "_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid WHERE geowkt IS NOT NULL)";
 
             return new OracleCommand(command, connection).ExecuteReader();
+        }
+        public int Count(string gorizont)
+        {
+            string command = "SELECT COUNT(*) FROM " + gorizont + "_trans_clone";
+            var reader = new OracleCommand(command, connection).ExecuteReader();
+            reader.Read();
+            return reader.GetInt32(0);
         }
         /// <summary>
         /// Получение линковки

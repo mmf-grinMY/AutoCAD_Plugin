@@ -147,9 +147,17 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DebugViewModel.cs" />
+    <Compile Include="DebugWindow.xaml.cs">
+      <DependentUpon>DebugWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="DrawInfoWindow.xaml.cs">
+      <DependentUpon>DrawInfoWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Entities\Box.cs" />
     <Compile Include="ConnectionParams.cs" />
     <Compile Include="ExtensionMethods.cs" />
+    <Compile Include="LineTypeLoader.cs" />
     <Compile Include="Primitive.cs" />
     <Compile Include="Entities\BlocksCreater.cs" />
     <Compile Include="Entities\ColorConverter.cs" />
@@ -165,7 +173,6 @@
     <Compile Include="OracleDbDispatcher.cs" />
     <Compile Include="View\BaseViewModel.cs" />
     <Compile Include="CommandClass.cs" />
-    <Compile Include="DrawType.cs" />
     <Compile Include="View\ExternalDbWindow.xaml.cs">
       <DependentUpon>ExternalDbWindow.xaml</DependentUpon>
     </Compile>
@@ -180,6 +187,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
+    <Page Include="DebugWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="DrawInfoWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="View\ExternalDbWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

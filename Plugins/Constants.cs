@@ -78,6 +78,7 @@ namespace Plugins
         public static string SupportPath => supportPath;
         #endregion
 
-        public static ViewTableRecord OldView { get; set; }
+        // public static ViewTableRecord OldView { get; set; }
+        public static double OldWidth { get; set; }
     }
 }

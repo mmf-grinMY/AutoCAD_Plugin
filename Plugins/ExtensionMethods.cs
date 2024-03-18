@@ -117,7 +117,7 @@ namespace Plugins
             }
             else if (settings.Value<int>("nPenStyle") == 1)
             {
-                polyline.Linetype = LineTypeLoader.STYLE_NAME + "1";
+                polyline.Linetype = "MMP_2"; // LineTypeLoader.STYLE_NAME + "1";
             }
 
             return polyline;
@@ -145,6 +145,16 @@ namespace Plugins
                 }
             }
             return result;
+        }
+
+        public static int Count(this BlockTableRecord record)
+        {
+            int counter = 0;
+            foreach (var id in record)
+            {
+                ++counter;
+            }
+            return counter;
         }
     }
 }

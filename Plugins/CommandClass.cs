@@ -1,62 +1,44 @@
-﻿// TODO: Написать свой конвертер из WKT Polygon
-// Пункты замера мощностей ??? Нет объектов, принадлежащих слою
+﻿// TODO: Убрать все using у объектов, полученных через транзакцию
 
-// TODO: Убрать все using у объектов, полученных через транзакцию
-
-// Убрать все MesssageBox, которые не связаны с подключением к БД
-
-// Нужны данные для отрисовки, может попробовать реверснуть mpr?
+#define POL // Команда рисования полилинии
 
 using Plugins.View;
 
 using System.Collections.Generic;
 using System.Windows;
 using System.Text;
-using System.Linq;
 using System.IO;
 using System;
 
 using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
+using Point2d = Autodesk.AutoCAD.Geometry.Point2d;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 
-using Newtonsoft.Json.Linq;
-
 using static Plugins.Constants;
+
+using System.Threading;
+using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
+
+
+
+
+#if POL
+using APolyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
+using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.Geometry;
+using Autodesk.AutoCAD.Colors;
+#endif
 
 namespace Plugins
 {
+    sealed class LineTypeNotFoundException : System.Exception { }
     public partial class Commands : IExtensionApplication
     {
         #region Private Methods
 
-        /// <summary>
-        /// Проверка загрузки всех необходимый стилей линий MapManager
-        /// </summary>
-        /// <param name="db">Внутренняя БД AutoCAD</param>
-        /// <param name="count">Количество подгруженных стилей</param>
-        /// <returns>true, если все стили корректно загружены, false в противном случае</returns>
-        private bool VerifyLoadingLineTypes(Database db, int count)
-        {
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                var table = transaction.GetObject(db.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
-
-                for (int i = 0; i < count; ++i)
-                {
-                    var name = LineTypeLoader.STYLE_NAME + (i + 1);
-
-                    if (!table.Has(name))
-                    {
-                        MessageBox.Show($"Не подгружен тип линии {name}");
-                        return false;
-                    }
-                }
-            }
-            
-            return true;
-        }
         /// <summary>
         /// Создание команды выборки данных
         /// </summary>
@@ -134,6 +116,8 @@ namespace Plugins
 
         #endregion
 
+        static DebugWindow debugWindow;
+
         #region Public Methods
         /// <summary>
         /// Инициализировать плагин
@@ -141,6 +125,7 @@ namespace Plugins
         public void Initialize()
         {
             var doc = AApplication.DocumentManager.MdiActiveDocument;
+            //syncControl = new Control();
             if (doc is null)
             {
                 MessageBox.Show("При загрузке плагина произошла ошибка!", "Ошибка", 
@@ -153,28 +138,42 @@ namespace Plugins
                 {
                     var db = doc.Database;
 
-                    Constants.OldView = doc.Editor.GetCurrentView();
+                    Constants.OldWidth = doc.Editor.GetCurrentView().Width;
 
+                    // width = doc.Editor.GetCurrentView().Width;
+
+                    debugWindow = new DebugWindow();
+                    debugWindow.Show();
+                    // Task.Run(() => debugWindow.Dispatcher.Invoke(debugWindow.Show));
+
+                    doc.ViewChanged += debugWindow.ViewModel.HandleDocumentViewChanged;
+#if false
                     doc.ViewChanged += (s, e) =>
                     {
-                        doc.Editor.WriteMessage(e.ToString());
+                        // TODO: Переделать первоначальную инициализацию масштабируемых параметров
 
-                        // TODO: Найти базовый scale
-                        // Отталкиваясь от него перерисовать все объекты, находящиеся в области экрана
-#if false
+                        // 1920 пикселей
+                        // 24 пикселя - длина штриха
+                        // 8 пикселей - длина промежутка
+                        // 1 пиксель у блока - 1 единица ширины
+                        // 35 пикселей - высота цифры шрифта 10
+
+                        // 1/1920 = x/view.Width => x = view.Width/screen.Width;
+
                         var view = doc.Editor.GetCurrentView();
-                        doc.Editor.WriteMessage($"{view.Height}x{view.Width}\n");
-                        var min = view.Bounds.Value.MinPoint;
-                        var max = view.Bounds.Value.MaxPoint;
+                        double scale = view.Width / Constants.OldWidth;
+                        Constants.OldWidth = view.Width;
+#if !true
+                        var center = view.CenterPoint;
+
+                        var min = new Point2d(center.X - view.Width / 2, center.Y - view.Height / 2);
+                        var max = new Point2d(center.X + view.Width / 2, center.Y + view.Height / 2);
+
                         using (var transaction = db.TransactionManager.StartTransaction())
                         {
                             var table = transaction.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
                             var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForRead) as BlockTableRecord;
-
-                            // TODO: Сделать итерацию только по слоям, которые содержат масштабируемые объекты
-                            // Типизация штрихованных линий
-                            // Масштаб текста
-                            // Масштаб штриховки
+#if true
                             foreach (var id in record)
                             {
                                 var entity = transaction.GetObject(id, OpenMode.ForRead) as Entity;
@@ -184,24 +183,43 @@ namespace Plugins
                                 var pMax = bound.MaxPoint;
                                 if ((pMax.X < min.X) || (pMin.X > max.X) || (pMax.Y < min.Y) || (pMin.Y > max.Y))
                                 {
-
+                                    switch (entity)
+                                    {
+                                        case DBText text:
+                                            text.Height *= scale;
+                                            break;
+                                        case Polyline polyline:
+                                            // TODO: Сделать перезапись заливки
+                                            break;
+                                        case Hatch hatch:
+                                            hatch.PatternScale *= scale;
+                                            break;
+                                        case BlockReference blockReference:
+                                            // TODO: Сделать перерисовку знаков
+                                            break;
+                                    }
                                 }
                             }
+#endif
 
                             transaction.Commit();
-                        }
+                        }            
 #endif
                     };
+#endif
 
-                    int count = new LineTypeLoader().Load();
-                    for (int i = 0; i < count; ++i)
+                    using (var transaction = db.TransactionManager.StartTransaction())
                     {
-                        db.LoadLineTypeFile(LineTypeLoader.STYLE_NAME + (i + 1).ToString(), LineTypeLoader.STYLE_FILE);
-                    }
+                        var table = transaction.GetObject(db.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
 
-                    if (!VerifyLoadingLineTypes(db, count))
-                    {
-                        throw new LineTypeNotFoundException();
+                        if (!table.Has(TYPE_NAME))
+                        {
+                            db.LoadLineTypeFile(TYPE_NAME, Path.Combine(SupportPath, "acad.lin"));
+                        }
+
+                        var record = transaction.GetObject(table[TYPE_NAME], OpenMode.ForWrite) as LinetypeTableRecord;
+
+                        transaction.Commit();
                     }
 
                     doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
@@ -221,9 +239,11 @@ namespace Plugins
             File.Delete(Path.Combine(Path.GetTempPath(), DbConfigFilePath));
             File.Delete(Path.Combine(SupportPath, LineTypeLoader.STYLE_FILE));
         }
-#endregion
+        #endregion
 
         #region Command Methods
+        //static Control syncControl;
+
         /// <summary>
         /// Отрисовать геометрию
         /// </summary>
@@ -253,7 +273,18 @@ namespace Plugins
                     gorizont = gorizontSelecter.Gorizont;
                 }
 #endif
+
+#if OLD
                 new ObjectDispatcher(connection, gorizont).Draw();
+#else
+                var disp = new ObjectDispatcher(connection, gorizont);
+                var w = new DrawInfoWindow(disp);
+                w.ShowDialog();
+
+                // backgroundWorker.RunWorkerCompleted += BackgroundWorker_RunWorkerCompleted;
+                // backgroundWorker.WorkerSupportsCancellation = true;
+                // backgroundWorker.RunWorkerAsync();
+#endif
             }
             catch (CtorException)
             {
@@ -264,10 +295,6 @@ namespace Plugins
 #if !RELEASE
                 MessageBox.Show($"Error: {ex.Message}\n{ex.GetType()}\n{ex.StackTrace}");
 #endif
-            }
-            finally
-            {
-                connection?.Dispose();
             }
         }
         /// <summary>
@@ -328,59 +355,139 @@ namespace Plugins
                 }
             }
         }
-        #endregion
-    }
-    sealed class LineTypeLoader
-    {
-        public static readonly string STYLE_FILE = ".tmp.lin";
-        public static readonly string STYLE_NAME = "MM_LineType";
-        public int Load()
+#endregion
+
+#if POL
+        private readonly Document doc = AApplication.DocumentManager.MdiActiveDocument;
+        private readonly string TYPE_NAME = "MMP_2";
+
+        [CommandMethod("MMP_HATCH")]
+        public void DrawPolyline()
         {
-            var content = File.ReadAllLines(Path.Combine(Constants.SupportPath, "acad.lin"));
+            const int limit = 1; // 1_000;
 
-            var styles = JObject
-                .Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, "plugin.config.json")))
-                .Value<JArray>("LineTypes")
-                .Values<string>();
+            var db = doc.Database;
+            var view = doc.Editor.GetCurrentView();
 
-            int counter = 0;
+            var scale = view.Width / SystemParameters.FullPrimaryScreenWidth;
 
-            using (var stream = new StreamWriter(Path.Combine(SupportPath, STYLE_FILE), false))
+            using (var transaction = db.TransactionManager.StartTransaction())
             {
-                for (int i = 0; i < content.Length; ++i)
+                var table = transaction.GetObject(db.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
+
+                if (!table.Has(TYPE_NAME))
                 {
-                    var line = content[i];
-                    if (line.StartsWith(";;"))
+                    db.LoadLineTypeFile(TYPE_NAME, Path.Combine(SupportPath, "acad.lin"));
+                }
+
+                transaction.Commit();
+            }
+
+            BlockTableRecord customBlockRecord;
+
+            using (var transaction = db.TransactionManager.StartTransaction())
+            {
+                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
+
+                customBlockRecord = new BlockTableRecord();
+                table.Add(customBlockRecord);
+                customBlockRecord.Name = "CustomBlock";
+                transaction.AddNewlyCreatedDBObject(customBlockRecord, true);
+
+                var circle = new Circle
+                {
+                    Center = new Point3d(0, 0, 0),
+                    Radius = 3,
+                    Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)
+                };
+
+                customBlockRecord.AppendEntity(circle);
+                transaction.AddNewlyCreatedDBObject(circle, true);
+            }
+
+            for (int i = 0; i < limit; ++i)
+            {
+                using (var transaction = db.TransactionManager.StartTransaction())
+                {
+                    var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
+                    var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+                    var polyline = new APolyline
                     {
-                        continue;
-                    }
-                    else if (line.StartsWith("*"))
+                        Color = Autodesk.AutoCAD.Colors.Color.FromRgb(255, 0, 0),
+                        Linetype = TYPE_NAME
+                    };
+
+                    polyline.AddVertexAt(0, new Point2d(2, 2), 0, 0, 0);
+                    polyline.AddVertexAt(1, new Point2d(2, 10), 0, 0, 0);
+                    polyline.AddVertexAt(2, new Point2d(10, 10), 0, 0, 0);
+                    polyline.AddVertexAt(3, new Point2d(10, 2), 0, 0, 0);
+                    polyline.AddVertexAt(4, new Point2d(2, 2), 0, 0, 0);
+
+                    record.AppendEntity(polyline);
+                    transaction.AddNewlyCreatedDBObject(polyline, true);
+
+                    var hatch = new Hatch
                     {
-                        foreach (var style in styles)
-                        {
-                            if (line.StartsWith("*" + style))
-                            {
-                                stream.WriteLine("*" + STYLE_NAME + (++counter).ToString());
-                                var descriptionType = content[i + 1];
-                                var numbers = descriptionType.Substring(2, descriptionType.Length - 2).Split(',');
-                                var builder = new StringBuilder().Append('A');
-                                foreach(var number in numbers)
-                                {
-                                    builder.Append(',').Append(Convert.ToDouble(number.StartsWith(".") ? "0" + number : number) * SCALE);
-                                }
-                                stream.WriteLine(builder.ToString());
-                                ++i;
-                            }
-                        }
-                    }
+                        PatternScale = scale * 1_000,
+                        Color = Color.FromRgb(0, 255, 0),
+                    };
+
+                    record.AppendEntity(hatch);
+                    transaction.AddNewlyCreatedDBObject(hatch, true);
+
+                    hatch.SetHatchPattern(HatchPatternType.PreDefined, "DRO32!3");
+                    hatch.Associative = true;
+                    hatch.AppendLoop(HatchLoopTypes.Default, new ObjectIdCollection() { polyline.ObjectId });
+                    hatch.EvaluateHatch(true);
+
+                    var text = new DBText()
+                    {
+                        TextString = "Строка для теста!",
+                        Position = new Point3d(10, 12, 0),
+                        Color = Color.FromRgb(0, 0, 255),
+                        Height = scale
+                    };
+
+                    record.AppendEntity(text);
+                    transaction.AddNewlyCreatedDBObject(text, true);
+
+                    var reference = new BlockReference(new Point3d(0, 0, 0), customBlockRecord.ObjectId)
+                    {
+                        Color = Color.FromRgb(0, 255, 255)
+                    };
+
+                    record.AppendEntity(reference);
+                    transaction.AddNewlyCreatedDBObject(reference, true);
+
+                    transaction.Commit();
                 }
             }
 
-            if (counter == styles.Count())
-                return counter;
-            else
-                throw new LineTypeNotFoundException();
+            MessageBox.Show("Закончена отрисовка объектов!");
         }
+#endif
+        [CommandMethod("MMP_COUNT")]
+        public void GetCount()
+        {
+            var db = doc.Database;
+
+            using (var transaction = db.TransactionManager.StartTransaction())
+            {
+                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
+                var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForRead) as BlockTableRecord;
+
+                int counter = 0;
+
+                foreach (var id in record)
+                {
+                    ++counter;
+                }
+
+                MessageBox.Show(counter.ToString());
+            }
+        }
+        public static int PATTERN_SCALE = 10_000;
+        public static int TEXT_SCALE = 8;
     }
-    sealed class LineTypeNotFoundException : System.Exception { }
 }
