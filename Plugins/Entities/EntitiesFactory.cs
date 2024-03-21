@@ -12,20 +12,15 @@ namespace Plugins.Entities
         /// <summary>
         /// Внутренняя БД AutoCAD
         /// </summary>
-        private readonly Database db;
-        /// <summary>
-        /// Грагичная рамка рисуемых объектов
-        /// </summary>
-        private readonly Box box;
+        readonly Database db;
         /// <summary>
         /// Создание объекта
         /// </summary>
         /// <param name="db">Внутренняя база данных AutoCAD</param>
         /// <param name="box">Общий BoundingBox всех рисуемых объектов</param>
-        public EntitiesFactory(Database db, Box box)
+        public EntitiesFactory(Database database)
         {
-            this.db = db;
-            this.box = box;
+            db = database;
         }
         /// <summary>
         /// Создание объекта отрисовки
@@ -41,24 +36,26 @@ namespace Plugins.Entities
                 case "Polyline":
                     if (draw.Geometry.StartsWith("MULTILINESTRING"))
                     {
-                        return new Polyline(db, draw, box);
+                        return new Polyline(db, draw);
                     }
                     else if (draw.Geometry.StartsWith("POLYGON"))
                     {
-                        return new Polygon(db, draw, box);
+                        return new Polygon(db, draw);
                     }
                     else
                     {
+                        // FIXME: Заменить на логгирование
 #if !RELEASE
                         throw new NotImplementedException("При отрисовке полилинии произошла ошибка!");
 #else
-                            break;
+                        break;
 #endif
                     }
                 case "BasicSignDrawParams":
-                case "TMMTTFSignDrawParams": return new Sign(db, draw, box);
-                case "LabelDrawParams": return new Text(db, draw, box);
+                case "TMMTTFSignDrawParams": return new Sign(db, draw);
+                case "LabelDrawParams": return new Text(db, draw);
                 default:
+                    // FIXME: Заменить на логгирование
 #if !RELEASE
                     throw new ArgumentException("Неизвестный тип рисуемого объекта");
 #else

@@ -1,6 +1,24 @@
 ﻿// TODO: Убрать все using у объектов, полученных через транзакцию
 
+// TODO: Все ошибки логировать в отдельный файл, а не в MessageBox
+
+// TODO: Выпилить все пересчеты BoundingBox
+
+// TODO: Добавить в окно мониторинга за процессом отрисовки график заполнения очереди
+
+// TODO: Добавить фильтр для выборки только определенных слоев
+
+// TODO: Добавить панель со слоями как в MapManager
+
+// TODO: Сделать нормальное масштабирование
+
+// TODO: Сделать ограничение на отрисовку в одном чертеже только одного горизонта
+
+// TODO: Добавить описание выбрасываемых исключений ко всем методам
+
 #define POL // Команда рисования полилинии
+
+// #define LOG // Логгирование всех основных действий плагина
 
 using Plugins.View;
 
@@ -11,34 +29,122 @@ using System.IO;
 using System;
 
 using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
-using Point2d = Autodesk.AutoCAD.Geometry.Point2d;
+using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
 
-using System.Threading;
-using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
+#if LOG
+using Microsoft.Extensions.Logging;
 
-
-
+using System.Reflection;
 
 #if POL
-using APolyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
-using Autodesk.AutoCAD.ApplicationServices;
+using Point2d = Autodesk.AutoCAD.Geometry.Point2d;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Colors;
+#endif
 #endif
 
 namespace Plugins
 {
-    sealed class LineTypeNotFoundException : System.Exception { }
-    public partial class Commands : IExtensionApplication
+    // TODO: Переписать на свой логгер
+#if LOG
+    #region File Logging
+    public static class MyLoggerExtensions
     {
+        static string GetLogMessage(string message, string logLevel) => 
+            DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + logLevel + ":" + Environment.NewLine + '\t' + message;
+        public static void MyLogInformation(this ILogger logger, string message, params object[] args) =>
+            logger.LogInformation(GetLogMessage(message, "Info"), args);
+        public static void MyLogWarning(this ILogger logger, string message, params object[] args) =>
+            logger.LogInformation(GetLogMessage(message, "Warn"), args);
+        public static void MyLogError(this ILogger logger, string message, params object[] args) =>
+            logger.LogError(GetLogMessage(message, "Error"), args);
+    }
+    public static class FileLoggingExtensions
+    {
+        public static ILoggingBuilder AddFile(this ILoggingBuilder builder, string filePath)
+        {
+            builder.AddProvider(new FileLoggerProvider(filePath));
+            return builder;
+        }
+    }
+    sealed class FileLoggerProvider : ILoggerProvider
+    {
+        readonly string filePath;
+        public FileLoggerProvider(string path)
+        {
+            filePath = path;
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+        public ILogger CreateLogger(string categoryName)
+        {
+            return new FileLogger(filePath);
+        }
+        public void Dispose() { }
+    }
+    sealed class FileLogger : ILogger
+    {
+        static readonly object lockObj = new object();
+        readonly string filePath;
+        public FileLogger(string path)
+        {
+            filePath = path;
+        }
+        public IDisposable BeginScope<TState>(TState state)
+        {
+            return null;
+        }
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, System.Exception exception, Func<TState, System.Exception, string> formatter)
+        {
+            if (formatter != null)
+            {
+                lock (lockObj)
+                {
+                    File.AppendAllText(filePath, formatter(state, exception) + Environment.NewLine);
+                }
+            }
+        }
+    }
+    #endregion
+#endif
+    public class Commands : IExtensionApplication
+    {
+        #region Private Fields
+
+        readonly Document doc = AApplication.DocumentManager.MdiActiveDocument;
+        readonly string LINE_TYPE_SOURCE = "acad.lin";
+        readonly string TYPE_NAME = "MMP_2";
+
+        #endregion
+
         #region Private Methods
 
+        void LoadLineTypes()
+        {
+            var db = doc.Database;
+            using (var transaction = db.TransactionManager.StartTransaction())
+            {
+                var table = transaction.GetObject(db.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
+
+                if (!table.Has(TYPE_NAME))
+                {
+                    db.LoadLineTypeFile(TYPE_NAME, Path.Combine(SupportPath, LINE_TYPE_SOURCE));
+                }
+
+                transaction.Commit();
+            }
+        }
         /// <summary>
         /// Создание команды выборки данных
         /// </summary>
@@ -116,118 +222,54 @@ namespace Plugins
 
         #endregion
 
-        static DebugWindow debugWindow;
+#if LOG
+        static ILogger logger;
+#endif
 
         #region Public Methods
+
         /// <summary>
         /// Инициализировать плагин
         /// </summary>
         public void Initialize()
         {
-            var doc = AApplication.DocumentManager.MdiActiveDocument;
-            //syncControl = new Control();
             if (doc is null)
             {
-                MessageBox.Show("При загрузке плагина произошла ошибка!", "Ошибка", 
+                MessageBox.Show("Невозможен доступ к активному документу!", "Ошибка", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-            else
+
+#if LOG
+            using (var view = doc.Editor.GetCurrentView())
             {
-                try
+                width = view.Width;
+            }
+
+            string path = Assembly.GetAssembly(typeof(Commands)).Location;
+            path = Path.GetDirectoryName(path);
+            using (ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddFile(Path.Combine(path, "main.log"))))
+            {
+                logger = factory.CreateLogger<Commands>();
+            }
+#endif
+
+            try
+            {
+                LoadLineTypes();
+
+                doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
+            }
+            catch (Autodesk.AutoCAD.Runtime.Exception ex)
+            {
+                if (ex.Message == "eUndefinedLineType")
                 {
-                    var db = doc.Database;
-
-                    Constants.OldWidth = doc.Editor.GetCurrentView().Width;
-
-                    // width = doc.Editor.GetCurrentView().Width;
-
-                    debugWindow = new DebugWindow();
-                    debugWindow.Show();
-                    // Task.Run(() => debugWindow.Dispatcher.Invoke(debugWindow.Show));
-
-                    doc.ViewChanged += debugWindow.ViewModel.HandleDocumentViewChanged;
-#if false
-                    doc.ViewChanged += (s, e) =>
-                    {
-                        // TODO: Переделать первоначальную инициализацию масштабируемых параметров
-
-                        // 1920 пикселей
-                        // 24 пикселя - длина штриха
-                        // 8 пикселей - длина промежутка
-                        // 1 пиксель у блока - 1 единица ширины
-                        // 35 пикселей - высота цифры шрифта 10
-
-                        // 1/1920 = x/view.Width => x = view.Width/screen.Width;
-
-                        var view = doc.Editor.GetCurrentView();
-                        double scale = view.Width / Constants.OldWidth;
-                        Constants.OldWidth = view.Width;
-#if !true
-                        var center = view.CenterPoint;
-
-                        var min = new Point2d(center.X - view.Width / 2, center.Y - view.Height / 2);
-                        var max = new Point2d(center.X + view.Width / 2, center.Y + view.Height / 2);
-
-                        using (var transaction = db.TransactionManager.StartTransaction())
-                        {
-                            var table = transaction.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
-                            var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForRead) as BlockTableRecord;
-#if true
-                            foreach (var id in record)
-                            {
-                                var entity = transaction.GetObject(id, OpenMode.ForRead) as Entity;
-
-                                var bound = entity.Bounds.Value;
-                                var pMin = bound.MinPoint;
-                                var pMax = bound.MaxPoint;
-                                if ((pMax.X < min.X) || (pMin.X > max.X) || (pMax.Y < min.Y) || (pMin.Y > max.Y))
-                                {
-                                    switch (entity)
-                                    {
-                                        case DBText text:
-                                            text.Height *= scale;
-                                            break;
-                                        case Polyline polyline:
-                                            // TODO: Сделать перезапись заливки
-                                            break;
-                                        case Hatch hatch:
-                                            hatch.PatternScale *= scale;
-                                            break;
-                                        case BlockReference blockReference:
-                                            // TODO: Сделать перерисовку знаков
-                                            break;
-                                    }
-                                }
-                            }
-#endif
-
-                            transaction.Commit();
-                        }            
-#endif
-                    };
-#endif
-
-                    using (var transaction = db.TransactionManager.StartTransaction())
-                    {
-                        var table = transaction.GetObject(db.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
-
-                        if (!table.Has(TYPE_NAME))
-                        {
-                            db.LoadLineTypeFile(TYPE_NAME, Path.Combine(SupportPath, "acad.lin"));
-                        }
-
-                        var record = transaction.GetObject(table[TYPE_NAME], OpenMode.ForWrite) as LinetypeTableRecord;
-
-                        transaction.Commit();
-                    }
-
-                    doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
+                    // FIXME: ??? Стоит ли выводить поллный путь к файлу для ускорения искоренения ошибки ???
+                    doc.Editor.WriteMessage("Не удалось найти стиль линии \"" + TYPE_NAME + "\" в файле \"" + LINE_TYPE_SOURCE + "\"!");
                 }
-                catch (LineTypeNotFoundException)
+                else
                 {
-                    MessageBox.Show("Не удалось найти все стили линии!");
-                    return;
+                    throw;
                 }
             }
         }
@@ -237,12 +279,11 @@ namespace Plugins
         public void Terminate() 
         {
             File.Delete(Path.Combine(Path.GetTempPath(), DbConfigFilePath));
-            File.Delete(Path.Combine(SupportPath, LineTypeLoader.STYLE_FILE));
         }
+
         #endregion
 
         #region Command Methods
-        //static Control syncControl;
 
         /// <summary>
         /// Отрисовать геометрию
@@ -277,21 +318,19 @@ namespace Plugins
 #if OLD
                 new ObjectDispatcher(connection, gorizont).Draw();
 #else
-                var disp = new ObjectDispatcher(connection, gorizont);
-                var w = new DrawInfoWindow(disp);
+                Session.Dispatcher = new ObjectDispatcher(connection, gorizont);
+                var w = new DrawInfoWindow();
                 w.ShowDialog();
-
-                // backgroundWorker.RunWorkerCompleted += BackgroundWorker_RunWorkerCompleted;
-                // backgroundWorker.WorkerSupportsCancellation = true;
-                // backgroundWorker.RunWorkerAsync();
 #endif
             }
             catch (CtorException)
             {
+                // TODO: Добавить команду для логирования неудачой попытки!
                 return;
             }
             catch (System.Exception ex)
             {
+                // TODO: Переписать как логирование
 #if !RELEASE
                 MessageBox.Show($"Error: {ex.Message}\n{ex.GetType()}\n{ex.StackTrace}");
 #endif
@@ -355,41 +394,18 @@ namespace Plugins
                 }
             }
         }
-#endregion
-
+        #endregion
+#if LOG
 #if POL
-        private readonly Document doc = AApplication.DocumentManager.MdiActiveDocument;
-        private readonly string TYPE_NAME = "MMP_2";
-
-        [CommandMethod("MMP_HATCH")]
-        public void DrawPolyline()
+        BlockTableRecord InitializeCustomBlock()
         {
-            const int limit = 1; // 1_000;
-
             var db = doc.Database;
-            var view = doc.Editor.GetCurrentView();
-
-            var scale = view.Width / SystemParameters.FullPrimaryScreenWidth;
-
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                var table = transaction.GetObject(db.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
-
-                if (!table.Has(TYPE_NAME))
-                {
-                    db.LoadLineTypeFile(TYPE_NAME, Path.Combine(SupportPath, "acad.lin"));
-                }
-
-                transaction.Commit();
-            }
-
-            BlockTableRecord customBlockRecord;
 
             using (var transaction = db.TransactionManager.StartTransaction())
             {
                 var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
 
-                customBlockRecord = new BlockTableRecord();
+                var customBlockRecord = new BlockTableRecord();
                 table.Add(customBlockRecord);
                 customBlockRecord.Name = "CustomBlock";
                 transaction.AddNewlyCreatedDBObject(customBlockRecord, true);
@@ -403,16 +419,32 @@ namespace Plugins
 
                 customBlockRecord.AppendEntity(circle);
                 transaction.AddNewlyCreatedDBObject(circle, true);
+
+                transaction.Commit();
+
+                return customBlockRecord;
             }
+        }
+        [CommandMethod("MMP_TEST_DRAW")]
+        public void DrawPolyline()
+        {
+            const int limit = 1;
 
-            for (int i = 0; i < limit; ++i)
+            var db = doc.Database;
+            var view = doc.Editor.GetCurrentView();
+
+            var scale = view.Width / SystemParameters.FullPrimaryScreenWidth;
+
+            var customBlockRecord = InitializeCustomBlock();
+
+            using (var transaction = db.TransactionManager.StartTransaction())
             {
-                using (var transaction = db.TransactionManager.StartTransaction())
-                {
-                    var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
-                    var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
+                var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
-                    var polyline = new APolyline
+                for (int i = 0; i < limit; ++i)
+                {
+                    var polyline = new Polyline
                     {
                         Color = Autodesk.AutoCAD.Colors.Color.FromRgb(255, 0, 0),
                         Linetype = TYPE_NAME
@@ -459,14 +491,14 @@ namespace Plugins
 
                     record.AppendEntity(reference);
                     transaction.AddNewlyCreatedDBObject(reference, true);
-
-                    transaction.Commit();
                 }
+
+                transaction.Commit();
             }
 
-            MessageBox.Show("Закончена отрисовка объектов!");
+            doc.Editor.WriteMessage("Закончена отрисовка объектов!");
         }
-#endif
+
         [CommandMethod("MMP_COUNT")]
         public void GetCount()
         {
@@ -484,10 +516,199 @@ namespace Plugins
                     ++counter;
                 }
 
-                MessageBox.Show(counter.ToString());
+                doc.Editor.WriteMessage(counter.ToString());
             }
         }
+#endif
         public static int PATTERN_SCALE = 10_000;
         public static int TEXT_SCALE = 8;
+        void ScaleLogic(Extents2d viewBound, double scale)
+        {
+            var db = doc.Database;
+
+            using (var transaction = db.TransactionManager.StartTransaction())
+            {
+                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
+                var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForRead) as BlockTableRecord;
+
+                foreach (var id in record)
+                {
+                    Entity entity = transaction.GetObject(id, OpenMode.ForRead) as Entity;
+
+                    if (entity.Bounds != null && !IsIntersecting(viewBound, entity.Bounds.Value))
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        switch (entity)
+                        {
+                            case Polyline polyline:
+                                if (polyline.LinetypeScale != scale)
+                                {
+                                    Update(polyline, scale);
+                                    logger.MyLogInformation("Произошла перерисовка {0}", typeof(Polyline));
+                                }
+                                break;
+                            case Hatch hatch:
+                                var patternScale = scale * Commands.PATTERN_SCALE;
+                                if (hatch.PatternScale != patternScale)
+                                {
+                                    Update(hatch, scale);
+                                    logger.MyLogInformation("Произошла перерисовка {0}", typeof(Hatch));
+                                }
+                                break;
+                            case DBText text:
+                                var textScale = scale * Commands.TEXT_SCALE;
+                                if (text.Height != textScale)
+                                {
+                                    Update(text, scale);
+                                    logger.MyLogInformation("Произошла перерисовка {0}", typeof(DBText));
+                                }
+                                break;
+                            case BlockReference reference:
+                                if (reference.ScaleFactors.X != scale)
+                                {
+                                    // TODO: Переделать перерисовку блока
+                                    Update(reference, scale);
+                                    logger.MyLogInformation("Произошла перерисовка {0}", typeof(BlockReference));
+                                }
+                                break;
+                            default:
+                                {
+                                    logger.MyLogWarning("Не обработан объект типа {0}", entity.GetType());
+                                }
+                                break;
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        logger.MyLogError(ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine + ex.Source);
+                    }
+                }
+
+                transaction.Commit();
+            }
+        }
+        // Линия и заливка, которые частично находятся на видимой области чертежа не масштабируются
+        // Блок вообще не участвует в масштабировании
+        const string _SCALE = "MMP_SCALE";
+        [CommandMethod(_SCALE)]
+        public void ViewScale()
+        {
+            ViewTableRecord view = null;
+            try
+            {
+                logger.MyLogInformation("Запущена команда {0}", _SCALE);
+                view = doc.Editor.GetCurrentView();
+
+                if (Math.Abs(view.Width - width) < 0.001) return;
+
+                logger.MyLogInformation("Запущена процедура масштабирования!");
+
+                var scale = view.Width / SystemParameters.FullPrimaryScreenWidth;
+
+                var viewBound = new Extents2d
+                (
+                    view.CenterPoint - (view.Height / 2.0) * Vector2d.YAxis - (view.Width / 2.0) * Vector2d.XAxis,
+                    view.CenterPoint + (view.Height / 2.0) * Vector2d.YAxis + (view.Width / 2.0) * Vector2d.XAxis
+                );
+
+                ScaleLogic(viewBound, scale);
+                doc.Editor.WriteMessage("Процедура масштабирования завершена!");
+                AApplication.UpdateScreen();
+            }
+            finally
+            {
+                width = view.Width;
+                view.Dispose();
+                logger.MyLogInformation("Завершена команда {0}{1}", _SCALE, Environment.NewLine);
+            }
+        }
+        static double width;
+        bool IsIntersecting(Extents2d rect1, Extents3d rect2) =>
+           !(rect1.MaxPoint.X < rect2.MinPoint.X || rect1.MinPoint.X > rect2.MaxPoint.X
+           || rect1.MaxPoint.Y < rect2.MinPoint.Y || rect1.MinPoint.Y > rect2.MaxPoint.Y);
+        void Update(DBText text, double scale)
+        {
+            text.UpgradeOpen();
+            text.Height = scale * Commands.TEXT_SCALE;
+        }
+        void Update(Hatch hatch, double scale)
+        {
+            hatch.UpgradeOpen();
+            hatch.PatternScale = scale * Commands.PATTERN_SCALE;
+            hatch.SetHatchPattern(HatchPatternType.PreDefined, hatch.PatternName);
+            hatch.EvaluateHatch(true);
+        }
+        void Update(Polyline polyline, double scale)
+        {
+            string log = "Изменен масштаб штриховки с " + polyline.LinetypeScale.ToString();
+            polyline.UpgradeOpen();
+            polyline.LinetypeScale = scale;
+            log += " на " + polyline.LinetypeScale.ToString();
+            logger.MyLogInformation(log);
+        }
+        void Update(BlockReference reference, double scale)
+        {
+            reference.UpgradeOpen();
+            reference.ScaleFactors = new Scale3d(scale, scale, 0);
+        }
+#endif
+    }
+    static class Session
+    {
+        #region Private Fields
+
+        readonly static HashSet<string> layersCache;
+
+        static ObjectDispatcher dispatcher;
+
+        #endregion
+
+        #region Ctor
+
+        static Session() => layersCache = new HashSet<string>();
+
+        #endregion
+
+        #region Public Properties
+
+        public static ObjectDispatcher Dispatcher
+        {
+            get => dispatcher;
+            set
+            {
+                if (value is null)
+                    throw new ArgumentNullException(nameof(value));
+
+                dispatcher = value;
+                layersCache.Clear();
+            }
+        }
+
+        #endregion
+
+        #region Public Methods
+
+        public static bool Contains(string layer) => layersCache.Contains(layer);
+        public static void Add(string layer) => layersCache.Add(layer);
+
+        #endregion
+
+#if MY_BOUNDING_BOX
+        public static Box box;
+        public static void CheckBounds(Entity entity)
+        {
+            if (entity != null && entity.Bounds != null)
+            {
+                box.Left = Convert.ToInt64(Math.Min(box.Left, entity.Bounds.Value.MinPoint.X));
+                box.Right = Convert.ToInt64(Math.Max(box.Right, entity.Bounds.Value.MaxPoint.X));
+                box.Bottom = Convert.ToInt64(Math.Min(box.Bottom, entity.Bounds.Value.MinPoint.Y));
+                box.Top = Convert.ToInt64(Math.Max(box.Top, entity.Bounds.Value.MaxPoint.Y));
+            }
+        }
+#endif
     }
 }

@@ -1,14 +1,12 @@
 ﻿using System;
 
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.Geometry;
 
 using Newtonsoft.Json.Linq;
 
-using static Plugins.Constants;
-
 namespace Plugins.Entities
 {
+    // TODO: Учитывать смещение текста
     /// <summary>
     /// Подпись
     /// </summary>
@@ -19,8 +17,7 @@ namespace Plugins.Entities
         /// </summary>
         /// <param name="db">Внутренняя база данных AutoCAD</param>
         /// <param name="draw">Параметры отрисовки</param>
-        /// <param name="box">Общий для всех рисуемых объектов BoundingBox</param>
-        public Text(Database db, Primitive draw, Box box) : base(db, draw, box) { }
+        public Text(Database db, Primitive draw) : base(db, draw) { }
         /// <summary>
         /// Рисование примитива
         /// </summary>
@@ -30,14 +27,14 @@ namespace Plugins.Entities
             const string ANGLE = "Angle";
             const string TEXT = "Text";
 
-            var settings = drawParams.DrawSettings;
-            var fontSize = settings.Value<int>(FONT_SIZE) * TEXT_SCALE;
+            var settings = primitive.DrawSettings;
+            var fontSize = settings.Value<int>(FONT_SIZE) * Constants.TEXT_SCALE;
 
             using (var text = new DBText()
             {
-                Layer = drawParams.LayerName,
+                Layer = primitive.LayerName,
                 Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0),
-                Position = Wkt.Lines.ParsePoint(drawParams.Geometry),
+                Position = Wkt.Lines.ParsePoint(primitive.Geometry),
             })
             {
                 if (fontSize > 0)
@@ -45,7 +42,7 @@ namespace Plugins.Entities
 
                 AppendToDb(text);
 
-                if (drawParams.Param.TryGetValue(ANGLE, StringComparison.CurrentCulture, out JToken angle))
+                if (primitive.Param.TryGetValue(ANGLE, StringComparison.CurrentCulture, out JToken angle))
                 {
                     text.Rotation = angle.Value<string>().Replace('_', '.').ToDouble().ToRad();
                 }

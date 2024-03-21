@@ -2,7 +2,7 @@
 
 using Newtonsoft.Json.Linq;
 
-namespace Plugins
+namespace Plugins.Entities
 {
     /// <summary>
     /// Параметры отрисовки

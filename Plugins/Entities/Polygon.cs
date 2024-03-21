@@ -20,8 +20,7 @@ namespace Plugins.Entities
         /// </summary>
         /// <param name="db">Внутренняя база данных AutoCAD</param>
         /// <param name="draw">Параметры отрисовки</param>
-        /// <param name="box">Общий для всех рисуемых объектов BoundingBox</param>
-        public Polygon(Database db, Primitive draw, Box box) : base(db, draw, box) { }
+        public Polygon(Database db, Primitive draw) : base(db, draw) { }
         /// <summary>
         /// Рисование объекта
         /// </summary>
@@ -32,16 +31,16 @@ namespace Plugins.Entities
             const string PAT_SCALE = "PatScale";
             const string brushColor = "BrushColor";
 
-            var dictionary = HatchPatternLoader.Load(drawParams.DrawSettings);
+            var dictionary = HatchPatternLoader.Load(primitive.DrawSettings);
 
             double GetValue(string key) => dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1;
 
-            var lines = Wkt.Lines.Parse(drawParams.Geometry);
+            var lines = Wkt.Lines.Parse(primitive.Geometry);
             var hatch = new Hatch
             {
                 PatternScale = Constants.HATCH_SCALE * GetValue(PAT_SCALE),
-                Color = ColorConverter.FromMMColor(drawParams.DrawSettings.Value<int>(brushColor)),
-                Layer = drawParams.LayerName
+                Color = ColorConverter.FromMMColor(primitive.DrawSettings.Value<int>(brushColor)),
+                Layer = primitive.LayerName
             };
 
             AppendToDb(hatch);
@@ -58,14 +57,14 @@ namespace Plugins.Entities
             var collection = new ObjectIdCollection();
 
             hatch.Associative = true;
-            AppendToDb(lines[0].SetDrawSettings(drawParams.DrawSettings, drawParams.LayerName));
+            AppendToDb(lines[0].SetDrawSettings(primitive.DrawSettings, primitive.LayerName));
             collection.Add(lines[0].ObjectId);
             hatch.AppendLoop(HatchLoopTypes.Default, collection);
 
             for (int i = 1; i < lines.Length; i++)
             {
                 collection.Clear();
-                AppendToDb(lines[i].SetDrawSettings(drawParams.DrawSettings, drawParams.LayerName));
+                AppendToDb(lines[i].SetDrawSettings(primitive.DrawSettings, primitive.LayerName));
                 collection.Add(lines[i].ObjectId);
                 hatch.AppendLoop(HatchLoopTypes.Default, collection);
             }
@@ -75,7 +74,7 @@ namespace Plugins.Entities
         /// <summary>
         /// Загрузчик параметров паттернов штриховки
         /// </summary>
-        private static class HatchPatternLoader
+        static class HatchPatternLoader
         {
             /// <summary>
             /// Кэш параметров заливок
@@ -125,8 +124,8 @@ namespace Plugins.Entities
     {
         static class Lines
         {
-            private readonly static Regex line;
-            private readonly static Regex point;
+            readonly static Regex line;
+            readonly static Regex point;
             static Lines()
             {
                 line = new Regex(@"\((\d+(\.\d{0,3})? \d+(\.\d{0,3})?,( ?))+\d+(\.\d{0,3})? \d+(\.\d{0,3})?\)");

@@ -192,6 +192,11 @@ connect:
 
             return new OracleCommand(command, connection).ExecuteReader();
         }
+        /// <summary>
+        /// Количество записей на горизонте, доступных для отрисовки
+        /// </summary>
+        /// <param name="gorizont">Имя горизонта для поиска</param>
+        /// <returns>Количество записей</returns>
         public int Count(string gorizont)
         {
             string command = "SELECT COUNT(*) FROM " + gorizont + "_trans_clone";

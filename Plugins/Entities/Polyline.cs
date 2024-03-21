@@ -3,23 +3,22 @@
     /// <summary>
     /// Полилиния
     /// </summary>
-    class Polyline : Entity
+    sealed class Polyline : Entity
     {
         /// <summary>
         /// Создание объекта
         /// </summary>
         /// <param name="db">Внутренняя база данных AutoCAD</param>
         /// <param name="draw">Параметры отрисовки</param>
-        /// <param name="box">Общий для всех рисуемых объектов BoundingBox</param>
-        public Polyline(Autodesk.AutoCAD.DatabaseServices.Database db, Primitive draw, Box box) : base(db, draw, box) { }
+        public Polyline(Autodesk.AutoCAD.DatabaseServices.Database db, Primitive draw) : base(db, draw) { }
         /// <summary>
         /// Рисование объекта
         /// </summary>
         public override void Draw()
         {
-            foreach(var line in Wkt.Lines.Parse(drawParams.Geometry))
+            foreach(var line in Wkt.Lines.Parse(primitive.Geometry))
             {
-                AppendToDb(line.SetDrawSettings(drawParams.DrawSettings, drawParams.LayerName));
+                AppendToDb(line.SetDrawSettings(primitive.DrawSettings, primitive.LayerName));
             }
         }
     }
