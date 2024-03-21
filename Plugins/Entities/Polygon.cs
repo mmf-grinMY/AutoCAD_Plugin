@@ -1,12 +1,8 @@
 ﻿using System.Text.RegularExpressions;
-using System.Collections.Generic;
-using System.Xml.Linq;
 
 using APolyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-
-using Newtonsoft.Json.Linq;
 
 namespace Plugins.Entities
 {
@@ -31,7 +27,7 @@ namespace Plugins.Entities
             const string PAT_SCALE = "PatScale";
             const string brushColor = "BrushColor";
 
-            var dictionary = HatchPatternLoader.Load(primitive.DrawSettings);
+            var dictionary = SessionDispatcher.Current.LoadHatchPattern(primitive.DrawSettings);
 
             double GetValue(string key) => dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1;
 
@@ -70,54 +66,6 @@ namespace Plugins.Entities
             }
 
             hatch.EvaluateHatch(true);
-        }
-        /// <summary>
-        /// Загрузчик параметров паттернов штриховки
-        /// </summary>
-        static class HatchPatternLoader
-        {
-            /// <summary>
-            /// Кэш параметров заливок
-            /// </summary>
-            private static readonly Dictionary<string, Dictionary<string, string>> cache;
-            /// <summary>
-            /// Корневой узел файла конфигурации паттернов штриховки
-            /// </summary>
-            private readonly static XElement root;
-            /// <summary>
-            /// Статическое создание
-            /// </summary>
-            static HatchPatternLoader()
-            {
-                root = XDocument.Load(System.IO.Path.Combine(Constants.SupportPath, "Pattern.conf.xml")).Element("AcadPatterns");
-                cache = new Dictionary<string, Dictionary<string, string>>();
-            }
-            /// <summary>
-            /// Загрузка параметров штриховки
-            /// </summary>
-            /// <param name="settings">Параметры отрисовки</param>
-            /// <returns>Параметры штриховки</returns>
-            public static IDictionary<string, string> Load(JObject settings)
-            {
-                const string BITMAP_NAME = "BitmapName";
-                const string BITMAP_INDEX = "BitmapIndex";
-
-                var bitmapName = (settings.Value<string>(BITMAP_NAME) ?? string.Empty).Replace('!', '-');
-                var bitmapIndex = settings.Value<int>(BITMAP_INDEX);
-
-                if (cache.TryGetValue(bitmapName+bitmapIndex.ToString(), out var dictionary))
-                    return dictionary;
-
-                dictionary = new Dictionary<string, string>();
-                var args = root.Element(bitmapName).Element($"t{bitmapIndex}").Value.Trim().Split('\n');
-                foreach (var param in args)
-                {
-                    var arg = param.Split('=');
-                    dictionary.Add(arg[0].TrimStart(), arg[1]);
-                }
-
-                return dictionary;
-            }
         }
     }
     namespace Wkt

@@ -1,12 +1,10 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Text;
 using System;
 
 using Oracle.ManagedDataAccess.Client;
-using System.Data.Common;
 
 namespace Plugins
 {

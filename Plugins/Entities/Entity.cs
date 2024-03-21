@@ -69,7 +69,6 @@ namespace Plugins.Entities
             entity.AddXData(primitive);
             record.AppendEntity(entity);
             transaction.AddNewlyCreatedDBObject(entity, true);
-            Session.CheckBounds(entity);
         }
 
         #endregion

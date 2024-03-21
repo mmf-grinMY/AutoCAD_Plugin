@@ -11,20 +11,13 @@ namespace Plugins.View
     /// </summary>
     partial class DrawInfoWindow : Window
     {
-        internal DrawInfoWindow()
-        {
-            InitializeComponent();
-            
-            var model = new DrawInfoViewModel();
-            DataContext = model;
-
-            Closed += model.HandleOperationCancel;
-        }
+        internal DrawInfoWindow() => InitializeComponent();
     }
     class DrawInfoViewModel : BaseViewModel
     {
         #region Private Fields
 
+        readonly Session session;
         readonly uint totalCount;
         readonly ConcurrentQueue<Entities.Primitive> queue;
         readonly BackgroundWorker readWorker;
@@ -49,10 +42,11 @@ namespace Plugins.View
         {
             uint readCount = 0;
             int limit = 1_000;
+            int sleepTime = 3_000;
 
             try
             {
-                using (var reader = Session.Dispatcher.DrawParams)
+                using (var reader = session.DrawDataReader)
                 {
                     reader.FetchSize *= 2;
                     while (reader.Read())
@@ -63,7 +57,7 @@ namespace Plugins.View
                             return;
                         }
 
-                        while (queue.Count > limit) Thread.Sleep(750);
+                        while (queue.Count > limit) Thread.Sleep(sleepTime);
 
                         queue.Enqueue(new Entities.Primitive(reader["geowkt"].ToString(),
                                                       reader["drawjson"].ToString(),
@@ -78,7 +72,7 @@ namespace Plugins.View
             }
             finally
             {
-                Session.Dispatcher.ConnectionDispose();
+                isReadEnded = true;
             }
         }
         void Write(object sender, DoWorkEventArgs args)
@@ -100,7 +94,7 @@ namespace Plugins.View
                 {
                     try
                     {
-                        Session.Dispatcher.Create(draw);
+                        session.TryAdd(draw);
 
                         WriteProgress = ++writeCount * 1.0 / totalCount * 100;
                     }
@@ -119,8 +113,9 @@ namespace Plugins.View
 
         #region Ctors
 
-        public DrawInfoViewModel()
+        public DrawInfoViewModel(Session s)
         {
+            session = s;
             CancelDrawCommand = new RelayCommand(obj => StopDrawing());
 
             ProgressVisibility = Visibility.Visible;
@@ -130,7 +125,7 @@ namespace Plugins.View
             writeProgress = 0;
 
             queue = new ConcurrentQueue<Entities.Primitive>();
-            totalCount = (uint)Session.Dispatcher.Count;
+            totalCount = session.PrimitivesCount;
             isReadEnded = false;
 
             readWorker = new BackgroundWorker { WorkerSupportsCancellation = true };

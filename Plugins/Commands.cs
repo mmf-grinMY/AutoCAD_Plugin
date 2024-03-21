@@ -1,4 +1,6 @@
-﻿// TODO: Убрать все using у объектов, полученных через транзакцию
+﻿// TODO: Ускорить работу плагина
+
+// TODO: Убрать все using у объектов, полученных через транзакцию
 
 // TODO: Все ошибки логировать в отдельный файл, а не в MessageBox
 
@@ -314,14 +316,8 @@ namespace Plugins
                     gorizont = gorizontSelecter.Gorizont;
                 }
 #endif
-
-#if OLD
-                new ObjectDispatcher(connection, gorizont).Draw();
-#else
-                Session.Dispatcher = new ObjectDispatcher(connection, gorizont);
-                var w = new DrawInfoWindow();
-                w.ShowDialog();
-#endif
+                SessionDispatcher.StartSession(new Session(connection, gorizont));
+                SessionDispatcher.Run();
             }
             catch (CtorException)
             {
@@ -334,6 +330,10 @@ namespace Plugins
 #if !RELEASE
                 MessageBox.Show($"Error: {ex.Message}\n{ex.GetType()}\n{ex.StackTrace}");
 #endif
+            }
+            finally
+            {
+                connection.Dispose();
             }
         }
         /// <summary>
@@ -395,6 +395,8 @@ namespace Plugins
             }
         }
         #endregion
+
+        #region Logging
 #if LOG
 #if POL
         BlockTableRecord InitializeCustomBlock()
@@ -656,59 +658,7 @@ namespace Plugins
             reference.ScaleFactors = new Scale3d(scale, scale, 0);
         }
 #endif
+        #endregion
     }
-    static class Session
-    {
-        #region Private Fields
-
-        readonly static HashSet<string> layersCache;
-
-        static ObjectDispatcher dispatcher;
-
-        #endregion
-
-        #region Ctor
-
-        static Session() => layersCache = new HashSet<string>();
-
-        #endregion
-
-        #region Public Properties
-
-        public static ObjectDispatcher Dispatcher
-        {
-            get => dispatcher;
-            set
-            {
-                if (value is null)
-                    throw new ArgumentNullException(nameof(value));
-
-                dispatcher = value;
-                layersCache.Clear();
-            }
-        }
-
-        #endregion
-
-        #region Public Methods
-
-        public static bool Contains(string layer) => layersCache.Contains(layer);
-        public static void Add(string layer) => layersCache.Add(layer);
-
-        #endregion
-
-#if MY_BOUNDING_BOX
-        public static Box box;
-        public static void CheckBounds(Entity entity)
-        {
-            if (entity != null && entity.Bounds != null)
-            {
-                box.Left = Convert.ToInt64(Math.Min(box.Left, entity.Bounds.Value.MinPoint.X));
-                box.Right = Convert.ToInt64(Math.Max(box.Right, entity.Bounds.Value.MaxPoint.X));
-                box.Bottom = Convert.ToInt64(Math.Min(box.Bottom, entity.Bounds.Value.MinPoint.Y));
-                box.Top = Convert.ToInt64(Math.Max(box.Top, entity.Bounds.Value.MaxPoint.Y));
-            }
-        }
-#endif
-    }
+    sealed class NotDrawingLineException : System.Exception { }
 }

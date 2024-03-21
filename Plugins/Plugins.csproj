@@ -172,6 +172,10 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Dispatchers\HatchPatternLoader.cs" />
+    <Compile Include="Dispatchers\LayerDispatcher.cs" />
+    <Compile Include="Dispatchers\Session.cs" />
+    <Compile Include="Dispatchers\SessionDispatcher.cs" />
     <Compile Include="View\DrawInfoWindow.xaml.cs">
       <DependentUpon>DrawInfoWindow.xaml</DependentUpon>
     </Compile>
@@ -179,20 +183,18 @@
     <Compile Include="ConnectionParams.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="Entities\Primitive.cs" />
-    <Compile Include="Entities\BlocksCreater.cs" />
+    <Compile Include="Entities\BlocksFactory.cs" />
     <Compile Include="Entities\ColorConverter.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="Entities\EntitiesFactory.cs" />
-    <Compile Include="Entities\ResourceManager.cs" />
     <Compile Include="Entities\Text.cs" />
     <Compile Include="Entities\Entity.cs" />
     <Compile Include="Entities\Polyline.cs" />
     <Compile Include="Entities\Polygon.cs" />
     <Compile Include="Entities\Sign.cs" />
-    <Compile Include="ObjectDispatcher.cs" />
-    <Compile Include="OracleDbDispatcher.cs" />
+    <Compile Include="Dispatchers\OracleDbDispatcher.cs" />
     <Compile Include="View\BaseViewModel.cs" />
-    <Compile Include="CommandClass.cs" />
+    <Compile Include="Commands.cs" />
     <Compile Include="View\ExternalDbWindow.xaml.cs">
       <DependentUpon>ExternalDbWindow.xaml</DependentUpon>
     </Compile>

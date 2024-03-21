@@ -16,11 +16,9 @@ namespace Plugins.Entities
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="db">Внутренняя база данных AutoCAD</param>
-        /// <param name="box">Общий BoundingBox всех рисуемых объектов</param>
-        public EntitiesFactory(Database database)
+        public EntitiesFactory()
         {
-            db = database;
+            db = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument.Database;
         }
         /// <summary>
         /// Создание объекта отрисовки
