@@ -20,9 +20,8 @@
 
 #define POL // Команда рисования полилинии
 
-// #define LOG // Логгирование всех основных действий плагина
-
 using Plugins.View;
+using Plugins.Logging;
 
 using System.Collections.Generic;
 using System.Windows;
@@ -38,88 +37,14 @@ using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
 
-#if LOG
-using Microsoft.Extensions.Logging;
-
-using System.Reflection;
-
 #if POL
 using Point2d = Autodesk.AutoCAD.Geometry.Point2d;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Colors;
 #endif
-#endif
 
 namespace Plugins
 {
-    // TODO: Переписать на свой логгер
-#if LOG
-    #region File Logging
-    public static class MyLoggerExtensions
-    {
-        static string GetLogMessage(string message, string logLevel) => 
-            DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + logLevel + ":" + Environment.NewLine + '\t' + message;
-        public static void MyLogInformation(this ILogger logger, string message, params object[] args) =>
-            logger.LogInformation(GetLogMessage(message, "Info"), args);
-        public static void MyLogWarning(this ILogger logger, string message, params object[] args) =>
-            logger.LogInformation(GetLogMessage(message, "Warn"), args);
-        public static void MyLogError(this ILogger logger, string message, params object[] args) =>
-            logger.LogError(GetLogMessage(message, "Error"), args);
-    }
-    public static class FileLoggingExtensions
-    {
-        public static ILoggingBuilder AddFile(this ILoggingBuilder builder, string filePath)
-        {
-            builder.AddProvider(new FileLoggerProvider(filePath));
-            return builder;
-        }
-    }
-    sealed class FileLoggerProvider : ILoggerProvider
-    {
-        readonly string filePath;
-        public FileLoggerProvider(string path)
-        {
-            filePath = path;
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-            }
-        }
-        public ILogger CreateLogger(string categoryName)
-        {
-            return new FileLogger(filePath);
-        }
-        public void Dispose() { }
-    }
-    sealed class FileLogger : ILogger
-    {
-        static readonly object lockObj = new object();
-        readonly string filePath;
-        public FileLogger(string path)
-        {
-            filePath = path;
-        }
-        public IDisposable BeginScope<TState>(TState state)
-        {
-            return null;
-        }
-        public bool IsEnabled(LogLevel logLevel)
-        {
-            return true;
-        }
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, System.Exception exception, Func<TState, System.Exception, string> formatter)
-        {
-            if (formatter != null)
-            {
-                lock (lockObj)
-                {
-                    File.AppendAllText(filePath, formatter(state, exception) + Environment.NewLine);
-                }
-            }
-        }
-    }
-    #endregion
-#endif
     public class Commands : IExtensionApplication
     {
         #region Private Fields
@@ -127,6 +52,8 @@ namespace Plugins
         readonly Document doc = AApplication.DocumentManager.MdiActiveDocument;
         readonly string LINE_TYPE_SOURCE = "acad.lin";
         readonly string TYPE_NAME = "MMP_2";
+        static double width;
+        static ILogger logger;
 
         #endregion
 
@@ -224,10 +151,6 @@ namespace Plugins
 
         #endregion
 
-#if LOG
-        static ILogger logger;
-#endif
-
         #region Public Methods
 
         /// <summary>
@@ -242,19 +165,14 @@ namespace Plugins
                 return;
             }
 
-#if LOG
             using (var view = doc.Editor.GetCurrentView())
             {
                 width = view.Width;
             }
 
-            string path = Assembly.GetAssembly(typeof(Commands)).Location;
-            path = Path.GetDirectoryName(path);
-            using (ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddFile(Path.Combine(path, "main.log"))))
-            {
-                logger = factory.CreateLogger<Commands>();
-            }
-#endif
+            var path = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Commands)).Location);
+            ILoggerFactory factory = LoggerFactory.Create(new FileLoggerProvider(Path.Combine(path, "main.log")));
+            logger = factory.CreateLogger<Commands>();
 
             try
             {
@@ -396,8 +314,6 @@ namespace Plugins
         }
         #endregion
 
-        #region Logging
-#if LOG
 #if POL
         BlockTableRecord InitializeCustomBlock()
         {
@@ -500,7 +416,6 @@ namespace Plugins
 
             doc.Editor.WriteMessage("Закончена отрисовка объектов!");
         }
-
         [CommandMethod("MMP_COUNT")]
         public void GetCount()
         {
@@ -521,7 +436,6 @@ namespace Plugins
                 doc.Editor.WriteMessage(counter.ToString());
             }
         }
-#endif
         public static int PATTERN_SCALE = 10_000;
         public static int TEXT_SCALE = 8;
         void ScaleLogic(Extents2d viewBound, double scale)
@@ -550,7 +464,7 @@ namespace Plugins
                                 if (polyline.LinetypeScale != scale)
                                 {
                                     Update(polyline, scale);
-                                    logger.MyLogInformation("Произошла перерисовка {0}", typeof(Polyline));
+                                    logger.LogInformation("Произошла перерисовка {0}", typeof(Polyline));
                                 }
                                 break;
                             case Hatch hatch:
@@ -558,7 +472,7 @@ namespace Plugins
                                 if (hatch.PatternScale != patternScale)
                                 {
                                     Update(hatch, scale);
-                                    logger.MyLogInformation("Произошла перерисовка {0}", typeof(Hatch));
+                                    logger.LogInformation("Произошла перерисовка {0}", typeof(Hatch));
                                 }
                                 break;
                             case DBText text:
@@ -566,7 +480,7 @@ namespace Plugins
                                 if (text.Height != textScale)
                                 {
                                     Update(text, scale);
-                                    logger.MyLogInformation("Произошла перерисовка {0}", typeof(DBText));
+                                    logger.LogInformation("Произошла перерисовка {0}", typeof(DBText));
                                 }
                                 break;
                             case BlockReference reference:
@@ -574,19 +488,19 @@ namespace Plugins
                                 {
                                     // TODO: Переделать перерисовку блока
                                     Update(reference, scale);
-                                    logger.MyLogInformation("Произошла перерисовка {0}", typeof(BlockReference));
+                                    logger.LogInformation("Произошла перерисовка {0}", typeof(BlockReference));
                                 }
                                 break;
                             default:
                                 {
-                                    logger.MyLogWarning("Не обработан объект типа {0}", entity.GetType());
+                                    logger.LogWarning("Не обработан объект типа {0}", entity.GetType());
                                 }
                                 break;
                         }
                     }
                     catch (System.Exception ex)
                     {
-                        logger.MyLogError(ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine + ex.Source);
+                        logger.LogError(string.Empty, ex);
                     }
                 }
 
@@ -602,12 +516,12 @@ namespace Plugins
             ViewTableRecord view = null;
             try
             {
-                logger.MyLogInformation("Запущена команда {0}", _SCALE);
+                logger.LogInformation("Запущена команда {0}", _SCALE);
                 view = doc.Editor.GetCurrentView();
 
                 if (Math.Abs(view.Width - width) < 0.001) return;
 
-                logger.MyLogInformation("Запущена процедура масштабирования!");
+                logger.LogInformation("Запущена процедура масштабирования!");
 
                 var scale = view.Width / SystemParameters.FullPrimaryScreenWidth;
 
@@ -621,14 +535,17 @@ namespace Plugins
                 doc.Editor.WriteMessage("Процедура масштабирования завершена!");
                 AApplication.UpdateScreen();
             }
+            catch (System.Exception ex)
+            {
+                logger.LogError(string.Empty, ex);
+            }
             finally
             {
                 width = view.Width;
                 view.Dispose();
-                logger.MyLogInformation("Завершена команда {0}{1}", _SCALE, Environment.NewLine);
+                logger.LogInformation("Завершена команда {0}{1}", _SCALE, Environment.NewLine);
             }
         }
-        static double width;
         bool IsIntersecting(Extents2d rect1, Extents3d rect2) =>
            !(rect1.MaxPoint.X < rect2.MinPoint.X || rect1.MinPoint.X > rect2.MaxPoint.X
            || rect1.MaxPoint.Y < rect2.MinPoint.Y || rect1.MinPoint.Y > rect2.MaxPoint.Y);
@@ -650,7 +567,7 @@ namespace Plugins
             polyline.UpgradeOpen();
             polyline.LinetypeScale = scale;
             log += " на " + polyline.LinetypeScale.ToString();
-            logger.MyLogInformation(log);
+            logger.LogInformation(log);
         }
         void Update(BlockReference reference, double scale)
         {
@@ -658,7 +575,6 @@ namespace Plugins
             reference.ScaleFactors = new Scale3d(scale, scale, 0);
         }
 #endif
-        #endregion
     }
     sealed class NotDrawingLineException : System.Exception { }
 }
