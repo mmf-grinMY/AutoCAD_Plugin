@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Plugins.Logging;
+
+using System;
 
 using Autodesk.AutoCAD.DatabaseServices;
 
@@ -15,13 +17,12 @@ namespace Plugins.Entities
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="db">Внутренняя база данных AutoCAD</param>
-        /// <param name="draw">Параметры отрисовки</param>
-        public Text(Database db, Primitive draw) : base(db, draw) { }
+        /// <param name="primitive">Параметры отрисовки</param>
+        public Text(Primitive primitive, ILogger logger) : base(primitive, logger) { }
         /// <summary>
         /// Рисование примитива
         /// </summary>
-        public override void Draw()
+        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
             const string FONT_SIZE = "FontSize";
             const string ANGLE = "Angle";
@@ -30,25 +31,21 @@ namespace Plugins.Entities
             var settings = primitive.DrawSettings;
             var fontSize = settings.Value<int>(FONT_SIZE) * Constants.TEXT_SCALE;
 
-            using (var text = new DBText()
+            var text = new DBText()
             {
                 Layer = primitive.LayerName,
                 Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0),
-                Position = Wkt.Lines.ParsePoint(primitive.Geometry),
-            })
+                Position = Wkt.Parser.ParsePoint(primitive.Geometry),
+                TextString = settings.Value<string>(TEXT),
+                Height = fontSize
+            };
+
+            if (primitive.Param.TryGetValue(ANGLE, StringComparison.CurrentCulture, out JToken angle))
             {
-                if (fontSize > 0)
-                    text.Height = fontSize;
-
-                AppendToDb(text);
-
-                if (primitive.Param.TryGetValue(ANGLE, StringComparison.CurrentCulture, out JToken angle))
-                {
-                    text.Rotation = angle.Value<string>().Replace('_', '.').ToDouble().ToRad();
-                }
-
-                text.TextString = settings.Value<string>(TEXT);
+                text.Rotation = angle.Value<string>().Replace('_', '.').ToDouble().ToRad();
             }
+
+            text.AppendToDb(transaction, record, primitive);
         }
     }
 }

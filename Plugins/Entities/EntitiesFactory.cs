@@ -1,6 +1,5 @@
-﻿using System;
-
-using Autodesk.AutoCAD.DatabaseServices;
+﻿using Plugins.Logging;
+using System;
 
 namespace Plugins.Entities
 {
@@ -9,56 +8,44 @@ namespace Plugins.Entities
     /// </summary>
     class EntitiesFactory
     {
-        /// <summary>
-        /// Внутренняя БД AutoCAD
-        /// </summary>
-        readonly Database db;
+        readonly ILogger logger;
+        readonly IBlocksCreater factory;
         /// <summary>
         /// Создание объекта
         /// </summary>
-        public EntitiesFactory()
+        public EntitiesFactory(IBlocksCreater creater, ILogger log)
         {
-            db = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument.Database;
+            factory = creater;
+            logger = log;
         }
         /// <summary>
         /// Создание объекта отрисовки
         /// </summary>
-        /// <param name="draw">Параметры отрисовки</param>
+        /// <param name="primitive">Параметры отрисовки</param>
         /// <returns>Объект отрисовки</returns>
-        /// <exception cref="NotImplementedException">Возникает при отрисовке объектов типа Polyline</exception>
+        /// <exception cref="NotImplementedException">Возникает при невозможности отрисовки объектов типа Polyline</exception>
         /// <exception cref="ArgumentException">Возникает при отрисовке неизвестных геометрий</exception>
-        public Entity Create(Primitive draw)
+        public Entity Create(Primitive primitive)
         {
-            switch (draw.DrawSettings.Value<string>("DrawType"))
+            switch (primitive.DrawSettings.Value<string>("DrawType"))
             {
                 case "Polyline":
-                    if (draw.Geometry.StartsWith("MULTILINESTRING"))
+                    if (primitive.Geometry.StartsWith("MULTILINESTRING"))
                     {
-                        return new Polyline(db, draw);
+                        return new Polyline(primitive, logger);
                     }
-                    else if (draw.Geometry.StartsWith("POLYGON"))
+                    else if (primitive.Geometry.StartsWith("POLYGON"))
                     {
-                        return new Polygon(db, draw);
+                        return new Polygon(primitive, logger);
                     }
                     else
                     {
-                        // FIXME: Заменить на логгирование
-#if !RELEASE
                         throw new NotImplementedException("При отрисовке полилинии произошла ошибка!");
-#else
-                        break;
-#endif
                     }
                 case "BasicSignDrawParams":
-                case "TMMTTFSignDrawParams": return new Sign(db, draw);
-                case "LabelDrawParams": return new Text(db, draw);
-                default:
-                    // FIXME: Заменить на логгирование
-#if !RELEASE
-                    throw new ArgumentException("Неизвестный тип рисуемого объекта");
-#else
-                    break;
-#endif
+                case "TMMTTFSignDrawParams": return new Sign(primitive, logger, factory);
+                case "LabelDrawParams": return new Text(primitive, logger);
+                default: throw new ArgumentException("Неизвестный тип рисуемого объекта");
             }
         }
     }

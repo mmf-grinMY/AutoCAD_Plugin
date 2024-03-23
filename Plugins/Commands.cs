@@ -18,6 +18,8 @@
 
 // TODO: Добавить описание выбрасываемых исключений ко всем методам
 
+// TODO: Логировать все перехваты исключений
+
 #define POL // Команда рисования полилинии
 
 using Plugins.View;
@@ -49,6 +51,7 @@ namespace Plugins
     {
         #region Private Fields
 
+        // TODO: Добавить настройку имени штриховки линии и файла источника из конфигурационного файла
         readonly Document doc = AApplication.DocumentManager.MdiActiveDocument;
         readonly string LINE_TYPE_SOURCE = "acad.lin";
         readonly string TYPE_NAME = "MMP_2";
@@ -170,9 +173,7 @@ namespace Plugins
                 width = view.Width;
             }
 
-            var path = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Commands)).Location);
-            ILoggerFactory factory = LoggerFactory.Create(new FileLoggerProvider(Path.Combine(path, "main.log")));
-            logger = factory.CreateLogger<Commands>();
+            logger = SessionDispatcher.Logger;
 
             try
             {
@@ -234,20 +235,19 @@ namespace Plugins
                     gorizont = gorizontSelecter.Gorizont;
                 }
 #endif
-                SessionDispatcher.StartSession(new Session(connection, gorizont));
-                SessionDispatcher.Run();
+                SessionDispatcher.StartSession(connection, gorizont);
+                var finish = "Закончена отрисовка геометрии!";
+                logger.LogInformation(finish);
+                doc.Editor.WriteMessage(finish);
             }
-            catch (CtorException)
+            catch (TypeInitializationException)
             {
-                // TODO: Добавить команду для логирования неудачой попытки!
+                logger.LogWarning("Не удалось подключиться к БД!");
                 return;
             }
             catch (System.Exception ex)
             {
-                // TODO: Переписать как логирование
-#if !RELEASE
-                MessageBox.Show($"Error: {ex.Message}\n{ex.GetType()}\n{ex.StackTrace}");
-#endif
+                logger.Log(LogLevel.Error, string.Empty, ex);
             }
             finally
             {

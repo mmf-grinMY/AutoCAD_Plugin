@@ -1,8 +1,6 @@
-﻿using System.Text.RegularExpressions;
+﻿using Plugins.Logging;
 
-using APolyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.Geometry;
 
 namespace Plugins.Entities
 {
@@ -14,32 +12,31 @@ namespace Plugins.Entities
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="db">Внутренняя база данных AutoCAD</param>
-        /// <param name="draw">Параметры отрисовки</param>
-        public Polygon(Database db, Primitive draw) : base(db, draw) { }
+        /// <param name="primitive">Параметры отрисовки</param>
+        public Polygon(Primitive primitive, ILogger logger) : base(primitive, logger) { }
         /// <summary>
         /// Рисование объекта
         /// </summary>
-        public override void Draw()
+        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
             const string PAT_NAME = "PatName";
             const string PAT_ANGLE = "PatAngle";
             const string PAT_SCALE = "PatScale";
-            const string brushColor = "BrushColor";
+            const string BRUSH_COLOR = "BrushColor";
 
             var dictionary = SessionDispatcher.Current.LoadHatchPattern(primitive.DrawSettings);
 
             double GetValue(string key) => dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1;
 
-            var lines = Wkt.Lines.Parse(primitive.Geometry);
+            var lines = Wkt.Parser.Parse(primitive.Geometry);
             var hatch = new Hatch
             {
                 PatternScale = Constants.HATCH_SCALE * GetValue(PAT_SCALE),
-                Color = ColorConverter.FromMMColor(primitive.DrawSettings.Value<int>(brushColor)),
+                Color = ColorConverter.FromMMColor(primitive.DrawSettings.Value<int>(BRUSH_COLOR)),
                 Layer = primitive.LayerName
             };
 
-            AppendToDb(hatch);
+            hatch.AppendToDb(transaction, record, primitive);
 
             // FIXME: Добавить поддержку свойства ForeColor
             // На горизонте K450E нет заливок, требующих это свойство
@@ -53,61 +50,19 @@ namespace Plugins.Entities
             var collection = new ObjectIdCollection();
 
             hatch.Associative = true;
-            AppendToDb(lines[0].SetDrawSettings(primitive.DrawSettings, primitive.LayerName));
+            lines[0].SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
             collection.Add(lines[0].ObjectId);
             hatch.AppendLoop(HatchLoopTypes.Default, collection);
 
             for (int i = 1; i < lines.Length; i++)
             {
                 collection.Clear();
-                AppendToDb(lines[i].SetDrawSettings(primitive.DrawSettings, primitive.LayerName));
+                lines[i].SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
                 collection.Add(lines[i].ObjectId);
                 hatch.AppendLoop(HatchLoopTypes.Default, collection);
             }
 
             hatch.EvaluateHatch(true);
-        }
-    }
-    namespace Wkt
-    {
-        static class Lines
-        {
-            readonly static Regex line;
-            readonly static Regex point;
-            static Lines()
-            {
-                line = new Regex(@"\((\d+(\.\d{0,3})? \d+(\.\d{0,3})?,( ?))+\d+(\.\d{0,3})? \d+(\.\d{0,3})?\)");
-                point = new Regex(@"\d+(\.\d{0,3})? \d+(\.\d{0,3})?");
-            }
-            public static APolyline[] Parse(string wkt)
-            {
-                var matches = line.Matches(wkt);
-                var lines = new APolyline[matches.Count];
-
-                for (int i = 0; i < lines.Length; ++i)
-                {
-                    lines[i] = new APolyline();
-                    var match = point.Matches(matches[i].Value);
-
-                    for (int j = 0; j < match.Count; ++j)
-                    {
-                        var coords = match[j].Value.Split(' ');
-                        lines[i].AddVertexAt(j, new Point2d(coords[0].ToDouble()
-                            * Constants.SCALE, coords[1].ToDouble() * Constants.SCALE), 0, 0, 0);
-                    }
-
-                }
-
-                return lines;
-            }
-            public static Point3d ParsePoint(string wkt)
-            {
-                var coords = point.Match(wkt).Value.Split(' ');
-
-                return new Point3d(coords[0].ToDouble() * Constants.SCALE,
-                                   coords[1].ToDouble() * Constants.SCALE,
-                                   0);
-            }
         }
     }
 }

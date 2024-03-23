@@ -1,10 +1,8 @@
-﻿using System;
-
-namespace Plugins.Logging
+﻿namespace Plugins.Logging
 {
     public interface ILogger
     {
-        void Log(LogLevel level, string message, System.Exception exception = null);
+        void Log(LogLevel level, string message = null, System.Exception exception = null);
     }
     public interface ILoggerProvider
     {
@@ -13,6 +11,7 @@ namespace Plugins.Logging
     public interface ILoggerFactory
     {
         ILogger CreateLogger<T>();
+        ILogger CreateLogger();
     }
     public sealed class LoggerFactory : ILoggerFactory
     {
@@ -26,6 +25,7 @@ namespace Plugins.Logging
             return new LoggerFactory(provider);
         }
         public ILogger CreateLogger<T>() => provider.CreateLogger(typeof(T).ToString());
+        public ILogger CreateLogger() => provider.CreateLogger(string.Empty);
     }
     public static class LoggerExtensions
     {

@@ -1,4 +1,5 @@
-﻿using Autodesk.AutoCAD.ApplicationServices.Core;
+﻿using Plugins.Logging;
+
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Colors;
@@ -7,11 +8,32 @@ using static Plugins.Constants;
 
 namespace Plugins.Entities
 {
+    interface IBlocksCreater
+    {
+        bool Create(string blockName);
+    }
     /// <summary>
     /// Создатель блоков
     /// </summary>
-    sealed class BlocksFactory
+    sealed class BlocksFactory : IBlocksCreater
     {
+        #region Private Fields
+
+        readonly Database db;
+        readonly ILogger logger;
+
+        #endregion
+
+        #region Ctors
+
+        public BlocksFactory(Database database, ILogger log)
+        {
+            db = database;
+            logger = log;
+        }
+
+        #endregion
+
         #region Private Methods
 
         void Append(Transaction transaction, BlockTableRecord record, Autodesk.AutoCAD.DatabaseServices.Entity entity)
@@ -58,6 +80,8 @@ namespace Plugins.Entities
                 polyline.AddVertexAt(i, new Point2d(points[i].X * SCALE, points[i].Y * SCALE), 0, 0, 0);
             }
 
+            polyline.Closed = true;
+
             Append(transaction, record, polyline);
             AddHatch(transaction, record, polyline);
         }
@@ -73,10 +97,11 @@ namespace Plugins.Entities
         /// <returns>true, если блок отрисован, false в противном случае</returns>
         public bool Create(string blockName)
         {
-            var db = Application.DocumentManager.MdiActiveDocument.Database;
+            Transaction transaction = null;
 
-            using (var transaction = db.TransactionManager.StartTransaction())
+            try
             {
+                transaction = db.TransactionManager.StartTransaction();
                 var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
                 var record = new BlockTableRecord();
 
@@ -91,31 +116,37 @@ namespace Plugins.Entities
                     case "pnt!.chr_48":
                         AddCircle(transaction, record, 2);
                         AddCircle(transaction, record, 4);
-                        transaction.Commit();
                         break;
                     case "pnt!.chr_53":
                         AddCircle(transaction, record, 2, true);
-                        transaction.Commit();
                         break;
                     case "pnt!.chr_100":
                         AddCircle(transaction, record, 3);
                         AddLine(transaction, record, new Point3d(-1 * SCALE, 0, 0), new Point3d(1 * SCALE, 0, 0));
                         AddLine(transaction, record, new Point3d(0, -1 * SCALE, 0), new Point3d(0, 1 * SCALE, 1 * SCALE));
-                        transaction.Commit();
                         break;
                     case "pnt!.chr_117":
                         AddPolygon(transaction, record, new Point2d[] { new Point2d(-3, -3), new Point2d(3, -3), new Point2d(0, 4) });
-                        transaction.Commit();
                         break;
                     case "pnt!.chr_123":
                         AddPolygon(transaction, record, new Point2d[] { new Point2d(-3, 3), new Point2d(3, 3), new Point2d(0, -4) });
-                        transaction.Commit();
                         break;
                     case "pnt!.chr_139":
                         AddCircle(transaction, record, 3);
-                        transaction.Commit();
                         break;
-                    default: return false;
+                    default: throw new System.NotImplementedException("Не определена логика отрисовки блока " + blockName + "!");
+                }
+            }
+            catch (System.Exception e)
+            {
+                logger.Log(LogLevel.Error, "", e);
+            }
+            finally
+            {
+                if (transaction != null)
+                {
+                    transaction.Commit();
+                    transaction.Dispose();
                 }
             }
 

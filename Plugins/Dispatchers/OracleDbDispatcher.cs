@@ -51,7 +51,7 @@ namespace Plugins
                 connection = new OracleDbDispatcher();
                 return true;
             }
-            catch (CtorException)
+            catch (TypeInitializationException)
             {
                 connection = null;
                 return false;
@@ -67,7 +67,7 @@ namespace Plugins
 
                     if (!loginWindow.InputResult)
                     {
-                        throw new CtorException();
+                        throw new TypeInitializationException(nameof(ConnectionParams), new ArgumentNullException());
                     }
 
                     return loginWindow.Params;
@@ -111,9 +111,9 @@ connect:
                     goto connect;
                 }
             }
-            catch (CtorException ex)
+            catch (TypeInitializationException)
             {
-                throw ex;
+                throw;
             }
             catch (Exception)
             {
@@ -184,6 +184,7 @@ connect:
         /// <returns>Читатель данных</returns>
         public OracleDataReader GetDrawParams(string gorizont)
         {
+            // TODO: Добавить логику чтения запроса из файла
             string command =
                 "SELECT * FROM ( SELECT * FROM " + gorizont + "_trans_clone a JOIN " + gorizont +
                 "_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid WHERE geowkt IS NOT NULL)";
@@ -234,5 +235,4 @@ connect:
         }
         #endregion
     }
-    public sealed class CtorException : Exception { }
 }

@@ -123,5 +123,26 @@ namespace Plugins
             }
             return result;
         }
+        public static void AppendToDb(this Entity entity,
+                                      Transaction transaction,
+                                      BlockTableRecord record,
+                                      Entities.Primitive primitive)
+        {
+            if (entity is null)
+                throw new ArgumentNullException(nameof(entity));
+
+            if (transaction is null)
+                throw new ArgumentNullException(nameof(transaction));
+
+            if (record is null)
+                throw new ArgumentNullException(nameof(record));
+
+            if (primitive is null)
+                throw new ArgumentNullException(nameof(primitive));
+
+            entity.AddXData(primitive);
+            record.AppendEntity(entity);
+            transaction.AddNewlyCreatedDBObject(entity, true);
+        }
     }
 }

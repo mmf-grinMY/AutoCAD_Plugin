@@ -64,5 +64,14 @@ namespace Plugins.Entities
         }
 
         #endregion
+
+        #region Public Methods
+
+        public override string ToString()
+        {
+            return Geometry;
+        }
+
+        #endregion
     }
 }

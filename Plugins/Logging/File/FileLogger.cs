@@ -29,6 +29,7 @@
                         builder.Append(System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")).Append(" | ").Append(level).AppendLine(":");
 
                     builder
+                        .Append('\t').AppendLine(ex.GetType().ToString())
                         .Append('\t').AppendLine(ex.Message)
                         .Append('\t').AppendLine(ex.Source)
                         .Append('\t').AppendLine(ex.StackTrace);

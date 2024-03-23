@@ -1,4 +1,8 @@
-﻿namespace Plugins.Entities
+﻿using Plugins.Logging;
+
+using Autodesk.AutoCAD.DatabaseServices;
+
+namespace Plugins.Entities
 {
     /// <summary>
     /// Полилиния
@@ -8,17 +12,16 @@
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="db">Внутренняя база данных AutoCAD</param>
-        /// <param name="draw">Параметры отрисовки</param>
-        public Polyline(Autodesk.AutoCAD.DatabaseServices.Database db, Primitive draw) : base(db, draw) { }
+        /// <param name="primitive">Параметры отрисовки</param>
+        public Polyline(Primitive primitive, ILogger logger) : base(primitive, logger) { }
         /// <summary>
         /// Рисование объекта
         /// </summary>
-        public override void Draw()
+        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
-            foreach(var line in Wkt.Lines.Parse(primitive.Geometry))
+            foreach(var line in Wkt.Parser.Parse(primitive.Geometry))
             {
-                AppendToDb(line.SetDrawSettings(primitive.DrawSettings, primitive.LayerName));
+                line.SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
             }
         }
     }

@@ -1,8 +1,14 @@
-﻿using System.Collections.Concurrent;
+﻿//#define FAST_MODE // Ускоренный режим работы за счет сокращения затрат на обновление UI
+
+using Plugins.Logging;
+
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Threading;
 using System.Windows;
 using System;
+
+using Oracle.ManagedDataAccess.Client;
 
 namespace Plugins.View
 {
@@ -17,8 +23,9 @@ namespace Plugins.View
     {
         #region Private Fields
 
-        readonly Session session;
         readonly uint totalCount;
+        readonly ILogger logger;
+        readonly Session session;
         readonly ConcurrentQueue<Entities.Primitive> queue;
         readonly BackgroundWorker readWorker;
         readonly BackgroundWorker writeWorker;
@@ -40,15 +47,17 @@ namespace Plugins.View
         }
         void Read(object sender, DoWorkEventArgs args)
         {
+#if !FAST_MODE
             uint readCount = 0;
+#endif
             int limit = 1_000;
-            int sleepTime = 3_000;
+            int sleepTime = 2_000;
 
             try
             {
                 using (var reader = session.DrawDataReader)
                 {
-                    reader.FetchSize *= 2;
+                    reader.FetchSize = 2;
                     while (reader.Read())
                     {
                         if (readWorker.CancellationPending)
@@ -59,14 +68,26 @@ namespace Plugins.View
 
                         while (queue.Count > limit) Thread.Sleep(sleepTime);
 
-                        queue.Enqueue(new Entities.Primitive(reader["geowkt"].ToString(),
-                                                      reader["drawjson"].ToString(),
-                                                      reader["paramjson"].ToString(),
-                                                      reader["layername"] + " | " + reader["sublayername"],
-                                                      reader["systemid"].ToString(),
-                                                      reader["basename"].ToString(),
-                                                      reader["childfields"].ToString()));
+                        try
+                        {
+                            queue.Enqueue(new Entities.Primitive(reader["geowkt"].ToString(),
+                                                          reader["drawjson"].ToString(),
+                                                          reader["paramjson"].ToString(),
+                                                          reader["layername"] + " | " + reader["sublayername"],
+                                                          reader["systemid"].ToString(),
+                                                          reader["basename"].ToString(),
+                                                          reader["childfields"].ToString()));
+                        }
+                        catch (OracleException ex)
+                        {
+                            if (ex.Message == "ORA-03135: Connection lost contact")
+                                logger.LogError("Разорвано соединение с БД!");
+                            else
+                                throw;
+                        }
+#if !FAST_MODE
                         ReadProgress = ++readCount * 1.0 / totalCount * 100;
+#endif
                     }
                 }
             }
@@ -92,29 +113,23 @@ namespace Plugins.View
 
                 if (queue.TryDequeue(out var draw))
                 {
-                    try
-                    {
-                        session.TryAdd(draw);
-
-                        WriteProgress = ++writeCount * 1.0 / totalCount * 100;
-                    }
-                    catch (NotDrawingLineException) { }
-                    catch (FormatException) { }
-                    catch (Exception ex)
-                    {
-                        // TODO: Переделать вывод ошибок в логгирование
-                        MessageBox.Show(ex.GetType() + "\n" + ex.Message + "\n" + ex.StackTrace + "\n" + ex.Source);
-                    }
+                    session.Add(draw);
+#if !FAST_MODE
+                    WriteProgress = ++writeCount * 1.0 / totalCount * 100;
+#endif
                 }
             }
+
+            session.Window.Dispatcher.Invoke(() => session.Window.Close());
         }
 
-        #endregion
+#endregion
 
         #region Ctors
 
-        public DrawInfoViewModel(Session s)
+        public DrawInfoViewModel(Session s, ILogger log)
         {
+            logger = log;
             session = s;
             CancelDrawCommand = new RelayCommand(obj => StopDrawing());
 
@@ -125,7 +140,9 @@ namespace Plugins.View
             writeProgress = 0;
 
             queue = new ConcurrentQueue<Entities.Primitive>();
+#if !FAST_MODE
             totalCount = session.PrimitivesCount;
+#endif
             isReadEnded = false;
 
             readWorker = new BackgroundWorker { WorkerSupportsCancellation = true };
@@ -135,10 +152,17 @@ namespace Plugins.View
 
             writeWorker = new BackgroundWorker { WorkerSupportsCancellation = true };
             writeWorker.DoWork += Write;
+            //writeWorker.RunWorkerCompleted += (sender, args) =>
+            //{
+            //    MessageBox.Show("Вызов обработчика!");
+            //    s.Window.Close();
+            //};
             writeWorker.RunWorkerAsync();
+
+            logger.LogInformation("Запущена отрисовка геометрии!");
         }
 
-        #endregion
+#endregion
 
         #region Binding Properties
 
@@ -163,7 +187,6 @@ namespace Plugins.View
             }
         }
         public int QueueCount => queue.Count;
-        
         public Visibility IsStopedVisibility
         {
             get => stopVisibility;
@@ -183,7 +206,7 @@ namespace Plugins.View
             }
         }
 
-        #endregion
+#endregion
 
         #region Public Methods
 
