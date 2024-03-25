@@ -159,7 +159,6 @@
     <Compile Include="View\DrawInfoWindow.xaml.cs">
       <DependentUpon>DrawInfoWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Entities\Box.cs" />
     <Compile Include="ConnectionParams.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="Entities\Primitive.cs" />

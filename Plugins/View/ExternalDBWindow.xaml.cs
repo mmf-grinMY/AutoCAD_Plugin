@@ -1,13 +1,12 @@
 ﻿using System.Windows;
 using System.Data;
-using System;
 
 namespace Plugins.View
 {
     /// <summary>
     /// Логика взаимодействия для ExternalDbWindow.xaml
     /// </summary>
-    public partial class ExternalDbWindow : Window, IDisposable
+    partial class ExternalDbWindow : Window
     {
         /// <summary>
         /// Создание объекта
@@ -18,30 +17,20 @@ namespace Plugins.View
             InitializeComponent();
             DataContext = new ExternalDbViewModel(view);
         }
+    }
+    /// <summary>
+    /// Внутренняя логика взаимодействия для ExternalDbWindow.xaml
+    /// </summary>
+    class ExternalDbViewModel : BaseViewModel
+    {
         /// <summary>
-        /// Освобождение занятых ресурсов
+        /// Создание объекта
         /// </summary>
-        public void Dispose()
-        {
-            Close();
-        }
+        /// <param name="view">Данные для отображения</param>
+        public ExternalDbViewModel(DataView view) => View = view;
         /// <summary>
-        /// Внутренняя логика взаимодействия для ExternalDbWindow.xaml
+        /// Данные для отображения
         /// </summary>
-        private sealed class ExternalDbViewModel : BaseViewModel
-        {
-            /// <summary>
-            /// Данные для отображения
-            /// </summary>
-            public DataView View { get; }
-            /// <summary>
-            /// Создание объекта
-            /// </summary>
-            /// <param name="view">Данные для отображения</param>
-            public ExternalDbViewModel(DataView view)
-            {
-                View = view;
-            }
-        }
+        public DataView View { get; }
     }
 }

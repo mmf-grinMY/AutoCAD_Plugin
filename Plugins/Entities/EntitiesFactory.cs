@@ -1,4 +1,5 @@
 ﻿using Plugins.Logging;
+
 using System;
 
 namespace Plugins.Entities
@@ -8,7 +9,13 @@ namespace Plugins.Entities
     /// </summary>
     class EntitiesFactory
     {
+        /// <summary>
+        /// Текущий логер событий
+        /// </summary>
         readonly ILogger logger;
+        /// <summary>
+        /// Фабрика блоков
+        /// </summary>
         readonly IBlocksCreater factory;
         /// <summary>
         /// Создание объекта

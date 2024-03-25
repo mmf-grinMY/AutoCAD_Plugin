@@ -1,6 +1,4 @@
-﻿using Plugins.Logging;
-
-using Autodesk.AutoCAD.DatabaseServices;
+﻿using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Plugins.Entities
 {
@@ -13,10 +11,8 @@ namespace Plugins.Entities
         /// Создание объекта
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
-        public Polygon(Primitive primitive, ILogger logger) : base(primitive, logger) { }
-        /// <summary>
-        /// Рисование объекта
-        /// </summary>
+        /// <param name="logger">Логер событий</param>
+        public Polygon(Primitive primitive, Logging.ILogger logger) : base(primitive, logger) { }
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
             const string PAT_NAME = "PatName";

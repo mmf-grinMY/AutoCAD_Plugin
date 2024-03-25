@@ -8,6 +8,9 @@ using static Plugins.Constants;
 
 namespace Plugins.Entities
 {
+    /// <summary>
+    /// Создатель блоков
+    /// </summary>
     interface IBlocksCreater
     {
         bool Create(string blockName);
@@ -19,13 +22,24 @@ namespace Plugins.Entities
     {
         #region Private Fields
 
+        /// <summary>
+        /// Внутренняя БД AutoCAD
+        /// </summary>
         readonly Database db;
+        /// <summary>
+        /// Текущий логер событий
+        /// </summary>
         readonly ILogger logger;
 
         #endregion
 
         #region Ctors
 
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        /// <param name="database">Внутренняя БД AutoCAD</param>
+        /// <param name="log">Текущий логер событий</param>
         public BlocksFactory(Database database, ILogger log)
         {
             db = database;
@@ -36,11 +50,24 @@ namespace Plugins.Entities
 
         #region Private Methods
 
+        /// <summary>
+        /// Добавить элемент в БД
+        /// </summary>
+        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
+        /// <param name="record">Текущая запись в таблицу блоков</param>
+        /// <param name="entity">Записываемый объект</param>
         void Append(Transaction transaction, BlockTableRecord record, Autodesk.AutoCAD.DatabaseServices.Entity entity)
         {
             record.AppendEntity(entity);
             transaction.AddNewlyCreatedDBObject(entity, true);
         }
+        /// <summary>
+        /// Добавить круг
+        /// </summary>
+        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
+        /// <param name="record">Текущая запись в таблицу блоков</param>
+        /// <param name="radius">Радиус круга</param>
+        /// <param name="hasHatch">Наличие штриховки</param>
         void AddCircle(Transaction transaction, BlockTableRecord record, double radius, bool hasHatch = false)
         {
             var circle = new Circle()
@@ -54,6 +81,12 @@ namespace Plugins.Entities
 
             if (hasHatch) AddHatch(transaction, record, circle);
         }
+        /// <summary>
+        /// Добавить штриховку
+        /// </summary>
+        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
+        /// <param name="record">Текущая запись в таблицу блоков</param>
+        /// <param name="owner">Владелец штриховки</param>
         void AddHatch(Transaction transaction, BlockTableRecord record, Autodesk.AutoCAD.DatabaseServices.Entity owner)
         {
             var hatch = new Hatch();
@@ -66,8 +99,21 @@ namespace Plugins.Entities
             hatch.AppendLoop(HatchLoopTypes.Outermost, new ObjectIdCollection { owner.ObjectId });
             hatch.EvaluateHatch(true);
         }
+        /// <summary>
+        /// Добавить линию
+        /// </summary>
+        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
+        /// <param name="record">Текущая запись в таблицу блоков</param>
+        /// <param name="p1">Начальная точка</param>
+        /// <param name="p2">Конечная точка</param>
         void AddLine(Transaction transaction, BlockTableRecord record, Point3d p1, Point3d p2) => 
             Append(transaction, record, new Line(p1, p2) { Color = Color.FromColorIndex(ColorMethod.ByBlock, 0) });
+        /// <summary>
+        /// Добавить полигон
+        /// </summary>
+        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
+        /// <param name="record">Текущая запись в таблицу блоков</param>
+        /// <param name="points">Точки вершин</param>
         void AddPolygon(Transaction transaction, BlockTableRecord record, Point2d[] points)
         {
             var polyline = new Autodesk.AutoCAD.DatabaseServices.Polyline()
@@ -95,6 +141,7 @@ namespace Plugins.Entities
         /// </summary>
         /// <param name="blockName">Имя блока</param>
         /// <returns>true, если блок отрисован, false в противном случае</returns>
+        /// <exception cref="System.NotImplementedException"></exception>
         public bool Create(string blockName)
         {
             Transaction transaction = null;
@@ -139,7 +186,7 @@ namespace Plugins.Entities
             }
             catch (System.Exception e)
             {
-                logger.Log(LogLevel.Error, "", e);
+                logger.LogError(e);
             }
             finally
             {

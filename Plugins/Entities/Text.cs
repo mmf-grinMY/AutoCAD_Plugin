@@ -1,8 +1,4 @@
-﻿using Plugins.Logging;
-
-using System;
-
-using Autodesk.AutoCAD.DatabaseServices;
+﻿using Autodesk.AutoCAD.DatabaseServices;
 
 using Newtonsoft.Json.Linq;
 
@@ -18,10 +14,8 @@ namespace Plugins.Entities
         /// Создание объекта
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
-        public Text(Primitive primitive, ILogger logger) : base(primitive, logger) { }
-        /// <summary>
-        /// Рисование примитива
-        /// </summary>
+        /// <param name="logger">Логер событий</param>
+        public Text(Primitive primitive, Logging.ILogger logger) : base(primitive, logger) { }
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
             const string FONT_SIZE = "FontSize";
@@ -40,7 +34,7 @@ namespace Plugins.Entities
                 Height = fontSize
             };
 
-            if (primitive.Param.TryGetValue(ANGLE, StringComparison.CurrentCulture, out JToken angle))
+            if (primitive.Param.TryGetValue(ANGLE, System.StringComparison.CurrentCulture, out JToken angle))
             {
                 text.Rotation = angle.Value<string>().Replace('_', '.').ToDouble().ToRad();
             }

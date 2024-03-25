@@ -10,6 +10,7 @@ namespace Plugins.Entities
     public class Primitive
     {
         #region Public Properties
+
         /// <summary>
         /// Геометрический объект
         /// </summary>
@@ -38,6 +39,7 @@ namespace Plugins.Entities
         /// Столбец линковки
         /// </summary>
         public string ChildField { get; }
+
         #endregion
 
         #region Ctors
@@ -61,15 +63,6 @@ namespace Plugins.Entities
             SystemId = Convert.ToInt32(systemid);
             BaseName = baseName;
             ChildField = childFields;
-        }
-
-        #endregion
-
-        #region Public Methods
-
-        public override string ToString()
-        {
-            return Geometry;
         }
 
         #endregion

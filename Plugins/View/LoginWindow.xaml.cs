@@ -9,7 +9,7 @@ namespace Plugins.View
     /// <summary>
     /// Окно ввода параметров для подключения к БД
     /// </summary>
-    public partial class LoginWindow : Window, IDisposable
+    partial class LoginWindow : Window, IDisposable
     {
         #region Public Properties
         /// <summary>
@@ -84,114 +84,121 @@ namespace Plugins.View
         {
             Close();
         }
+    }
+    /// <summary>
+    /// Модель предстваления для класса LoginWindow
+    /// </summary>
+    class LoginViewModel : BaseViewModel
+    {
+        #region Private Fields
 
         /// <summary>
-        /// Модель предстваления для класса LoginWindow
+        /// Имя пользователя
         /// </summary>
-        private class LoginViewModel : BaseViewModel
+        string username;
+        /// <summary>
+        /// Местоположение базы данных
+        /// </summary>
+        string host;
+        /// <summary>
+        /// Имя БД
+        /// </summary>
+        string dbName;
+        /// <summary>
+        /// Номер порта
+        /// </summary>
+        int port;
+
+        #endregion
+
+        #region Ctors
+
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        public LoginViewModel()
         {
-            #region Private Fields
-            /// <summary>
-            /// Имя пользователя
-            /// </summary>
-            private string username;
-            /// <summary>
-            /// Местоположение базы данных
-            /// </summary>
-            private string host;
-            /// <summary>
-            /// Имя БД
-            /// </summary>
-            private string dbName;
-            /// <summary>
-            /// Номер порта
-            /// </summary>
-            private int port;
-            #endregion
-
-            #region Ctors
-            /// <summary>
-            /// Создание объекта
-            /// </summary>
-            public LoginViewModel()
+            string content = File.ReadAllText(Constants.DbConfigFilePath);
+            if (content != string.Empty)
             {
-                string content = File.ReadAllText(Constants.DbConfigFilePath);
-                if (content != string.Empty)
-                {
-                    var obj = JsonConvert.DeserializeObject<ConnectionParams>(content);
-                    UserName = obj.UserName;
-                    Host = obj.Host;
-                    DbName = obj.Sid;
-                    Port = obj.Port;
-                }
-                else
-                {
-                    Port = 1521;
-                }
+                var obj = JsonConvert.DeserializeObject<ConnectionParams>(content);
+                UserName = obj.UserName;
+                Host = obj.Host;
+                DbName = obj.Sid;
+                Port = obj.Port;
             }
-            #endregion
-
-            #region Public Properties
-            /// <summary>
-            /// Имя пользователя
-            /// </summary>
-            public string UserName
+            else
             {
-                get => username;
-                set
-                {
-                    username = value;
-                    OnPropertyChanged(nameof(UserName));
-                }
+                Port = 1521;
             }
-            /// <summary>
-            /// Местоположение базы данных
-            /// </summary>
-            public string Host
-            {
-                get => host;
-                set
-                {
-                    host = value;
-                    OnPropertyChanged(nameof(Host));
-                }
-            }
-            /// <summary>
-            /// Имя базы данных
-            /// </summary>
-            public string DbName
-            {
-                get => dbName;
-                set
-                {
-                    dbName = value;
-                    OnPropertyChanged(nameof(DbName));
-                }
-            }
-            /// <summary>
-            /// Номер порта
-            /// </summary>
-            public int Port
-            {
-                get => port;
-                set
-                {
-                    port = value;
-                    OnPropertyChanged(nameof(Port));
-                }
-            }
-            #endregion
-
-            #region Commands
-            /// <summary>
-            /// Поключиться к БД
-            /// </summary>
-            public RelayCommand SaveCommand { get; set; }
-            /// <summary>
-            /// Отменить подключение
-            /// </summary>
-            public RelayCommand CancelCommand { get; set; }
-            #endregion
         }
+
+        #endregion
+
+        #region Public Properties
+
+        /// <summary>
+        /// Имя пользователя
+        /// </summary>
+        public string UserName
+        {
+            get => username;
+            set
+            {
+                username = value;
+                OnPropertyChanged(nameof(UserName));
+            }
+        }
+        /// <summary>
+        /// Местоположение базы данных
+        /// </summary>
+        public string Host
+        {
+            get => host;
+            set
+            {
+                host = value;
+                OnPropertyChanged(nameof(Host));
+            }
+        }
+        /// <summary>
+        /// Имя базы данных
+        /// </summary>
+        public string DbName
+        {
+            get => dbName;
+            set
+            {
+                dbName = value;
+                OnPropertyChanged(nameof(DbName));
+            }
+        }
+        /// <summary>
+        /// Номер порта
+        /// </summary>
+        public int Port
+        {
+            get => port;
+            set
+            {
+                port = value;
+                OnPropertyChanged(nameof(Port));
+            }
+        }
+
+        #endregion
+
+        #region Commands
+
+        /// <summary>
+        /// Поключиться к БД
+        /// </summary>
+        public RelayCommand SaveCommand { get; set; }
+        /// <summary>
+        /// Отменить подключение
+        /// </summary>
+        public RelayCommand CancelCommand { get; set; }
+
+        #endregion
     }
 }

@@ -20,10 +20,13 @@
 
 // TODO: Логировать все перехваты исключений
 
+// TODO: Добавить обработку исключений внутри транзакций
+//       Сделать свою обертку под транзакции AutoCAD
+
 #define POL // Команда рисования полилинии
 
-using Plugins.View;
 using Plugins.Logging;
+using Plugins.View;
 
 using System.Collections.Generic;
 using System.Windows;
@@ -62,21 +65,6 @@ namespace Plugins
 
         #region Private Methods
 
-        void LoadLineTypes()
-        {
-            var db = doc.Database;
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                var table = transaction.GetObject(db.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
-
-                if (!table.Has(TYPE_NAME))
-                {
-                    db.LoadLineTypeFile(TYPE_NAME, Path.Combine(SupportPath, LINE_TYPE_SOURCE));
-                }
-
-                transaction.Commit();
-            }
-        }
         /// <summary>
         /// Создание команды выборки данных
         /// </summary>
@@ -168,24 +156,18 @@ namespace Plugins
                 return;
             }
 
-            using (var view = doc.Editor.GetCurrentView())
-            {
-                width = view.Width;
-            }
+            using (var view = doc.Editor.GetCurrentView()) { width = view.Width; }
 
             logger = SessionDispatcher.Logger;
 
             try
             {
-                LoadLineTypes();
-
                 doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
             }
             catch (Autodesk.AutoCAD.Runtime.Exception ex)
             {
                 if (ex.Message == "eUndefinedLineType")
                 {
-                    // FIXME: ??? Стоит ли выводить поллный путь к файлу для ускорения искоренения ошибки ???
                     doc.Editor.WriteMessage("Не удалось найти стиль линии \"" + TYPE_NAME + "\" в файле \"" + LINE_TYPE_SOURCE + "\"!");
                 }
                 else
@@ -197,10 +179,7 @@ namespace Plugins
         /// <summary>
         /// Завершить работу плагина
         /// </summary>
-        public void Terminate() 
-        {
-            File.Delete(Path.Combine(Path.GetTempPath(), DbConfigFilePath));
-        }
+        public void Terminate() => File.Delete(Path.Combine(Path.GetTempPath(), DbConfigFilePath));
 
         #endregion
 
@@ -209,7 +188,6 @@ namespace Plugins
         /// <summary>
         /// Отрисовать геометрию
         /// </summary>
-        /// <exception cref="GotoException"></exception>
         [CommandMethod("MMP_DRAW")]
         public void DrawCommand()
         {
@@ -225,15 +203,14 @@ namespace Plugins
 
                 string gorizont;
 
-                using (var gorizontSelecter = new View.GorizontSelecterWindow(connection.Gorizonts))
+                var gorizontSelecter = new GorizontSelecterWindow(connection.Gorizonts);
+                gorizontSelecter.ShowDialog();
+                if (!gorizontSelecter.InputResult)
                 {
-                    gorizontSelecter.ShowDialog();
-                    if (!gorizontSelecter.InputResult)
-                    {
-                        return;
-                    }
-                    gorizont = gorizontSelecter.Gorizont;
+                    return;
                 }
+                gorizont = gorizontSelecter.Gorizont;
+                gorizontSelecter.Close();
 #endif
                 SessionDispatcher.StartSession(connection, gorizont);
                 var finish = "Закончена отрисовка геометрии!";
@@ -245,9 +222,9 @@ namespace Plugins
                 logger.LogWarning("Не удалось подключиться к БД!");
                 return;
             }
-            catch (System.Exception ex)
+            catch (System.Exception e)
             {
-                logger.Log(LogLevel.Error, string.Empty, ex);
+                logger.LogError(e);
             }
             finally
             {
@@ -304,11 +281,10 @@ namespace Plugins
 
                     if (fields.Length > 2) baseCapture = fields[1];
 
-                    using (ExternalDbWindow window = new ExternalDbWindow(connection.GetDataTable(CreateCommand(baseName, linkField, systemId, fieldNames)).DefaultView))
+                    new ExternalDbWindow(connection.GetDataTable(CreateCommand(baseName, linkField, systemId, fieldNames)).DefaultView)
                     {
-                        window.Title = baseCapture;
-                        window.ShowDialog();
-                    }
+                        Title = baseCapture
+                    }.ShowDialog();
                 }
             }
         }
@@ -500,7 +476,7 @@ namespace Plugins
                     }
                     catch (System.Exception ex)
                     {
-                        logger.LogError(string.Empty, ex);
+                        logger.LogError(ex);
                     }
                 }
 
@@ -537,7 +513,7 @@ namespace Plugins
             }
             catch (System.Exception ex)
             {
-                logger.LogError(string.Empty, ex);
+                logger.LogError(ex);
             }
             finally
             {

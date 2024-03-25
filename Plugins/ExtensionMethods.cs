@@ -3,6 +3,7 @@
 using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 using APolyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
 using Autodesk.AutoCAD.DatabaseServices;
+
 using Newtonsoft.Json.Linq;
 
 using static Plugins.Constants;
@@ -16,7 +17,7 @@ namespace Plugins
         /// </summary>
         /// <param name="str">Строковое представление числа</param>
         /// <returns>Вещественное число</returns>
-        public static double ToDouble(this string str) => System.Convert.ToDouble(str.Replace('.', ','));
+        public static double ToDouble(this string str) => double.Parse(str, System.Globalization.CultureInfo.InvariantCulture);
         /// <summary>
         /// Конвертация градусов в радианы
         /// </summary>

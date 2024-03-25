@@ -1,13 +1,12 @@
 ﻿using System.Collections.ObjectModel;
 using System.Windows;
-using System;
 
 namespace Plugins.View
 {
     /// <summary>
     /// Логика взаимодействия для GorizontSelecterWindow.xaml
     /// </summary>
-    public partial class GorizontSelecterWindow : Window, IDisposable
+    partial class GorizontSelecterWindow : Window
     {
         /// <summary>
         /// Выбранный горизонт
@@ -40,58 +39,48 @@ namespace Plugins.View
                 Hide();
             });
         }
+    }
+    /// <summary>
+    /// Модель представления для GorizontSelecterWindow.xaml
+    /// </summary>
+    class GorizontSelecterViewModel : BaseViewModel
+    {
         /// <summary>
-        /// Освобождение занятых ресурсов
+        /// Выбранный горизонт
         /// </summary>
-        public void Dispose()
+        int selectedGorizont;
+        /// <summary>
+        /// Список доступных для чтения горизонтов
+        /// </summary>
+        readonly ObservableCollection<string> gorizonts;
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        /// <param name="dbGorizonts">Список доступных для чтения горизонтов</param>
+        public GorizontSelecterViewModel(ObservableCollection<string> dbGorizonts) => gorizonts = dbGorizonts;
+        /// <summary>
+        /// Выбранный горизонт
+        /// </summary>
+        public int SelectedGorizont
         {
-            Close();
+            get => selectedGorizont;
+            set
+            {
+                selectedGorizont = value;
+                OnPropertyChanged(nameof(SelectedGorizont));
+            }
         }
         /// <summary>
-        /// Модель представления для GorizontSelecterWindow.xaml
+        /// Список доступных для отрисовки горизонтов
         /// </summary>
-        private class GorizontSelecterViewModel : BaseViewModel
-        {
-            /// <summary>
-            /// Выбранный горизонт
-            /// </summary>
-            private int selectedGorizont;
-            /// <summary>
-            /// Список доступных для чтения горизонтов
-            /// </summary>
-            private readonly ObservableCollection<string> gorizonts;
-            /// <summary>
-            /// Создание объекта
-            /// </summary>
-            /// <param name="dbGorizonts">Список доступных для чтения горизонтов</param>
-            public GorizontSelecterViewModel(ObservableCollection<string> dbGorizonts)
-            {
-                gorizonts = dbGorizonts;
-            }
-            /// <summary>
-            /// Выбранный горизонт
-            /// </summary>
-            public int SelectedGorizont
-            {
-                get => selectedGorizont;
-                set
-                {
-                    selectedGorizont = value;
-                    OnPropertyChanged(nameof(SelectedGorizont));
-                }
-            }
-            /// <summary>
-            /// Список доступных для отрисовки горизонтов
-            /// </summary>
-            public ObservableCollection<string> Gorizonts => gorizonts;
-            /// <summary>
-            /// Команда продолжения
-            /// </summary>
-            public RelayCommand SelectCommand { get; set; }
-            /// <summary>
-            /// Команда прекращения действий
-            /// </summary>
-            public RelayCommand CancelCommand { get; set; }
-        }
+        public ObservableCollection<string> Gorizonts => gorizonts;
+        /// <summary>
+        /// Команда продолжения
+        /// </summary>
+        public RelayCommand SelectCommand { get; set; }
+        /// <summary>
+        /// Команда прекращения действий
+        /// </summary>
+        public RelayCommand CancelCommand { get; set; }
     }
 }

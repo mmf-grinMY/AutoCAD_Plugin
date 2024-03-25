@@ -1,21 +1,55 @@
-﻿using System.Collections.ObjectModel;
+﻿using Plugins.Logging;
+
+using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Windows;
 using System.Text;
+using System.IO;
 using System;
 
 using Oracle.ManagedDataAccess.Client;
 
 namespace Plugins
 {
-    // TODO: Сделать по возможности все SQL-запросы читаемыми извне
     public class OracleDbDispatcher : IDisposable
     {
         #region Private Fields
+
+        /// <summary>
+        /// Логер событий
+        /// </summary>
+        readonly ILogger logger;
         /// <summary>
         /// Подключение к Oracle БД
         /// </summary>
-        private readonly OracleConnection connection;
+        readonly OracleConnection connection;
+
+        #endregion
+
+        #region Private Properties
+
+        /// <summary>
+        /// Параметры подключения
+        /// </summary>
+        /// <exception cref="TypeInitializationException"></exception>
+        static ConnectionParams ConnectionParams
+        {
+            get
+            {
+                using (var loginWindow = new View.LoginWindow())
+                {
+                    loginWindow.ShowDialog();
+
+                    if (!loginWindow.InputResult)
+                    {
+                        throw new TypeInitializationException(nameof(ConnectionParams), new ArgumentNullException());
+                    }
+
+                    return loginWindow.Params;
+                }
+            }
+        }
+
         #endregion
 
         #region Public Static Methods
@@ -48,7 +82,7 @@ namespace Plugins
         {
             try
             {
-                connection = new OracleDbDispatcher();
+                connection = new OracleDbDispatcher(SessionDispatcher.Logger);
                 return true;
             }
             catch (TypeInitializationException)
@@ -57,24 +91,7 @@ namespace Plugins
                 return false;
             }
         }
-        private static ConnectionParams ConnectionParams
-        {
-            get
-            {
-                using (var loginWindow = new View.LoginWindow())
-                {
-                    loginWindow.ShowDialog();
-
-                    if (!loginWindow.InputResult)
-                    {
-                        throw new TypeInitializationException(nameof(ConnectionParams), new ArgumentNullException());
-                    }
-
-                    return loginWindow.Params;
-                }
-            }
-        }
-
+        
         #endregion
 
         #region Ctors
@@ -82,9 +99,11 @@ namespace Plugins
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="connectionStr">Строка подключения к Oracle БД</param>
-        public OracleDbDispatcher() 
+        /// <param name="log">Логер событий</param>
+        /// <exception cref="TypeInitializationException"></exception>
+        public OracleDbDispatcher(ILogger log) 
         {
+            logger = log;
 connect:
             try
             {
@@ -115,8 +134,9 @@ connect:
             {
                 throw;
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                logger.LogError(e);
                 goto connect;
             }
         }
@@ -131,6 +151,7 @@ connect:
         #endregion
 
         #region Public Properties
+
         /// <summary>
         /// Доступные для отрисовки горизонты
         /// </summary>
@@ -142,11 +163,13 @@ connect:
                 var selectedGorizonts = new Dictionary<string, bool>();
                 const string command = "SELECT table_name FROM all_tables " +
                     "WHERE table_name LIKE 'K%_TRANS_CLONE' OR table_name LIKE 'K%_TRANS_OPEN_SUBLAYERS'";
+
                 using (var reader = new OracleCommand(command, connection).ExecuteReader())
                 {
                     while (reader.Read())
                     {
                         string tableName = reader.GetString(0).Split('_')[0];
+
                         if (selectedGorizonts.ContainsKey(tableName))
                         {
                             selectedGorizonts[tableName] = true;
@@ -157,26 +180,23 @@ connect:
                         }
                     }
                 }
-                foreach (var key in selectedGorizonts.Keys)
-                {
-                    if (selectedGorizonts[key])
-                    {
+
+                foreach (var key in selectedGorizonts.Keys) 
+                    if (selectedGorizonts[key]) 
                         gorizonts.Add(key);
-                    }
-                }
+
                 return gorizonts;
             }
         }
+
         #endregion
 
         #region Public Methods
+
         /// <summary>
         /// Освобождение занятых ресурсов
         /// </summary>
-        public void Dispose() 
-        {
-            connection.Dispose();
-        }
+        public void Dispose() => connection.Dispose();
         /// <summary>
         /// Получение параметров отрисовки
         /// </summary>
@@ -184,10 +204,12 @@ connect:
         /// <returns>Читатель данных</returns>
         public OracleDataReader GetDrawParams(string gorizont)
         {
-            // TODO: Добавить логику чтения запроса из файла
-            string command =
-                "SELECT * FROM ( SELECT * FROM " + gorizont + "_trans_clone a JOIN " + gorizont +
-                "_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid WHERE geowkt IS NOT NULL)";
+            string command;
+            
+            using (var reader = new StreamReader(Path.Combine(Constants.AssemblyPath, "draw.sql")))
+            {
+                command = string.Format(reader.ReadToEnd(), gorizont);
+            }
 
             return new OracleCommand(command, connection).ExecuteReader();
         }
@@ -199,9 +221,12 @@ connect:
         public int Count(string gorizont)
         {
             string command = "SELECT COUNT(*) FROM " + gorizont + "_trans_clone";
-            var reader = new OracleCommand(command, connection).ExecuteReader();
-            reader.Read();
-            return reader.GetInt32(0);
+
+            using (var reader = new OracleCommand(command, connection).ExecuteReader())
+            {
+                reader.Read();
+                return reader.GetInt32(0);
+            }
         }
         /// <summary>
         /// Получение линковки
@@ -211,6 +236,7 @@ connect:
         public string GetExternalDbLink(string baseName)
         {
             string command = "SELECT data FROM LINKS WHERE NAME = '" + baseName + "'";
+
             using (var reader = new OracleCommand(command, connection).ExecuteReader())
             {
                 if (reader.Read()) return reader.GetString(0);
@@ -233,6 +259,7 @@ connect:
                 return dataTable;
             }
         }
+
         #endregion
     }
 }

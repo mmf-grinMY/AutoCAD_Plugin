@@ -13,43 +13,91 @@ using Oracle.ManagedDataAccess.Client;
 namespace Plugins.View
 {
     /// <summary>
-    /// Логика взаимодействия для DebugWindow.xaml
+    /// Монтор прогресса отрисовки
     /// </summary>
     partial class DrawInfoWindow : Window
     {
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
         internal DrawInfoWindow() => InitializeComponent();
     }
+    /// <summary>
+    /// Логика взаимодействия для DrawInfoWindow
+    /// </summary>
     class DrawInfoViewModel : BaseViewModel
     {
         #region Private Fields
 
+        /// <summary>
+        /// Общее количество доступных для отрисовки объектов
+        /// </summary>
         readonly uint totalCount;
+        /// <summary>
+        /// Логер событий
+        /// </summary>
         readonly ILogger logger;
+        /// <summary>
+        /// Текущая сессия работы плагина
+        /// </summary>
         readonly Session session;
+        /// <summary>
+        /// Очередь доступных для записи объектов
+        /// </summary>
         readonly ConcurrentQueue<Entities.Primitive> queue;
+        /// <summary>
+        /// Фоновое чтение объектов из БД
+        /// </summary>
         readonly BackgroundWorker readWorker;
+        /// <summary>
+        /// Фоновая запись объектов на чертеж AutoCAD
+        /// </summary>
         readonly BackgroundWorker writeWorker;
 
+        /// <summary>
+        /// Все объекты прочитаны
+        /// </summary>
         bool isReadEnded;
+        /// <summary>
+        /// Прогресс чтения объектов
+        /// </summary>
         double readProgress;
+        /// <summary>
+        /// Прогресс записи объектов
+        /// </summary>
         double writeProgress;
+        /// <summary>
+        /// Видимость блока остановки работы
+        /// </summary>
         Visibility stopVisibility;
+        /// <summary>
+        /// Видимость блока прогресса работы
+        /// </summary>
         Visibility progressVisibility;
 
         #endregion
 
         #region Private Methods
 
+        /// <summary>
+        /// Логика остановки работы
+        /// </summary>
         void StopDrawing()
         {
             writeWorker.CancelAsync();
             readWorker.CancelAsync();
         }
+        /// <summary>
+        /// Чтение данных из БД
+        /// </summary>
+        /// <param name="sender">Вызывающий событие объект</param>
+        /// <param name="args">Параметры события</param>
         void Read(object sender, DoWorkEventArgs args)
         {
 #if !FAST_MODE
             uint readCount = 0;
 #endif
+            // TODO: Добавить настройку данных констант из файла конфигурации
             int limit = 1_000;
             int sleepTime = 2_000;
 
@@ -78,12 +126,20 @@ namespace Plugins.View
                                                           reader["basename"].ToString(),
                                                           reader["childfields"].ToString()));
                         }
-                        catch (OracleException ex)
+                        catch (OracleException e)
                         {
-                            if (ex.Message == "ORA-03135: Connection lost contact")
+                            if (e.Message == "ORA-03135: Connection lost contact")
                                 logger.LogError("Разорвано соединение с БД!");
                             else
                                 throw;
+                        }
+                        catch (InvalidOperationException e)
+                        {
+                            if (e.Message != "Invalid operation on a closed object")
+                                throw;
+                            else
+                                // TODO: Уведомлять пльзователя о преждевременном закрытии соединения с БД
+                                ;
                         }
 #if !FAST_MODE
                         ReadProgress = ++readCount * 1.0 / totalCount * 100;
@@ -96,6 +152,11 @@ namespace Plugins.View
                 isReadEnded = true;
             }
         }
+        /// <summary>
+        /// Логика записи объектов на чертеж
+        /// </summary>
+        /// <param name="sender">Вызывающий объект</param>
+        /// <param name="args">Параметры события</param>
         void Write(object sender, DoWorkEventArgs args)
         {
             uint writeCount = 0;
@@ -123,10 +184,15 @@ namespace Plugins.View
             session.Window.Dispatcher.Invoke(() => session.Window.Close());
         }
 
-#endregion
+        #endregion
 
         #region Ctors
 
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        /// <param name="s">Текущая сессия работы</param>
+        /// <param name="log">Логер событий</param>
         public DrawInfoViewModel(Session s, ILogger log)
         {
             logger = log;
@@ -152,17 +218,12 @@ namespace Plugins.View
 
             writeWorker = new BackgroundWorker { WorkerSupportsCancellation = true };
             writeWorker.DoWork += Write;
-            //writeWorker.RunWorkerCompleted += (sender, args) =>
-            //{
-            //    MessageBox.Show("Вызов обработчика!");
-            //    s.Window.Close();
-            //};
             writeWorker.RunWorkerAsync();
 
             logger.LogInformation("Запущена отрисовка геометрии!");
         }
 
-#endregion
+        #endregion
 
         #region Binding Properties
 
@@ -206,14 +267,22 @@ namespace Plugins.View
             }
         }
 
-#endregion
+        #endregion
 
         #region Public Methods
 
+        /// <summary>
+        /// Обработка экстренной остановки рабоыт плагина
+        /// </summary>
+        /// <param name="sender">Вызывающий объект</param>
+        /// <param name="args">Параметры события</param>
         public void HandleOperationCancel(object sender, EventArgs args) => StopDrawing();
 
         #endregion
 
+        /// <summary>
+        /// Команда отмены работы
+        /// </summary>
         public RelayCommand CancelDrawCommand { get; }
     }
 }

@@ -1,13 +1,23 @@
 ﻿namespace Plugins.Logging
 {
+    /// <summary>
+    /// Файловый логер событий
+    /// </summary>
     sealed class FileLogger : ILogger
     {
+        /// <summary>
+        /// Объект для синхронизации потоков
+        /// </summary>
         static readonly object lockObj = new object();
+        /// <summary>
+        /// Расположение файла логов
+        /// </summary>
         readonly string filePath;
-        public FileLogger(string path)
-        {
-            filePath = path;
-        }
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        /// <param name="path">Расположение файла логов</param>
+        public FileLogger(string path) => filePath = path;
         public void Log(LogLevel level, string message, System.Exception ex)
         {
             lock (lockObj)
@@ -32,7 +42,7 @@
                         .Append('\t').AppendLine(ex.GetType().ToString())
                         .Append('\t').AppendLine(ex.Message)
                         .Append('\t').AppendLine(ex.Source)
-                        .Append('\t').AppendLine(ex.StackTrace);
+                        .AppendLine(ex.StackTrace);
 
                     isEmpty = false;
                 }

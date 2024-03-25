@@ -12,6 +12,9 @@ namespace Plugins.Entities
         #region Protected Fields
 
         // FIXME: ??? Необходимо ли иметь доступ всем предкам к логгеру ???
+        /// <summary>
+        /// Логер событий
+        /// </summary>
         protected readonly ILogger logger;
         /// <summary>
         /// Ключевое слово
@@ -35,6 +38,7 @@ namespace Plugins.Entities
         /// Создание объекта
         /// </summary>
         /// <param name="prim">Параметры отрисовки объекта</param>
+        /// <param name="log">Логер событий</param>
         public Entity(Primitive prim, ILogger log)
         {
             primitive = prim;
@@ -45,6 +49,12 @@ namespace Plugins.Entities
 
         #region Protected Methods
 
+        /// <summary>
+        /// Логика отрисовки примитива
+        /// </summary>
+        /// <param name="transaction">Текщуая транзакия в БД AutoCAD</param>
+        /// <param name="table">Таблица блоков</param>
+        /// <param name="record">Текущая запись в таблицу блоков</param>
         protected abstract void Draw(Transaction transaction, BlockTable table, BlockTableRecord record);
 
         #endregion
@@ -54,6 +64,7 @@ namespace Plugins.Entities
         /// <summary>
         /// Рисование объекта
         /// </summary>
+        /// <param name="db">Текущая БД AutoCAD</param>
         public void AppendToDrawing(Database db) 
         {
             Transaction transaction = null;
@@ -69,7 +80,7 @@ namespace Plugins.Entities
             catch (NotDrawingLineException) { } // Перехват полилиний с неправильными парамерами
             catch (System.Exception e)
             {
-                logger.Log(LogLevel.Error, "", e);
+                logger.LogError(e);
             }
             finally
             {

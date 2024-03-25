@@ -1,10 +1,10 @@
 ﻿using System.IO;
 
 using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
 
 using Newtonsoft.Json.Linq;
 
+//TODO: Проверить корректность инициализации констант
 namespace Plugins
 {
     /// <summary>
@@ -12,12 +12,25 @@ namespace Plugins
     /// </summary>
     class Constants
     {
+        /// <summary>
+        /// Расположение файла с параметрами подключения
+        /// </summary>
+        static readonly string dbConfigFilePath;
+        /// <summary>
+        /// Расположение папки AutoCAD Support
+        /// </summary>
+        static readonly string supportPath;
+        /// <summary>
+        /// Расположение сборки
+        /// </summary>
+        static readonly string dllPath;
         static Constants()
         {
             var fileName = Application.DocumentManager.MdiActiveDocument.Database.Filename;
             supportPath = Path.Combine(Directory.GetParent(
                     Path.GetDirectoryName(fileName)).FullName, "Support").Replace("Local", "Roaming");
             dbConfigFilePath = System.IO.Path.GetTempFileName();
+            dllPath = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Commands)).Location);
 
             var config = JObject.Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, "plugin.config.json")));
 
@@ -27,6 +40,7 @@ namespace Plugins
         }
 
         #region Константы масштабирования
+
         /// <summary>
         /// Масштаб рисуемых примитивов
         /// </summary>
@@ -39,9 +53,11 @@ namespace Plugins
         /// Масштаб штриховки относительно общего масштаба примитивов
         /// </summary>
         public static readonly double HATCH_SCALE;
+
         #endregion
 
         #region Ключевые слова для XData
+
         /// <summary>
         /// Ключевое слово в XData для нахождения столбца SystemId
         /// </summary>
@@ -54,20 +70,11 @@ namespace Plugins
         /// Ключевое слово в XData для нахождения столбца линковки
         /// </summary>
         public static readonly string LINK_FIELD = "varMM_LinkField";
-        #endregion
 
-        #region Расположение вспомогательных папок и файлов
-        /// <summary>
-        /// Расположение файла с параметрами подключения
-        /// </summary>
-        private static string dbConfigFilePath;
-        /// <summary>
-        /// Расположение папки AutoCAD Support
-        /// </summary>
-        private static string supportPath;
         #endregion
 
         #region Public Properties
+
         /// <summary>
         /// Расположение файла с параметрами подключения
         /// </summary>
@@ -76,9 +83,8 @@ namespace Plugins
         /// Расположение папки AutoCAD Support
         /// </summary>
         public static string SupportPath => supportPath;
-        #endregion
+        public static string AssemblyPath => dllPath;
 
-        // public static ViewTableRecord OldView { get; set; }
-        public static double OldWidth { get; set; }
+        #endregion
     }
 }

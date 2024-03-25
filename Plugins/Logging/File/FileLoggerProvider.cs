@@ -2,9 +2,19 @@
 
 namespace Plugins.Logging
 {
+    /// <summary>
+    /// Провайдер файлового логера
+    /// </summary>
     sealed class FileLoggerProvider : ILoggerProvider
     {
+        /// <summary>
+        /// Расположение файла логов
+        /// </summary>
         readonly string filePath;
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        /// <param name="path">Расположение файла логов</param>
         public FileLoggerProvider(string path)
         {
             filePath = path;
