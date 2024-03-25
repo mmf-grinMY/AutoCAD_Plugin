@@ -21,6 +21,9 @@ namespace Plugins
             where TTable : SymbolTable
             where TRecord : SymbolTableRecord, new()
         {
+            if (name is null)
+                throw new ArgumentNullException(nameof(name));
+
             try
             {
                 var table = transaction.GetObject(blockId, OpenMode.ForWrite) as TTable;
@@ -32,7 +35,19 @@ namespace Plugins
             }
             catch (Exception e)
             {
-                logger.LogError(e);
+                if (e.StackTrace.Contains("в Autodesk.AutoCAD.DatabaseServices.SymbolTableRecord.set_Name(String name)"))
+                {
+                    logger.LogInformation(name);
+                }
+                else if (e.Data.Count != 0)
+                {
+                    logger.LogInformation("Не определен символ \"" + e.Data["Symbol"] + "\" из шрифта \"" + e.Data["FontName"] + "\"!");
+                }
+                else
+                {
+                    logger.LogError(e);
+                }
+
                 return false;
             }
 

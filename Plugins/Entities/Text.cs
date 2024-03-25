@@ -2,7 +2,6 @@
 using Autodesk.AutoCAD.Geometry;
 
 using Newtonsoft.Json.Linq;
-using Plugins.Logging;
 
 namespace Plugins.Entities
 {
@@ -31,21 +30,32 @@ namespace Plugins.Entities
             var offset = new Vector3d(paramJson.Value<string>(X_OFFSET).ToDouble(),
                                       paramJson.Value<string>(Y_OFFSET).ToDouble(),
                                       0) * Constants.SCALE;
-            var text = new DBText()
-            {
-                Layer = primitive.LayerName,
-                Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0),
-                Position = Wkt.Parser.ParsePoint(primitive.Geometry) + offset,
-                TextString = settings.Value<string>(TEXT),
-                Height = fontSize,
-            };
+            DBText text = null;
 
-            if (primitive.Param.TryGetValue(ANGLE, System.StringComparison.CurrentCulture, out JToken angle))
+            // FIXME: ??? Стоит ли скрывать исключения об тексте с неположительной высотой ???
+            try
             {
-                text.Rotation = angle.Value<string>().ToDouble().ToRad();
+                text = new DBText()
+                {
+                    Layer = primitive.LayerName,
+                    Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0),
+                    Position = Wkt.Parser.ParsePoint(primitive.Geometry) + offset,
+                    TextString = settings.Value<string>(TEXT),
+                    Height = fontSize,
+                };
+
+                if (primitive.Param.TryGetValue(ANGLE, System.StringComparison.CurrentCulture, out JToken angle))
+                {
+                    text.Rotation = angle.Value<string>().ToDouble().ToRad();
+                }
+
+                text.AppendToDb(transaction, record, primitive);
             }
-
-            text.AppendToDb(transaction, record, primitive);
+            catch (Autodesk.AutoCAD.Runtime.Exception e)
+            {
+                if (!e.StackTrace.Contains("в Autodesk.AutoCAD.DatabaseServices.DBText.set_Height(Double param0)"))
+                    throw;
+            }
         }
     }
 }

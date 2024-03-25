@@ -40,7 +40,11 @@ namespace Plugins
             const string BITMAP_NAME = "BitmapName";
             const string BITMAP_INDEX = "BitmapIndex";
 
-            var bitmapName = (settings.Value<string>(BITMAP_NAME) ?? string.Empty).Replace('!', '-');
+            var bitmapName = settings.Value<string>(BITMAP_NAME);
+
+            if (string.IsNullOrEmpty(bitmapName)) return null;
+
+            bitmapName = bitmapName.Replace('!', '-');
             var bitmapIndex = settings.Value<int>(BITMAP_INDEX);
 
             if (cache.TryGetValue(bitmapName + bitmapIndex.ToString(), out var dictionary))

@@ -1,6 +1,4 @@
-﻿// TODO: Все ошибки логировать в отдельный файл, а не в MessageBox
-
-// TODO: Добавить в окно мониторинга за процессом отрисовки график заполнения очереди
+﻿// TODO: Добавить в окно мониторинга за процессом отрисовки график заполнения очереди
 
 // TODO: Добавить фильтр для выборки только определенных слоев
 
@@ -189,7 +187,7 @@ namespace Plugins
             {
 #if DEBUG
                 connection = new OracleDbDispatcher("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
-                string gorizont = "K450E";
+                string gorizont = "K200F";
 #else
                 if (!OracleDbDispatcher.TryGetConnection(out connection)) return;
 

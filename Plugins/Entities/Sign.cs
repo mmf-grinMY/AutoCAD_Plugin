@@ -1,4 +1,5 @@
 ﻿using Plugins.Dispatchers;
+using Plugins.Logging;
 
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
@@ -20,7 +21,7 @@ namespace Plugins.Entities
         /// <param name="primitive">Параметры отрисовки</param>
         /// <param name="logger">Логер событий</param>
         /// <param name="creater">Создатель блоков</param>
-        public Sign(Primitive primitive, Logging.ILogger logger, SymbolTableDispatcher creater) : base(primitive, logger) => factory = creater;
+        public Sign(Primitive primitive, ILogger logger, SymbolTableDispatcher creater) : base(primitive, logger) => factory = creater;
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
             var settings = primitive.DrawSettings;

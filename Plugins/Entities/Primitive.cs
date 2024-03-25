@@ -1,5 +1,4 @@
 ﻿using System;
-
 using Newtonsoft.Json.Linq;
 
 namespace Plugins.Entities
@@ -59,7 +58,7 @@ namespace Plugins.Entities
             Geometry = wkt;
             DrawSettings = JObject.Parse(settings);
             Param = JObject.Parse(param);
-            LayerName = layername;
+            LayerName = System.Text.RegularExpressions.Regex.Replace(layername, "[:]+", "_");
             SystemId = Convert.ToInt32(systemid);
             BaseName = baseName;
             ChildField = childFields;

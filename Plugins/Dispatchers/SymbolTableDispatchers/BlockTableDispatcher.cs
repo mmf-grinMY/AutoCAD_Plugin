@@ -143,7 +143,14 @@ namespace Plugins.Dispatchers
                 case "pnt!.chr_139":
                     AddCircle(transaction, record, 3);
                     break;
-                default: throw new NotImplementedException("Не определена логика отрисовки блока " + name + "!");
+                default:
+                    {
+                        var e = new NotImplementedException("Не определена логика отрисовки блока " + name + "!");
+                        var strings = name.Split('_');
+                        e.Data.Add("FontName", strings[0]);
+                        e.Data.Add("Symbol", strings[1]);
+                        throw e;
+                    }
             }
         }
 

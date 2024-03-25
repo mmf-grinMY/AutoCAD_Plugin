@@ -1,6 +1,7 @@
 ﻿using Plugins.Logging;
 
 using Autodesk.AutoCAD.DatabaseServices;
+using System.Text.RegularExpressions;
 
 namespace Plugins.Dispatchers
 {

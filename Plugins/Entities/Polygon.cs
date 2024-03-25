@@ -1,4 +1,6 @@
-﻿using Autodesk.AutoCAD.DatabaseServices;
+﻿using System.Linq;
+
+using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Plugins.Entities
 {
@@ -22,9 +24,32 @@ namespace Plugins.Entities
 
             var dictionary = SessionDispatcher.Current.LoadHatchPattern(primitive.DrawSettings);
 
-            double GetValue(string key) => dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1;
+            double GetValue(string key)
+            {
+                if (dictionary is null)
+                    return 1.0;
+
+                return dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1.0;
+            }
 
             var lines = Wkt.Parser.Parse(primitive.Geometry);
+
+            if (!lines.Any())
+                return;
+
+            if (lines[0].Area == 0)
+                return;
+
+            if (dictionary is null)
+            {
+                foreach (var line in lines)
+                {
+                    line.SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
+                }
+
+                return;
+            }
+
             var hatch = new Hatch
             {
                 PatternScale = Constants.HATCH_SCALE * GetValue(PAT_SCALE),
@@ -48,6 +73,7 @@ namespace Plugins.Entities
             hatch.Associative = true;
             lines[0].SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
             collection.Add(lines[0].ObjectId);
+
             hatch.AppendLoop(HatchLoopTypes.Default, collection);
 
             for (int i = 1; i < lines.Length; i++)
