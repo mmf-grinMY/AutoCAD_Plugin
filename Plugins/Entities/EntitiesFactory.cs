@@ -1,4 +1,5 @@
-﻿using Plugins.Logging;
+﻿using Plugins.Dispatchers;
+using Plugins.Logging;
 
 using System;
 
@@ -16,11 +17,11 @@ namespace Plugins.Entities
         /// <summary>
         /// Фабрика блоков
         /// </summary>
-        readonly IBlocksCreater factory;
+        readonly SymbolTableDispatcher factory;
         /// <summary>
         /// Создание объекта
         /// </summary>
-        public EntitiesFactory(IBlocksCreater creater, ILogger log)
+        public EntitiesFactory(SymbolTableDispatcher creater, ILogger log)
         {
             factory = creater;
             logger = log;

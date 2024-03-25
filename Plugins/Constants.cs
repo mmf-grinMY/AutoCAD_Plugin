@@ -24,15 +24,19 @@ namespace Plugins
         /// Расположение сборки
         /// </summary>
         static readonly string dllPath;
+
+        public readonly static string CONFIG_FILE;
         static Constants()
         {
+            CONFIG_FILE = "plugin.config.json";
+
             var fileName = Application.DocumentManager.MdiActiveDocument.Database.Filename;
             supportPath = Path.Combine(Directory.GetParent(
                     Path.GetDirectoryName(fileName)).FullName, "Support").Replace("Local", "Roaming");
             dbConfigFilePath = System.IO.Path.GetTempFileName();
             dllPath = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Commands)).Location);
 
-            var config = JObject.Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, "plugin.config.json")));
+            var config = JObject.Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, CONFIG_FILE)));
 
             SCALE = config.Value<double>("Scale");
             TEXT_SCALE = config.Value<double>("TextScale") * SCALE;

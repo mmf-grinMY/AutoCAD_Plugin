@@ -17,7 +17,11 @@ namespace Plugins.Entities
         {
             foreach(var line in Wkt.Parser.Parse(primitive.Geometry))
             {
-                line.SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
+                try
+                {
+                    line.SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
+                }
+                catch (NotDrawingLineException) { }
             }
         }
     }

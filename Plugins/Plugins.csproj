@@ -149,20 +149,22 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Dispatchers\HatchPatternLoader.cs" />
-    <Compile Include="Dispatchers\LayerDispatcher.cs" />
     <Compile Include="Dispatchers\Session.cs" />
     <Compile Include="Dispatchers\SessionDispatcher.cs" />
+    <Compile Include="Dispatchers\SymbolTableDispatchers\BlockTableDispatcher.cs" />
+    <Compile Include="Dispatchers\SymbolTableDispatchers\LayerTableDispatcher.cs" />
     <Compile Include="Entities\Wkt\Parser.cs" />
     <Compile Include="Logging\File\FileLoggerProvider.cs" />
     <Compile Include="Logging\File\FileLogger.cs" />
     <Compile Include="Logging\ILogging.cs" />
+    <Compile Include="MyTransaction.cs" />
     <Compile Include="View\DrawInfoWindow.xaml.cs">
       <DependentUpon>DrawInfoWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="ConnectionParams.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="Entities\Primitive.cs" />
-    <Compile Include="Entities\BlocksFactory.cs" />
+    <Compile Include="Dispatchers\SymbolTableDispatcher.cs" />
     <Compile Include="Entities\ColorConverter.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="Entities\EntitiesFactory.cs" />

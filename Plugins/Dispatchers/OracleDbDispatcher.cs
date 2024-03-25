@@ -1,6 +1,7 @@
 ﻿using Plugins.Logging;
 
 using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Windows;
 using System.Text;

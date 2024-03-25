@@ -11,7 +11,6 @@ namespace Plugins.Entities
     {
         #region Protected Fields
 
-        // FIXME: ??? Необходимо ли иметь доступ всем предкам к логгеру ???
         /// <summary>
         /// Логер событий
         /// </summary>
@@ -67,28 +66,9 @@ namespace Plugins.Entities
         /// <param name="db">Текущая БД AutoCAD</param>
         public void AppendToDrawing(Database db) 
         {
-            Transaction transaction = null;
-
-            try
+            using (var transaction = new MyTransaction(db, logger))
             {
-                transaction = db.TransactionManager.StartTransaction();
-                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
-                var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
-
-                Draw(transaction, table, record);
-            }
-            catch (NotDrawingLineException) { } // Перехват полилиний с неправильными парамерами
-            catch (System.Exception e)
-            {
-                logger.LogError(e);
-            }
-            finally
-            {
-                if (transaction != null)
-                {
-                    transaction.Commit();
-                    transaction.Dispose();
-                }
+                transaction.AddBlockRecord(Draw);
             }
         }
 

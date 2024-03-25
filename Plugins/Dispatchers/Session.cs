@@ -1,4 +1,5 @@
-﻿using Plugins.Entities;
+﻿using Plugins.Dispatchers;
+using Plugins.Entities;
 using Plugins.Logging;
 using Plugins.View;
 
@@ -34,11 +35,11 @@ namespace Plugins
         /// <summary>
         /// Диспетчер слоев AutoCAD
         /// </summary>
-        readonly LayerDispatcher layerDispatcher;
+        readonly SymbolTableDispatcher layerDispatcher;
         /// <summary>
         /// Создатель блоков AutoCAD
         /// </summary>
-        readonly IBlocksCreater blocksFactory;
+        readonly SymbolTableDispatcher blocksFactory;
         /// <summary>
         /// Диспетчер подключения к БД Oracle
         /// </summary>
@@ -74,8 +75,8 @@ namespace Plugins
 
             db = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument.Database;
 
-            layerDispatcher = new LayerDispatcher(db, logger);
-            blocksFactory = new BlocksFactory(db, logger);
+            layerDispatcher = new LayerTableDispatcher(db, logger);
+            blocksFactory = new BlockTableDispatcher(db, logger);
             factory = new EntitiesFactory(blocksFactory, logger);
             patternLoader = new HatchPatternLoader();
         }

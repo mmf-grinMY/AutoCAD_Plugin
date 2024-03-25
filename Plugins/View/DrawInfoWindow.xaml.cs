@@ -6,9 +6,12 @@ using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Threading;
 using System.Windows;
+using System.IO;
 using System;
 
 using Oracle.ManagedDataAccess.Client;
+
+using Newtonsoft.Json.Linq;
 
 namespace Plugins.View
 {
@@ -94,12 +97,14 @@ namespace Plugins.View
         /// <param name="args">Параметры события</param>
         void Read(object sender, DoWorkEventArgs args)
         {
+            uint precent = 0;
 #if !FAST_MODE
             uint readCount = 0;
 #endif
-            // TODO: Добавить настройку данных констант из файла конфигурации
-            int limit = 1_000;
-            int sleepTime = 2_000;
+            var config = JObject.Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, Constants.CONFIG_FILE))).Value<JObject>("queue");
+
+            var limit = config.Value<int>("limit");
+            var sleepTime = config.Value<int>("sleep");
 
             try
             {
@@ -138,12 +143,18 @@ namespace Plugins.View
                             if (e.Message != "Invalid operation on a closed object")
                                 throw;
                             else
-                                // TODO: Уведомлять пльзователя о преждевременном закрытии соединения с БД
-                                ;
+                                MessageBox.Show("Из-за сбоя подключение к БД Oracle прервано!");
                         }
+
+                        uint currentPrecent = ++readCount * 100 / totalCount;
+
+                        if (currentPrecent > precent)
+                        {
+                            precent = currentPrecent;
 #if !FAST_MODE
-                        ReadProgress = ++readCount * 1.0 / totalCount * 100;
+                            ReadProgress = precent;
 #endif
+                        }
                     }
                 }
             }
@@ -160,6 +171,7 @@ namespace Plugins.View
         void Write(object sender, DoWorkEventArgs args)
         {
             uint writeCount = 0;
+            uint precent = 0;
 
             while (!isReadEnded || queue.Count > 0)
             {
@@ -175,16 +187,23 @@ namespace Plugins.View
                 if (queue.TryDequeue(out var draw))
                 {
                     session.Add(draw);
+
+                    uint currentPrecent = ++writeCount * 100 / totalCount;
+
+                    if (currentPrecent > precent)
+                    {
+                        precent = currentPrecent;
 #if !FAST_MODE
-                    WriteProgress = ++writeCount * 1.0 / totalCount * 100;
+                        WriteProgress = precent;
 #endif
+                    }
                 }
             }
 
             session.Window.Dispatcher.Invoke(() => session.Window.Close());
         }
 
-        #endregion
+#endregion
 
         #region Ctors
 

@@ -1,4 +1,6 @@
-﻿using Autodesk.AutoCAD.DatabaseServices;
+﻿using Plugins.Dispatchers;
+
+using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 
 namespace Plugins.Entities
@@ -11,20 +13,20 @@ namespace Plugins.Entities
         /// <summary>
         /// Создатель блоков
         /// </summary>
-        readonly IBlocksCreater factory;
+        readonly SymbolTableDispatcher factory;
         /// <summary>
         /// Создание объекта
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
         /// <param name="logger">Логер событий</param>
         /// <param name="creater">Создатель блоков</param>
-        public Sign(Primitive primitive, Logging.ILogger logger, IBlocksCreater creater) : base(primitive, logger) => factory = creater;
+        public Sign(Primitive primitive, Logging.ILogger logger, SymbolTableDispatcher creater) : base(primitive, logger) => factory = creater;
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
             var settings = primitive.DrawSettings;
             var key = settings.Value<string>("FontName") + "_" + settings.Value<string>("Symbol");
 
-            if (!table.Has(key) && !factory.Create(key)) return;
+            if (!table.Has(key) && !factory.TryAdd(key)) return;
 
             new BlockReference(Wkt.Parser.ParsePoint(primitive.Geometry), table[key])
             {

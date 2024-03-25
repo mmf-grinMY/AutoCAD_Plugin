@@ -1,10 +1,4 @@
-﻿// TODO: Ускорить работу плагина
-
-// TODO: Убрать все using у объектов, полученных через транзакцию
-
-// TODO: Все ошибки логировать в отдельный файл, а не в MessageBox
-
-// TODO: Выпилить все пересчеты BoundingBox
+﻿// TODO: Все ошибки логировать в отдельный файл, а не в MessageBox
 
 // TODO: Добавить в окно мониторинга за процессом отрисовки график заполнения очереди
 
@@ -17,11 +11,6 @@
 // TODO: Сделать ограничение на отрисовку в одном чертеже только одного горизонта
 
 // TODO: Добавить описание выбрасываемых исключений ко всем методам
-
-// TODO: Логировать все перехваты исключений
-
-// TODO: Добавить обработку исключений внутри транзакций
-//       Сделать свою обертку под транзакции AutoCAD
 
 #define POL // Команда рисования полилинии
 
@@ -162,11 +151,12 @@ namespace Plugins
 
             try
             {
+                doc.Database.LoadLineTypeFile(TYPE_NAME, LINE_TYPE_SOURCE);
                 doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
             }
-            catch (Autodesk.AutoCAD.Runtime.Exception ex)
+            catch (Autodesk.AutoCAD.Runtime.Exception e)
             {
-                if (ex.Message == "eUndefinedLineType")
+                if (e.Message == "eUndefinedLineType")
                 {
                     doc.Editor.WriteMessage("Не удалось найти стиль линии \"" + TYPE_NAME + "\" в файле \"" + LINE_TYPE_SOURCE + "\"!");
                 }
