@@ -44,8 +44,7 @@ namespace Plugins.Entities.Wkt
                 for (int j = 0; j < match.Count; ++j)
                 {
                     var coords = match[j].Value.Split(' ');
-                    lines[i].AddVertexAt(j, new Point2d(coords[0].ToDouble()
-                        * Constants.SCALE, coords[1].ToDouble() * Constants.SCALE), 0, 0, 0);
+                    lines[i].AddVertexAt(j, new Point2d(coords[0].ToDouble(), coords[1].ToDouble()) * Constants.SCALE, 0, 0, 0);
                 }
             }
 
@@ -60,9 +59,7 @@ namespace Plugins.Entities.Wkt
         {
             var coords = point.Match(wkt).Value.Split(' ');
 
-            return new Point3d(coords[0].ToDouble() * Constants.SCALE,
-                               coords[1].ToDouble() * Constants.SCALE,
-                               0);
+            return new Point3d(coords[0].ToDouble(), coords[1].ToDouble(), 0) * Constants.SCALE;
         }
     }
 }

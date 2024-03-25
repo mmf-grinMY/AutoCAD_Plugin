@@ -1,7 +1,6 @@
 ﻿using System;
 
 using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
-using APolyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
 using Autodesk.AutoCAD.DatabaseServices;
 
 using Newtonsoft.Json.Linq;
@@ -10,14 +9,25 @@ using static Plugins.Constants;
 
 namespace Plugins
 {
-    public static class ExtensionMethods
+    static class ExtensionMethods
     {
         /// <summary>
         /// Конвертация строки в вещественное число
         /// </summary>
         /// <param name="str">Строковое представление числа</param>
         /// <returns>Вещественное число</returns>
-        public static double ToDouble(this string str) => double.Parse(str, System.Globalization.CultureInfo.InvariantCulture);
+        public static double ToDouble(this string str)
+        {
+            if (str is null)
+                return 0.0;
+
+            if (str.Contains("_"))
+                str = str.Replace('_', '.');
+            else if (str.Contains(","))
+                str = str.Replace(',', '.');
+
+            return double.Parse(str, System.Globalization.CultureInfo.GetCultureInfo("en"));
+        }
         /// <summary>
         /// Конвертация градусов в радианы
         /// </summary>
@@ -78,7 +88,7 @@ namespace Plugins
         /// <param name="polyline">Исходный объект</param>
         /// <param name="settings">Параметры отрисовки</param>
         /// <param name="layer">Слой отрисовки</param>
-        public static APolyline SetDrawSettings(this APolyline polyline, JObject settings, string layer)
+        public static Polyline SetDrawSettings(this Polyline polyline, JObject settings, string layer)
         {
             const string PEN_COLOR = "PenColor";
             const string WIDTH = "Width";
