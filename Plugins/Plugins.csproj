@@ -158,6 +158,9 @@
     <Compile Include="Logging\File\FileLogger.cs" />
     <Compile Include="Logging\ILogging.cs" />
     <Compile Include="MyTransaction.cs" />
+    <Compile Include="View\DebugWindow.xaml.cs">
+      <DependentUpon>DebugWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="View\DrawInfoWindow.xaml.cs">
       <DependentUpon>DrawInfoWindow.xaml</DependentUpon>
     </Compile>
@@ -190,6 +193,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
+    <Page Include="View\DebugWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="View\DrawInfoWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

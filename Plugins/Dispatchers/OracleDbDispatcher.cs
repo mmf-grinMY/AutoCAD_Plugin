@@ -1,7 +1,7 @@
 ﻿using Plugins.Logging;
 
+using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Windows;
 using System.Text;
@@ -151,6 +151,17 @@ connect:
 
         #endregion
 
+        #region Private Methods
+        
+        /// <summary>
+        /// Преобразование json-строки в удобочитаемый вид
+        /// </summary>
+        /// <param name="json">исходная строка в формате json</param>
+        /// <returns>Преобразованная строка</returns>
+        string JsonNormalize(string json) => json.Substring(1, json.Length - 1).Replace(',', '\n');
+
+        #endregion
+
         #region Public Properties
 
         /// <summary>
@@ -259,6 +270,27 @@ connect:
 
                 return dataTable;
             }
+        }
+        /// <summary>
+        /// Получение характеристик отрисвоки объекта по его Id
+        /// </summary>
+        /// <param name="id">Id объекта в БД Oracle</param>
+        /// <param name="gorizont">Горизонт, на котором расположен объект</param>
+        /// <returns>Строковое представление характеристик отрисовки</returns>
+        public string GetObjectJsonById(int id, string gorizont)
+        {
+            var command = string.Format("SELECT * FROM (SELECT a.drawjson, a.paramjson, ROWNUM AS rn FROM {0}_trans_clone a " + 
+                "INNER JOIN {0}_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid WHERE a.geowkt IS NOT NULL) WHERE rn = {1}", gorizont, id);
+
+            using (var reader = new OracleCommand(command, connection).ExecuteReader())
+            {
+                if (reader.Read())
+                {
+                    return JsonNormalize(reader["drawjson"].ToString()) + "\n\n" + JsonNormalize(reader["paramjson"].ToString());
+                }
+            }
+
+            return string.Empty;
         }
 
         #endregion

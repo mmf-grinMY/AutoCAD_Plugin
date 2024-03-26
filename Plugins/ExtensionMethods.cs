@@ -1,6 +1,6 @@
-﻿using System;
+﻿using System.Collections.Generic;
+using System;
 
-using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 using Autodesk.AutoCAD.DatabaseServices;
 
 using Newtonsoft.Json.Linq;
@@ -34,53 +34,31 @@ namespace Plugins
         /// <param name="degree">Угол в градусах</param>
         /// <returns>Угол в радианах</returns>
         public static double ToRad(this double degree) => degree / 180 * System.Math.PI;
-        /// <summary>
-        /// Добавить определение поля в таблицу символов
-        /// </summary>
-        /// <param name="regAppName">Имя поля</param>
-        static void AddRegAppTableRecord(string regAppName)
-        {
-            var db = AApplication.DocumentManager.MdiActiveDocument.Database;
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                var table = transaction.GetObject(db.RegAppTableId, OpenMode.ForWrite) as RegAppTable;
-                if (!table.Has(regAppName))
-                {
-                    var record = new RegAppTableRecord { Name = regAppName };
-                    table.Add(record);
-                    transaction.AddNewlyCreatedDBObject(record, true);
-                }
-                transaction.Commit();
-            }
-        }
+        
         /// <summary>
         /// Добавление в XData необходимых для связывания таблиц параметров
         /// </summary>
         /// <param name="entity">Связываемый объект</param>
-        /// <param name="drawParams">Параметры отрисовки</param>
-        public static void AddXData(this Entity entity, Entities.Primitive drawParams)
+        /// <param name="primitive">Параметры отрисовки</param>
+        public static void AddXData(this Entity entity, Entities.Primitive primitive)
         {
-            AddRegAppTableRecord(SYSTEM_ID);
-            AddRegAppTableRecord(BASE_NAME);
-            AddRegAppTableRecord(LINK_FIELD);
-
-            var buffer = new ResultBuffer(new TypedValue(1001, SYSTEM_ID),
-                                                   new TypedValue((int)DxfCode.ExtendedDataInteger32, drawParams.SystemId));
-
-            if (drawParams.BaseName != null && drawParams.ChildField != null)
+            var typedValues = new List<TypedValue>
             {
-                buffer = new ResultBuffer(new TypedValue(1001, SYSTEM_ID),
-                                          new TypedValue((int)DxfCode.ExtendedDataInteger32,
-                                                         drawParams.SystemId),
-                                          new TypedValue(1001, BASE_NAME),
-                                          new TypedValue((int)DxfCode.ExtendedDataAsciiString,
-                                                         drawParams.BaseName),
-                                          new TypedValue(1001, LINK_FIELD),
-                                          new TypedValue((int)DxfCode.ExtendedDataAsciiString,
-                                                         drawParams.ChildField));
+                new TypedValue(1001, SYSTEM_ID), 
+                new TypedValue((int)DxfCode.ExtendedDataInteger32, primitive.SystemId),
+                new TypedValue(1001, OBJ_ID),
+                new TypedValue((int)DxfCode.ExtendedDataInteger32, primitive.Id),
+            };
+
+            if (primitive.BaseName != null && primitive.ChildField != null)
+            {
+                typedValues.Add(new TypedValue(1001, BASE_NAME));
+                typedValues.Add(new TypedValue((int)DxfCode.ExtendedDataAsciiString, primitive.BaseName));
+                typedValues.Add(new TypedValue(1001, LINK_FIELD));
+                typedValues.Add(new TypedValue((int)DxfCode.ExtendedDataAsciiString, primitive.ChildField));
             }
 
-            entity.XData = buffer;
+            entity.XData = new ResultBuffer(typedValues.ToArray());
         }
         /// <summary>
         /// Установка свойств для объекта Polyline
@@ -93,19 +71,23 @@ namespace Plugins
             const string PEN_COLOR = "PenColor";
             const string WIDTH = "Width";
             const string BORDER_DESCRIPRION = "BorderDescription";
+            const string PEN_STYLE = "nPenStyle";
+
+            const string NOT_DRAWING_LINE_STYLE = "{D075F160-4C94-11D3-A90B-A8163E53382F}";
 
             polyline.Color = ColorConverter.FromMMColor(settings.Value<int>(PEN_COLOR));
             polyline.Thickness = settings.Value<double>(WIDTH);
             polyline.Layer = layer;
 
+            // TODO: Добавить загрузку штриховок из файла стилей линий
             if (settings.TryGetValue(BORDER_DESCRIPRION, StringComparison.CurrentCulture, out JToken borderDescription)
-               && borderDescription.Value<string>() == "{D075F160-4C94-11D3-A90B-A8163E53382F}")
+               && borderDescription.Value<string>() == NOT_DRAWING_LINE_STYLE)
             {
                 throw new NotDrawingLineException();
             }
-            else if (settings.Value<int>("nPenStyle") == 1)
+            else if (settings.Value<int>(PEN_STYLE) == 1)
             {
-                polyline.Linetype = "MMP_2"; // LineTypeLoader.STYLE_NAME + "1";
+                polyline.Linetype = Commands.TYPE_NAME;
             }
 
             return polyline;
@@ -115,25 +97,36 @@ namespace Plugins
         /// </summary>
         /// <param name="buffer">Исходный буфер</param>
         /// <param name="RegAppName">Зарегестрированное имя</param>
-        /// <returns></returns>
+        /// <returns>Хранимые данные</returns>
         public static string GetXData(this ResultBuffer buffer, string RegAppName)
         {
-            var flag = false;
-            var result = string.Empty;
-            foreach (var tv in buffer)
+            for (var iter = buffer.GetEnumerator(); iter.MoveNext();)
             {
-                if (flag)
-                {
-                    result = tv.Value.ToString();
-                    flag = false;
-                }
+                var tv = iter.Current;
+
                 if ((tv.TypeCode == (short)DxfCode.ExtendedDataRegAppName) && (tv.Value.ToString() == RegAppName))
                 {
-                    flag = true;
+                    if (iter.MoveNext())
+                    {
+                        return iter.Current.Value.ToString();
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
             }
-            return result;
+
+            return string.Empty;
         }
+        /// <summary>
+        /// Добавить примитив в БД AutoCAD
+        /// </summary>
+        /// <param name="entity">Сохраняемый объект</param>
+        /// <param name="transaction">Текщуая транзакция</param>
+        /// <param name="record">Текщая запись таблицы блоков</param>
+        /// <param name="primitive">Примитив объекта</param>
+        /// <exception cref="ArgumentNullException"></exception>
         public static void AppendToDb(this Entity entity,
                                       Transaction transaction,
                                       BlockTableRecord record,

@@ -44,11 +44,12 @@ namespace Plugins
         #region Private Fields
 
         // TODO: Добавить настройку имени штриховки линии и файла источника из конфигурационного файла
-        readonly Document doc = AApplication.DocumentManager.MdiActiveDocument;
+        static readonly Document doc = AApplication.DocumentManager.MdiActiveDocument;
         readonly string LINE_TYPE_SOURCE = "acad.lin";
-        readonly string TYPE_NAME = "MMP_2";
+        public const string TYPE_NAME = "MMP_2";
         static double width;
         static ILogger logger;
+        static string gorizont;
 
         #endregion
 
@@ -62,7 +63,7 @@ namespace Plugins
         /// <param name="systemId">Уникальный номер примитива</param>
         /// <param name="fieldNames">Список столбцов таблицы</param>
         /// <returns>Команда для получения данных</returns>
-        private string CreateCommand(string baseName, string linkField, int systemId, IDictionary<string, string> fieldNames)
+        string CreateCommand(string baseName, string linkField, int systemId, IDictionary<string, string> fieldNames)
         {
             var builder = new StringBuilder().Append("SELECT ");
 
@@ -87,7 +88,7 @@ namespace Plugins
         /// </summary>
         /// <param name="fields">Исходные столбцы</param>
         /// <returns>Список столбцов</returns>
-        private Dictionary<string, string> ParseFieldNames(IEnumerable<string> fields)
+        Dictionary<string, string> ParseFieldNames(IEnumerable<string> fields)
         {
             bool fieldsFlag = true;
             var result = new Dictionary<string, string>();
@@ -128,6 +129,25 @@ namespace Plugins
 
             return result;
         }
+        /// <summary>
+        /// Добавить определение поля в таблицу символов
+        /// </summary>
+        /// <param name="regAppName">Имя поля</param>
+        void AddRegAppTableRecord(string regAppName)
+        {
+            var db = AApplication.DocumentManager.MdiActiveDocument.Database;
+            using (var transaction = db.TransactionManager.StartTransaction())
+            {
+                var table = transaction.GetObject(db.RegAppTableId, OpenMode.ForWrite) as RegAppTable;
+                if (!table.Has(regAppName))
+                {
+                    var record = new RegAppTableRecord { Name = regAppName };
+                    table.Add(record);
+                    transaction.AddNewlyCreatedDBObject(record, true);
+                }
+                transaction.Commit();
+            }
+        }
 
         #endregion
 
@@ -151,6 +171,10 @@ namespace Plugins
 
             try
             {
+                AddRegAppTableRecord(SYSTEM_ID);
+                AddRegAppTableRecord(BASE_NAME);
+                AddRegAppTableRecord(LINK_FIELD);
+                AddRegAppTableRecord(OBJ_ID);
                 doc.Database.LoadLineTypeFile(TYPE_NAME, LINE_TYPE_SOURCE);
                 doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
             }
@@ -188,7 +212,7 @@ namespace Plugins
             {
 #if DEBUG
                 connection = new OracleDbDispatcher("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
-                string gorizont = "K200F";
+                gorizont = "K200F";
 #else
                 if (!OracleDbDispatcher.TryGetConnection(out connection)) return;
 
@@ -228,10 +252,9 @@ namespace Plugins
         {
             if (!OracleDbDispatcher.TryGetConnection(out OracleDbDispatcher connection)) return;
 
-            var document = AApplication.DocumentManager.MdiActiveDocument;
-            var editor = document.Editor;
+            var editor = doc.Editor;
             var options = new PromptEntityOptions("\nВыберите объект: ");
-            using (var transaction = document.TransactionManager.StartTransaction())
+            using (var transaction = doc.TransactionManager.StartTransaction())
             {
                 PromptEntityResult result = null;
                 while ((result = editor.GetEntity(options)).Status == PromptStatus.OK)
@@ -277,6 +300,39 @@ namespace Plugins
                 }
             }
         }
+        /// <summary>
+        /// Команда просмотра внутренней легендаризации объекта
+        /// </summary>
+        [CommandMethod("MMP_DEBUG")]
+        public void GetObjectParams()
+        {
+            var connection = new OracleDbDispatcher("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
+            var editor = doc.Editor;
+            var options = new PromptEntityOptions("\nВыберите объект: ");
+            using (var transaction = doc.TransactionManager.StartTransaction())
+            {
+                PromptEntityResult result = null;
+                if ((result = editor.GetEntity(options)).Status == PromptStatus.OK)
+                {
+                    var buffer = transaction.GetObject(result.ObjectId, OpenMode.ForRead).XData;
+                    if (buffer == null)
+                    {
+                        editor.WriteMessage("\nУ объекта отсутствуют параметры XData");
+                        return;
+                    }
+
+                    var id = Convert.ToInt32(buffer.GetXData(OBJ_ID));
+                    var content = connection.GetObjectJsonById(id, gorizont);
+                    var window = new DebugWindow()
+                    {
+                        Title = "Параметры объекта под индексом" + id
+                    };
+                    window.txt.Text = content;
+                    window.Show();
+                }
+            }
+        }
+
         #endregion
 
 #if POL

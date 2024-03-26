@@ -137,7 +137,8 @@ namespace Plugins.View
                                                           reader["layername"] + " | " + reader["sublayername"],
                                                           reader["systemid"].ToString(),
                                                           reader["basename"].ToString(),
-                                                          reader["childfields"].ToString()));
+                                                          reader["childfields"].ToString(),
+                                                          reader["rn"].ToString()));
 
                         uint currentPrecent = ++readPosition * 100 / totalCount;
 

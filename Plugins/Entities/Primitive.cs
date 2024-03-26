@@ -39,6 +39,7 @@ namespace Plugins.Entities
         /// Столбец линковки
         /// </summary>
         public string ChildField { get; }
+        public int Id { get; }
 
         #endregion
 
@@ -54,7 +55,14 @@ namespace Plugins.Entities
         /// <param name="systemid">Уникальный номер</param>
         /// <param name="baseName">Имя слинкованной таблицы</param>
         /// <param name="childFields">Столбец линковки</param>
-        public Primitive(string wkt, string settings, string param, string layername, string systemid, string baseName, string childFields)
+        public Primitive(string wkt,
+                         string settings,
+                         string param,
+                         string layername,
+                         string systemid,
+                         string baseName,
+                         string childFields,
+                         string id)
         {
             Geometry = wkt;
             DrawSettings = JObject.Parse(settings);
@@ -63,6 +71,7 @@ namespace Plugins.Entities
             SystemId = Convert.ToInt32(systemid);
             BaseName = baseName;
             ChildField = childFields;
+            Id = Convert.ToInt32(id);
         }
 
         #endregion
@@ -73,7 +82,7 @@ namespace Plugins.Entities
         /// Конвертация объекта в строку
         /// </summary>
         /// <returns>Строковое представление объекта</returns>
-        public override string ToString() => Geometry;
+        public override string ToString() => Id.ToString();
 
         #endregion
     }

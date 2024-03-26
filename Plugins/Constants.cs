@@ -28,6 +28,7 @@ namespace Plugins
         public readonly static string CONFIG_FILE;
         public static readonly int QUEUE_LIMIT;
         public static readonly int READER_SLEEP_TIME;
+        public static readonly string OBJ_ID = "OBJ_ID";
         static Constants()
         {
             CONFIG_FILE = "plugin.config.json";
