@@ -1,17 +1,14 @@
-﻿//#define FAST_MODE // Ускоренный режим работы за счет сокращения затрат на обновление UI
-
-using Plugins.Logging;
+﻿using Plugins.Logging;
 
 using System.Collections.Concurrent;
-using System.ComponentModel;
+using System.Threading.Tasks;
 using System.Threading;
 using System.Windows;
-using System.IO;
 using System;
 
 using Oracle.ManagedDataAccess.Client;
 
-using Newtonsoft.Json.Linq;
+using static Plugins.Constants;
 
 namespace Plugins.View
 {
@@ -30,7 +27,7 @@ namespace Plugins.View
     /// </summary>
     class DrawInfoViewModel : BaseViewModel
     {
-        #region Private Fields
+        #region Private Readonly Fields
 
         /// <summary>
         /// Общее количество доступных для отрисовки объектов
@@ -48,17 +45,13 @@ namespace Plugins.View
         /// Очередь доступных для записи объектов
         /// </summary>
         readonly ConcurrentQueue<Entities.Primitive> queue;
-        /// <summary>
-        /// Фоновое чтение объектов из БД
-        /// </summary>
-        readonly BackgroundWorker readWorker;
-        /// <summary>
-        /// Фоновая запись объектов на чертеж AutoCAD
-        /// </summary>
-        readonly BackgroundWorker writeWorker;
+
+        #endregion
+
+        #region Private Fields
 
         /// <summary>
-        /// Все объекты прочитаны
+        /// Завершение операции чтения из БД Oracle
         /// </summary>
         bool isReadEnded;
         /// <summary>
@@ -77,133 +70,151 @@ namespace Plugins.View
         /// Видимость блока прогресса работы
         /// </summary>
         Visibility progressVisibility;
+        /// <summary>
+        /// Количество прочитанных объектов
+        /// </summary>
+        uint readPosition;
+        /// <summary>
+        /// Количество записанных объектов
+        /// </summary>
+        uint writePosition;
+        /// <summary>
+        /// Источник токенов отмены асинхронных операций
+        /// </summary>
+        CancellationTokenSource cts;
+        /// <summary>
+        /// Завершение операции записи на чертеж
+        /// </summary>
+        bool isWriteEnded;
 
         #endregion
 
         #region Private Methods
 
         /// <summary>
+        /// Отмена операции отрисовки
+        /// </summary>
+        void CancelDrawing()
+        {
+            session.WriteMessage("Работа команды " + Commands.DRAW_COMMAND + (isWriteEnded ? " успешно завершена!" : " была прервана!"));
+            StopDrawing();
+            logger.LogInformation(readPosition.ToString());
+            logger.LogInformation(writePosition.ToString());
+        }
+        /// <summary>
         /// Логика остановки работы
         /// </summary>
         void StopDrawing()
         {
-            writeWorker.CancelAsync();
-            readWorker.CancelAsync();
+            cts.Cancel();
+            ProgressVisibility = Visibility.Collapsed;
+            IsStopedVisibility = Visibility.Visible;
         }
         /// <summary>
-        /// Чтение данных из БД
+        /// Чтение данных из БД Oracle
         /// </summary>
-        /// <param name="sender">Вызывающий событие объект</param>
-        /// <param name="args">Параметры события</param>
-        void Read(object sender, DoWorkEventArgs args)
+        /// <param name="token">Токен отмены асинхронной операции</param>
+        async void ReadAsync(CancellationToken token)
         {
-            uint precent = 0;
-#if !FAST_MODE
-            uint readCount = 0;
-#endif
-            var config = JObject.Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, Constants.CONFIG_FILE))).Value<JObject>("queue");
-
-            var limit = config.Value<int>("limit");
-            var sleepTime = config.Value<int>("sleep");
-
-            try
+            await Task.Run(async () =>
             {
-                using (var reader = session.DrawDataReader)
+                uint percent = readPosition * 100 / totalCount;
+                OracleDataReader reader = null;
+
+                try
                 {
-                    reader.FetchSize = 2;
+                    reader = session.DrawDataReader(readPosition);
+
                     while (reader.Read())
                     {
-                        if (readWorker.CancellationPending)
-                        {
-                            args.Cancel = true;
-                            return;
-                        }
+                        if (token.IsCancellationRequested) return;
 
-                        while (queue.Count > limit) Thread.Sleep(sleepTime);
+                        while (queue.Count > QUEUE_LIMIT) await Task.Delay(READER_SLEEP_TIME);
 
-                        try
-                        {
-                            queue.Enqueue(new Entities.Primitive(reader["geowkt"].ToString(),
+                        queue.Enqueue(new Entities.Primitive(reader["geowkt"].ToString(),
                                                           reader["drawjson"].ToString(),
                                                           reader["paramjson"].ToString(),
                                                           reader["layername"] + " | " + reader["sublayername"],
                                                           reader["systemid"].ToString(),
                                                           reader["basename"].ToString(),
                                                           reader["childfields"].ToString()));
-                        }
-                        catch (OracleException e)
-                        {
-                            if (e.Message == "ORA-03135: Connection lost contact")
-                                logger.LogError("Разорвано соединение с БД!");
-                            else
-                                throw;
-                        }
-                        catch (InvalidOperationException e)
-                        {
-                            if (e.Message != "Invalid operation on a closed object")
-                                throw;
-                            else
-                                MessageBox.Show("Из-за сбоя подключение к БД Oracle прервано!");
-                        }
 
-                        uint currentPrecent = ++readCount * 100 / totalCount;
+                        uint currentPrecent = ++readPosition * 100 / totalCount;
 
-                        if (currentPrecent > precent)
+                        if (currentPrecent > percent)
                         {
-                            precent = currentPrecent;
-#if !FAST_MODE
-                            ReadProgress = precent;
-#endif
+                            percent = currentPrecent;
+                            ReadProgress = percent;
                         }
                     }
+
+                    isReadEnded = true;
                 }
-            }
-            finally
-            {
-                isReadEnded = true;
-            }
+                catch (OracleException e)
+                {
+                    if (e.Message == "ORA-03135: Connection lost contact")
+                        logger.LogError("Разорвано соединение с БД!");
+                    else
+                        throw;
+                }
+                catch (InvalidOperationException e)
+                {
+                    if (e.Message != "Invalid operation on a closed object")
+                        throw;
+                    else
+                        MessageBox.Show("Из-за сбоя подключение к БД Oracle прервано!");
+                }
+                finally
+                {
+                    reader?.Dispose();
+                }
+            }, token);
         }
         /// <summary>
-        /// Логика записи объектов на чертеж
+        /// Запись примитивов на чертеж
         /// </summary>
-        /// <param name="sender">Вызывающий объект</param>
-        /// <param name="args">Параметры события</param>
-        void Write(object sender, DoWorkEventArgs args)
+        /// <param name="token">Токен отмены асинхронной операции</param>
+        async void WriteAsync(CancellationToken token)
         {
-            uint writeCount = 0;
-            uint precent = 0;
-
-            while (!isReadEnded || queue.Count > 0)
+            await Task.Run(() =>
             {
-                if (writeWorker.CancellationPending)
+                uint percent = 0;
+
+                while (!isReadEnded || queue.Count > 0)
                 {
-                    args.Cancel = true;
-                    ProgressVisibility = Visibility.Collapsed;
-                    IsStopedVisibility = Visibility.Visible;
+                    if (token.IsCancellationRequested) return;
 
-                    return;
-                }
-
-                if (queue.TryDequeue(out var draw))
-                {
-                    session.Add(draw);
-
-                    uint currentPrecent = ++writeCount * 100 / totalCount;
-
-                    if (currentPrecent > precent)
+                    if (queue.TryDequeue(out var draw))
                     {
-                        precent = currentPrecent;
-#if !FAST_MODE
-                        WriteProgress = precent;
-#endif
+                        session.Add(draw);
+
+                        uint currentPrecent = ++writePosition * 100 / totalCount;
+
+                        if (currentPrecent > percent)
+                        {
+                            percent = currentPrecent;
+                            WriteProgress = percent;
+                        }
                     }
                 }
-            }
-
-            session.Window.Dispatcher.Invoke(() => session.Window.Close());
+                isWriteEnded = true;
+                session.Close();
+            }, token);
+        }
+        /// <summary>
+        /// Работа команды отрисовки
+        /// </summary>
+        void RunAsync()
+        {
+            ProgressVisibility = Visibility.Visible;
+            IsStopedVisibility = Visibility.Collapsed;
+            cts?.Dispose();
+            cts = new CancellationTokenSource();
+            ReadAsync(cts.Token);
+            WriteAsync(cts.Token);
         }
 
-#endregion
+        #endregion
 
         #region Ctors
 
@@ -216,28 +227,23 @@ namespace Plugins.View
         {
             logger = log;
             session = s;
-            CancelDrawCommand = new RelayCommand(obj => StopDrawing());
+
+            CancelCommand = new RelayCommand(obj => CancelDrawing());
+            StopCommand = new RelayCommand(obj => StopDrawing());
+            ContinueCommand = new RelayCommand(obj => RunAsync());
 
             ProgressVisibility = Visibility.Visible;
             IsStopedVisibility = Visibility.Collapsed;
-
+            readPosition = 0;
+            writePosition = 0;
             readProgress = 0;
             writeProgress = 0;
-
-            queue = new ConcurrentQueue<Entities.Primitive>();
-#if !FAST_MODE
-            totalCount = session.PrimitivesCount;
-#endif
             isReadEnded = false;
+            isWriteEnded = false;
+            queue = new ConcurrentQueue<Entities.Primitive>();
+            totalCount = session.PrimitivesCount;
 
-            readWorker = new BackgroundWorker { WorkerSupportsCancellation = true };
-            readWorker.DoWork += Read;
-            readWorker.RunWorkerCompleted += (sender, args) => isReadEnded = true;
-            readWorker.RunWorkerAsync();
-
-            writeWorker = new BackgroundWorker { WorkerSupportsCancellation = true };
-            writeWorker.DoWork += Write;
-            writeWorker.RunWorkerAsync();
+            RunAsync();
 
             logger.LogInformation("Запущена отрисовка геометрии!");
         }
@@ -291,17 +297,29 @@ namespace Plugins.View
         #region Public Methods
 
         /// <summary>
-        /// Обработка экстренной остановки рабоыт плагина
+        /// Обработка экстренной остановки работы плагина
         /// </summary>
         /// <param name="sender">Вызывающий объект</param>
         /// <param name="args">Параметры события</param>
-        public void HandleOperationCancel(object sender, EventArgs args) => StopDrawing();
+        public void HandleOperationCancel(object sender, EventArgs args) => CancelDrawing();
 
         #endregion
+
+        #region Commands
 
         /// <summary>
         /// Команда отмены работы
         /// </summary>
-        public RelayCommand CancelDrawCommand { get; }
+        public RelayCommand CancelCommand { get; }
+        /// <summary>
+        /// Команда установки паузы
+        /// </summary>
+        public RelayCommand StopCommand { get; }
+        /// <summary>
+        /// Команда продолжения работы
+        /// </summary>
+        public RelayCommand ContinueCommand { get; }
+
+        #endregion
     }
 }

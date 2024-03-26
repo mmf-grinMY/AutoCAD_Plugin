@@ -15,32 +15,39 @@ namespace Plugins
         /// <summary>
         /// Расположение файла с параметрами подключения
         /// </summary>
-        static readonly string dbConfigFilePath;
+        static readonly string DB_CONFIG_PATH;
         /// <summary>
         /// Расположение папки AutoCAD Support
         /// </summary>
-        static readonly string supportPath;
+        static readonly string SUPPORT_PATH;
         /// <summary>
         /// Расположение сборки
         /// </summary>
-        static readonly string dllPath;
+        static readonly string ASSEMBLY_PATH;
 
         public readonly static string CONFIG_FILE;
+        public static readonly int QUEUE_LIMIT;
+        public static readonly int READER_SLEEP_TIME;
         static Constants()
         {
             CONFIG_FILE = "plugin.config.json";
 
             var fileName = Application.DocumentManager.MdiActiveDocument.Database.Filename;
-            supportPath = Path.Combine(Directory.GetParent(
+            SUPPORT_PATH = Path.Combine(Directory.GetParent(
                     Path.GetDirectoryName(fileName)).FullName, "Support").Replace("Local", "Roaming");
-            dbConfigFilePath = System.IO.Path.GetTempFileName();
-            dllPath = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Commands)).Location);
+            DB_CONFIG_PATH = System.IO.Path.GetTempFileName();
+            ASSEMBLY_PATH = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Commands)).Location);
 
             var config = JObject.Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, CONFIG_FILE)));
 
             SCALE = config.Value<double>("Scale");
             TEXT_SCALE = config.Value<double>("TextScale") * SCALE;
             HATCH_SCALE = config.Value<double>("HatchScale") * SCALE * SCALE;
+
+            config = config.Value<JObject>("queue");
+
+            QUEUE_LIMIT = config.Value<int>("limit");
+            READER_SLEEP_TIME = config.Value<int>("sleep");
         }
 
         #region Константы масштабирования
@@ -82,12 +89,12 @@ namespace Plugins
         /// <summary>
         /// Расположение файла с параметрами подключения
         /// </summary>
-        public static string DbConfigFilePath => dbConfigFilePath;
+        public static string DbConfigFilePath => DB_CONFIG_PATH;
         /// <summary>
         /// Расположение папки AutoCAD Support
         /// </summary>
-        public static string SupportPath => supportPath;
-        public static string AssemblyPath => dllPath;
+        public static string SupportPath => SUPPORT_PATH;
+        public static string AssemblyPath => ASSEMBLY_PATH;
 
         #endregion
     }

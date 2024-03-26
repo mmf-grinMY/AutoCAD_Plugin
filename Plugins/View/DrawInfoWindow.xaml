@@ -56,10 +56,20 @@
             HorizontalAlignment="Center"
             Visibility="{Binding IsStopedVisibility}"
             Text="Отрисовка прекращена!"/>
-        <Button
-            Visibility="{Binding ProgressVisibility}"
-            Command="{Binding CancelDrawCommand}"
-            Margin="4"
-            Content="Отмена"/>
+        <StackPanel Orientation="Horizontal">
+            <Button
+                Visibility="{Binding ProgressVisibility}"
+                Command="{Binding CancelCommand}"
+                Margin="4"
+                Content="Отмена"/>
+            <Button
+                Margin="4"
+                Content="Остановить"
+                Command="{Binding StopCommand}"/>
+            <Button
+                Margin="4"
+                Content="Продолжить"
+                Command="{Binding ContinueCommand}"/>
+        </StackPanel>
     </StackPanel>
 </Window>

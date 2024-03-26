@@ -8,9 +8,9 @@
 
 // TODO: Сделать ограничение на отрисовку в одном чертеже только одного горизонта
 
-// TODO: Добавить описание выбрасываемых исключений ко всем методам
-
 // TODO: Constants.SCALE = 1 => Нужно выпилить все вхождения
+
+// TODO: В случае неудачного подключения плагина формировать отчет о неудавшихся операциях в процессе загрузки
 
 #define POL // Команда рисования полилинии
 
@@ -175,10 +175,11 @@ namespace Plugins
 
         #region Command Methods
 
+        public const string DRAW_COMMAND = "MMP_DRAW";
         /// <summary>
         /// Отрисовать геометрию
         /// </summary>
-        [CommandMethod("MMP_DRAW")]
+        [CommandMethod(DRAW_COMMAND)]
         public void DrawCommand()
         {
             // TODO: Добавить поддержку пользовательского BoundingBox
@@ -203,9 +204,7 @@ namespace Plugins
                 gorizontSelecter.Close();
 #endif
                 SessionDispatcher.StartSession(connection, gorizont);
-                var finish = "Закончена отрисовка геометрии!";
-                logger.LogInformation(finish);
-                doc.Editor.WriteMessage(finish);
+                logger.LogInformation("Закончена отрисовка геометрии!");
             }
             catch (TypeInitializationException)
             {

@@ -5,6 +5,7 @@ using Plugins.View;
 
 using System.Collections.Generic;
 
+using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 
 using Newtonsoft.Json.Linq;
@@ -53,10 +54,14 @@ namespace Plugins
         /// </summary>
         readonly Database db;
         /// <summary>
+        /// Текущий документ AutoCAD
+        /// </summary>
+        readonly Document doc;
+        /// <summary>
         /// Монитор прогресса отрисовки
         /// </summary>
         DrawInfoWindow window;
-
+        
         #endregion
 
         #region Ctor
@@ -73,7 +78,8 @@ namespace Plugins
             connection = disp;
             logger = log;
 
-            db = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument.Database;
+            doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+            db = doc.Database;
 
             layerDispatcher = new LayerTableDispatcher(db, logger);
             blocksFactory = new BlockTableDispatcher(db, logger);
@@ -86,22 +92,18 @@ namespace Plugins
         #region Public Properties
 
         /// <summary>
-        /// Читатель объектов для отрисовки
-        /// </summary>
-        public OracleDataReader DrawDataReader => connection.GetDrawParams(gorizont);
-        /// <summary>
         /// Количество примитивов на горизонте, доступных для отрисовки
         /// </summary>
         public uint PrimitivesCount => System.Convert.ToUInt32(connection.Count(gorizont));
-        /// <summary>
-        /// Монитор прогресса отрисовки
-        /// </summary>
-        public DrawInfoWindow Window => window;
 
         #endregion
 
         #region Public Methods
 
+        /// <summary>
+        /// Читатель объектов для отрисовки
+        /// </summary>
+        public OracleDataReader DrawDataReader(uint position) => connection.GetDrawParams(gorizont, position);
         /// <summary>
         /// Загрузить паттерн штриховки
         /// </summary>
@@ -141,6 +143,11 @@ namespace Plugins
             window.Closed += model.HandleOperationCancel;
             window.ShowDialog();
         }
+        /// <summary>
+        /// Закрытие сессии работы
+        /// </summary>
+        public void Close() => window.Dispatcher.Invoke(() => window.Close());
+        public void WriteMessage(string message) => window.Dispatcher.Invoke(() => doc.Editor.WriteMessage(message));
 
         #endregion
     }

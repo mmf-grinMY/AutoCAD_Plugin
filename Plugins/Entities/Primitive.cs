@@ -1,4 +1,5 @@
 ﻿using System;
+
 using Newtonsoft.Json.Linq;
 
 namespace Plugins.Entities
@@ -63,6 +64,16 @@ namespace Plugins.Entities
             BaseName = baseName;
             ChildField = childFields;
         }
+
+        #endregion
+
+        #region Public Methods
+
+        /// <summary>
+        /// Конвертация объекта в строку
+        /// </summary>
+        /// <returns>Строковое представление объекта</returns>
+        public override string ToString() => Geometry;
 
         #endregion
     }

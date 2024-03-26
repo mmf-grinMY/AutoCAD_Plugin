@@ -203,13 +203,13 @@ connect:
         /// </summary>
         /// <param name="gorizont">Выбранный горизонт</param>
         /// <returns>Читатель данных</returns>
-        public OracleDataReader GetDrawParams(string gorizont)
+        public OracleDataReader GetDrawParams(string gorizont, uint position)
         {
             string command;
             
             using (var reader = new StreamReader(Path.Combine(Constants.AssemblyPath, "draw.sql")))
             {
-                command = string.Format(reader.ReadToEnd(), gorizont);
+                command = string.Format(reader.ReadToEnd(), gorizont, position);
             }
 
             return new OracleCommand(command, connection).ExecuteReader();
