@@ -271,14 +271,16 @@ namespace Plugins
 
                 var gorizontSelecter = new GorizontSelecterWindow(connection.Gorizonts);
                 gorizontSelecter.ShowDialog();
+
                 if (!gorizontSelecter.InputResult)
                 {
                     return;
                 }
+
                 gorizont = gorizontSelecter.Gorizont;
                 gorizontSelecter.Close();
 #endif
-                new Session(connection, gorizont, logger).Run();
+                new Session(connection, logger).Run();
                 logger.LogInformation("Закончена отрисовка геометрии!");
             }
             catch (TypeInitializationException)

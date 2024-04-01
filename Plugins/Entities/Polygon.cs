@@ -1,6 +1,8 @@
 ﻿using System.Linq;
-
+using System.Text;
 using Autodesk.AutoCAD.DatabaseServices;
+using Newtonsoft.Json.Linq;
+using Oracle.ManagedDataAccess.Client;
 
 namespace Plugins.Entities
 {
@@ -15,6 +17,8 @@ namespace Plugins.Entities
         /// Загрузчик штриховок
         /// </summary>
         readonly HatchPatternLoader loader;
+        readonly OracleDbDispatcher dispatcher;
+        readonly string gorizont;
 
         #endregion
 
@@ -58,7 +62,11 @@ namespace Plugins.Entities
             var lines = Wkt.Parser.ParsePolyline(primitive.Geometry);
 
             if (!lines.Any())
+#if OLD
                 return;
+#else
+                lines = Wkt.Parser.ParsePolyline();
+#endif
 
             if (lines[0].Area == 0)
                 return;
@@ -112,6 +120,6 @@ namespace Plugins.Entities
             hatch.EvaluateHatch(true);
         }
 
-        #endregion
+#endregion
     }
 }

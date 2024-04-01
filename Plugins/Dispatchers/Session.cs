@@ -38,10 +38,6 @@ namespace Plugins
         /// </summary>
         readonly OracleDbDispatcher connection;
         /// <summary>
-        /// Рисуемый горизонт
-        /// </summary>
-        readonly string gorizont;
-        /// <summary>
         /// Внутренняя БД AutoCAD
         /// </summary>
         readonly Database db;
@@ -64,9 +60,8 @@ namespace Plugins
         /// <param name="disp">Диспетчер БД Oracle</param>
         /// <param name="selectedGorizont">Выбранный для отрисовки горизонт</param>
         /// <param name="log">Логер событий</param>
-        public Session(OracleDbDispatcher disp, string selectedGorizont, ILogger log)
+        public Session(OracleDbDispatcher disp, ILogger log)
         {
-            gorizont = selectedGorizont;
             connection = disp;
             logger = log;
 

@@ -138,7 +138,8 @@ namespace Plugins.View
                                                           reader["systemid"].ToString(),
                                                           reader["basename"].ToString(),
                                                           reader["childfields"].ToString(),
-                                                          reader["rn"].ToString()));
+                                                          reader["rn"].ToString(),
+                                                          reader["objectguid"].ToString()));
 
                         uint currentPrecent = ++readPosition * 100 / totalCount;
 

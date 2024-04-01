@@ -8,6 +8,7 @@ using System.IO;
 using System;
 
 using Oracle.ManagedDataAccess.Client;
+using Plugins.Entities;
 
 namespace Plugins
 {
@@ -23,6 +24,7 @@ namespace Plugins
         /// Подключение к Oracle БД
         /// </summary>
         readonly OracleConnection connection;
+        readonly string gorizont;
 
         #endregion
 
@@ -51,7 +53,7 @@ namespace Plugins
         }
 
         #endregion
-        
+
         #region Private Methods
 
         /// <summary>
@@ -70,10 +72,12 @@ namespace Plugins
         /// </summary>
         /// <param name="log">Логер событий</param>
         /// <exception cref="TypeInitializationException"></exception>
-        public OracleDbDispatcher(ILogger log) 
+        public OracleDbDispatcher(ILogger log, string gorizont)
         {
+            this.gorizont = gorizont;
             logger = log;
-connect:
+
+        connect:
             try
             {
                 connection = new OracleConnection(GetDbConnectionStr(ConnectionParams));
@@ -110,8 +114,9 @@ connect:
             }
         }
 #if DEBUG
-        public OracleDbDispatcher(string connectionStr)
+        public OracleDbDispatcher(string connectionStr, string gorizont)
         {
+            this.gorizont = gorizont;
             connection = new OracleConnection(connectionStr);
             connection.Open();
         }
@@ -150,7 +155,7 @@ connect:
         {
             try
             {
-                connection = new OracleDbDispatcher(logger);
+                connection = new OracleDbDispatcher(logger, gorizont);
                 return true;
             }
             catch (TypeInitializationException)
@@ -193,8 +198,8 @@ connect:
                     }
                 }
 
-                foreach (var key in selectedGorizonts.Keys) 
-                    if (selectedGorizonts[key]) 
+                foreach (var key in selectedGorizonts.Keys)
+                    if (selectedGorizonts[key])
                         gorizonts.Add(key);
 
                 return gorizonts;
@@ -215,10 +220,10 @@ connect:
         /// <param name="gorizont">Выбранный горизонт</param>
         /// <param name="position">Текщуая позиция читателя БД</param>
         /// <returns>Читатель данных</returns>
-        public OracleDataReader GetDrawParams(string gorizont, uint position)
+        public OracleDataReader GetDrawParams(uint position)
         {
             string command;
-            
+
             using (var reader = new StreamReader(Path.Combine(Constants.AssemblyPath, "draw.sql")))
             {
                 command = string.Format(reader.ReadToEnd(), gorizont, position);
@@ -231,14 +236,17 @@ connect:
         /// </summary>
         /// <param name="gorizont">Имя горизонта для поиска</param>
         /// <returns>Количество записей</returns>
-        public int Count(string gorizont)
+        public int Count 
         {
-            string command = "SELECT COUNT(*) FROM " + gorizont + "_trans_clone";
-
-            using (var reader = new OracleCommand(command, connection).ExecuteReader())
+            get
             {
-                reader.Read();
-                return reader.GetInt32(0);
+                string command = "SELECT COUNT(*) FROM " + gorizont + "_trans_clone";
+
+                using (var reader = new OracleCommand(command, connection).ExecuteReader())
+                {
+                    reader.Read();
+                    return reader.GetInt32(0);
+                }
             }
         }
         /// <summary>
@@ -276,9 +284,8 @@ connect:
         /// Получение характеристик отрисвоки объекта по его Id
         /// </summary>
         /// <param name="id">Id объекта в БД Oracle</param>
-        /// <param name="gorizont">Горизонт, на котором расположен объект</param>
         /// <returns>Строковое представление характеристик отрисовки</returns>
-        public string GetObjectJsonById(int id, string gorizont)
+        public string GetObjectJsonById(int id)
         {
             var command = string.Format("SELECT * FROM (SELECT a.drawjson, a.paramjson, ROWNUM AS rn FROM {0}_trans_clone a " + 
                 "INNER JOIN {0}_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid WHERE a.geowkt IS NOT NULL) WHERE rn = {1}", gorizont, id);
@@ -295,5 +302,21 @@ connect:
         }
 
         #endregion
+
+        public string GetLongGeometry(Primitive primitive)
+        {
+            var command = $"SELECT page FROM k200f_trans_clone_geowkt WHERE objectguid = '{primitive.Guid}' ORDER BY numb";
+            var builder = new StringBuilder().Append(primitive.Geometry);
+
+            using (var reader = new OracleCommand(command, connection).ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    builder.Append(reader.GetString(0));
+                }
+            }
+
+            return builder.ToString();
+        }
     }
 }

@@ -39,7 +39,14 @@ namespace Plugins.Entities
         /// Столбец линковки
         /// </summary>
         public string ChildField { get; }
+        /// <summary>
+        /// Уникальный порядковый номер
+        /// </summary>
         public int Id { get; }
+        /// <summary>
+        /// Уникальный Guid объекта
+        /// </summary>
+        public Guid Guid { get; }
 
         #endregion
 
@@ -62,7 +69,8 @@ namespace Plugins.Entities
                          string systemid,
                          string baseName,
                          string childFields,
-                         string id)
+                         string id,
+                         string guid)
         {
             Geometry = wkt;
             DrawSettings = JObject.Parse(settings);
@@ -72,6 +80,7 @@ namespace Plugins.Entities
             BaseName = baseName;
             ChildField = childFields;
             Id = Convert.ToInt32(id);
+            Guid = Guid.Parse(guid);
         }
 
         #endregion
