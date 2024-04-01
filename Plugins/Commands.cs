@@ -19,7 +19,7 @@
 //       Запоминать текущую позицию и запускать читателя читать данные с текущей позиции с определенным количеством
 //       только когда понадобятся новые данные
 
-#define POL // Команда рисования полилинии
+// #define POL // Команда рисования полилинии
 
 using Plugins.Logging;
 using Plugins.View;
@@ -31,14 +31,13 @@ using System;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
 
 #if POL
-using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Colors;
-using Plugins.Dispatchers;
 #endif
 
 namespace Plugins
@@ -47,18 +46,45 @@ namespace Plugins
     {
         #region Private Fields
 
-        // TODO: Добавить настройку имени штриховки линии и файла источника из конфигурационного файла
-        static Document doc;
-        readonly string LINE_TYPE_SOURCE = "acad.lin";
-        public const string TYPE_NAME = "MMP_2";
         static double width;
-        static string gorizont;
         static ILogger logger;
 
         #endregion
 
         #region Private Methods
 
+        /// <summary>
+        /// Взять граничные точки области
+        /// </summary>
+        /// <param name="doc">Текущий документ</param>
+        /// <returns>Граничные точки, в случае успеха и UndefinedType в противном случае</returns>
+        private static Point3d[] GetPoints(Document doc)
+        {
+            // TODO: Переписать этот метод
+            var editor = doc.Editor;
+            bool bound_fl = true;
+
+            PromptPointOptions ppo = new PromptPointOptions("\n\tЛевый нижний угол: ");
+
+            PromptPointResult pprLeft = editor.GetPoint(ppo);
+
+            bound_fl = bound_fl && pprLeft.Status == PromptStatus.OK;
+
+            PromptCornerOptions pco = new PromptCornerOptions("\n\tПравый верхний угол: ", pprLeft.Value);
+
+            PromptPointResult pprRight = editor.GetCorner(pco);
+
+            bound_fl = bound_fl && pprRight.Status == PromptStatus.OK;
+
+            if (bound_fl)
+            {
+                return new Point3d[] { pprLeft.Value, pprRight.Value };
+            }
+            else
+            {
+                return null;
+            }
+        }
         /// <summary>
         /// Создание команды выборки данных
         /// </summary>
@@ -133,29 +159,22 @@ namespace Plugins
 
             return result;
         }
-
+        /// <summary>
+        /// Вывести сообщение об ошибке
+        /// </summary>
+        /// <param name="message">Содержимое сообщения</param>
+        /// <exception cref="ArgumentException"></exception>
         void ShowError(string message)
         {
             if (string.IsNullOrWhiteSpace(message))
                 throw new ArgumentException(nameof(message));
 
-            System.Windows.MessageBox.Show(message, "Ошибка", 
+            System.Windows.MessageBox.Show(message, "Ошибка",
                 System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
         }
 
-        Action<string> GetRegAppAction(Database db, ILogger logger)
-        {
-            var regAppTableDispatcher = new RegAppTableDispatcher(db, logger);
-
-            return (string name) =>
-            {
-                if (!regAppTableDispatcher.TryAdd(name))
-                    throw new InvalidOperationException("Не удалось сохранить RegApp " + name + "!");
-            };
-        }
-
         #endregion
-        
+
         #region Public Methods
 
         /// <summary>
@@ -163,7 +182,7 @@ namespace Plugins
         /// </summary>
         public void Initialize()
         {
-            doc = Application.DocumentManager.MdiActiveDocument;
+            var doc = Application.DocumentManager.MdiActiveDocument;
 
             if (doc is null)
             {
@@ -184,28 +203,12 @@ namespace Plugins
                 db = doc.Database ?? throw new ArgumentNullException(nameof(db), "Не удалось получить ссылку на БД документа!");
 
                 // FIXME: ??? Является ли ошибкой сбой получения командной строки текущего документа ???
-                editor = doc.Editor ?? throw new ArgumentNullException(nameof(editor), "Не удалось получить ссылку на командную строку документа!");
+                editor = doc.Editor ?? throw new ArgumentNullException(nameof(editor), 
+                    "Не удалось получить ссылку на командную строку документа!");
 
                 logger = Constants.Logger;
 
                 if (logger is null) throw new ArgumentNullException("Не удалось получить логгер событий", nameof(logger));
-
-                var addRegApp = GetRegAppAction(db, logger);
-
-                addRegApp(SYSTEM_ID);
-                addRegApp(BASE_NAME);
-                addRegApp(LINK_FIELD);
-                addRegApp(OBJ_ID);
-
-                try
-                {
-                    db.LoadLineTypeFile(TYPE_NAME, LINE_TYPE_SOURCE);
-                }
-                catch (Autodesk.AutoCAD.Runtime.Exception)
-                {
-                    editor.WriteMessage("Не удалось найти стиль линии \"" + TYPE_NAME + "\" в файле \"" + LINE_TYPE_SOURCE + "\"!");
-                    throw;
-                }
 
                 editor.WriteMessage("Загрузка плагина прошла успешно!");
             }
@@ -228,7 +231,7 @@ namespace Plugins
         /// <summary>
         /// Завершить работу плагина
         /// </summary>
-        public void Terminate() 
+        public void Terminate()
         {
             dynamic app = Application.AcadApplication;
 
@@ -255,32 +258,37 @@ namespace Plugins
         public void DrawCommand()
         {
             // TODO: Добавить поддержку пользовательского BoundingBox
-            OracleDbDispatcher connection = null;
-            ILogger logger = Constants.Logger;
+            Session session = null;
 
             try
             {
-#if DEBUG
+                var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
 
-                connection = new OracleDbDispatcher("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
-                gorizont = "K200F";
-#else
-                if (!OracleDbDispatcher.TryGetConnection(out connection)) return;
+                var points = GetPoints(doc);
 
-                string gorizont;
-
-                var gorizontSelecter = new GorizontSelecterWindow(connection.Gorizonts);
-                gorizontSelecter.ShowDialog();
-
-                if (!gorizontSelecter.InputResult)
+                if (points is null && points.Length == 2) 
                 {
-                    return;
+                    var pt1 = points[0];
+                    var pt2 = points[1];
+
+                    double shfX = 0; // 511800 - 156;
+                    double shfY = 0; // 5835990 - 64;
+                    double Prec = 1000; //Obj.Precision;
+                    session.Left = (long)((Math.Min(pt1.X, pt2.X) - shfX) * Prec);
+                    session.Right = (long)((Math.Max(pt1.X, pt2.X) - shfX) * Prec);
+                    session.Bottom = (long)((Math.Min(pt1.Y, pt2.Y) - shfY) * Prec);
+                    session.Top = (long)((Math.Max(pt1.Y, pt2.Y) - shfY) * Prec);
+                }
+                else
+                {
+                    session.Bottom = long.MinValue;
+                    session.Left = long.MinValue;
+                    session.Right = long.MaxValue;
+                    session.Top = long.MaxValue;
                 }
 
-                gorizont = gorizontSelecter.Gorizont;
-                gorizontSelecter.Close();
-#endif
-                new Session(connection, logger).Run();
+                session = new Session(logger);
+                session.Run();
                 logger.LogInformation("Закончена отрисовка геометрии!");
             }
             catch (TypeInitializationException)
@@ -294,7 +302,7 @@ namespace Plugins
             }
             finally
             {
-                connection.Dispose();
+                session?.Dispose();
             }
         }
         /// <summary>
@@ -303,6 +311,9 @@ namespace Plugins
         [CommandMethod("VRM_INSPECT_EXT_DB")]
         public void InspectExtDB()
         {
+            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
+                ?? throw new ArgumentNullException("document");
+
             if (!OracleDbDispatcher.TryGetConnection(Logger, out OracleDbDispatcher connection)) return;
 
             var editor = doc.Editor;
@@ -334,7 +345,7 @@ namespace Plugins
                         editor.WriteMessage("Атрибутивная таблица к объекту отсутствует!");
                         continue;
                     }
-                        
+
                     string baseName = row[1];
                     string baseCapture = baseName;
                     var link = connection.GetExternalDbLink(baseName);
@@ -359,7 +370,10 @@ namespace Plugins
         [CommandMethod("MMP_DEBUG")]
         public void GetObjectParams()
         {
-            var connection = new OracleDbDispatcher("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
+            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
+                ?? throw new ArgumentNullException("document");
+
+            var connection = new OracleDbDispatcher(logger);
             var editor = doc.Editor;
             var options = new PromptEntityOptions("\nВыберите объект: ");
             using (var transaction = doc.TransactionManager.StartTransaction())
@@ -375,7 +389,7 @@ namespace Plugins
                     }
 
                     var id = Convert.ToInt32(buffer.GetXData(OBJ_ID));
-                    var content = connection.GetObjectJsonById(id, gorizont);
+                    var content = connection.GetObjectJsonById(id);
                     var window = new DebugWindow()
                     {
                         Title = "Параметры объекта под индексом" + id
@@ -389,7 +403,7 @@ namespace Plugins
         #endregion
 
 #if POL
-        BlockTableRecord InitializeCustomBlock()
+        BlockTableRecord InitializeCustomBlock(Document doc)
         {
             var db = doc.Database;
 
@@ -420,6 +434,9 @@ namespace Plugins
         [CommandMethod("MMP_TEST_DRAW")]
         public void DrawPolyline()
         {
+            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
+                ?? throw new ArgumentNullException("document");
+
             const int limit = 1;
 
             var db = doc.Database;
@@ -427,7 +444,7 @@ namespace Plugins
 
             var scale = view.Width / System.Windows.SystemParameters.FullPrimaryScreenWidth;
 
-            var customBlockRecord = InitializeCustomBlock();
+            var customBlockRecord = InitializeCustomBlock(doc);
 
             using (var transaction = db.TransactionManager.StartTransaction())
             {
@@ -439,7 +456,7 @@ namespace Plugins
                     var polyline = new Polyline
                     {
                         Color = Autodesk.AutoCAD.Colors.Color.FromRgb(255, 0, 0),
-                        Linetype = TYPE_NAME
+                        Linetype = "MMP_2" // TYPE_NAME
                     };
 
                     polyline.AddVertexAt(0, new Point2d(2, 2), 0, 0, 0);
@@ -493,6 +510,9 @@ namespace Plugins
         [CommandMethod("MMP_COUNT")]
         public void GetCount()
         {
+            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
+                ?? throw new ArgumentNullException("document");
+
             var db = doc.Database;
 
             using (var transaction = db.TransactionManager.StartTransaction())
@@ -512,7 +532,7 @@ namespace Plugins
         }
         public static int PATTERN_SCALE = 10_000;
         public static int TEXT_SCALE = 8;
-        void ScaleLogic(Extents2d viewBound, double scale)
+        void ScaleLogic(Document doc, Extents2d viewBound, double scale)
         {
             var db = doc.Database;
 
@@ -587,6 +607,9 @@ namespace Plugins
         [CommandMethod(_SCALE)]
         public void ViewScale()
         {
+            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
+                ?? throw new ArgumentNullException("document");
+
             ViewTableRecord view = null;
             try
             {
@@ -605,7 +628,7 @@ namespace Plugins
                     view.CenterPoint + (view.Height / 2.0) * Vector2d.YAxis + (view.Width / 2.0) * Vector2d.XAxis
                 );
 
-                ScaleLogic(viewBound, scale);
+                ScaleLogic(doc, viewBound, scale);
                 doc.Editor.WriteMessage("Процедура масштабирования завершена!");
                 Application.UpdateScreen();
             }
@@ -651,6 +674,9 @@ namespace Plugins
         [CommandMethod("AddMline")]
         public void AddMline()
         {
+            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
+                ?? throw new ArgumentNullException("document");
+
             var db = doc.Database;
             using (var transaction = db.TransactionManager.StartTransaction())
             {

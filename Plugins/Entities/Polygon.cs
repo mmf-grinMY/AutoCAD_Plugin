@@ -1,8 +1,6 @@
 ﻿using System.Linq;
-using System.Text;
+
 using Autodesk.AutoCAD.DatabaseServices;
-using Newtonsoft.Json.Linq;
-using Oracle.ManagedDataAccess.Client;
 
 namespace Plugins.Entities
 {
@@ -17,8 +15,10 @@ namespace Plugins.Entities
         /// Загрузчик штриховок
         /// </summary>
         readonly HatchPatternLoader loader;
+        /// <summary>
+        /// Диспетчер работы с БД
+        /// </summary>
         readonly OracleDbDispatcher dispatcher;
-        readonly string gorizont;
 
         #endregion
 
@@ -31,9 +31,17 @@ namespace Plugins.Entities
         /// <param name="logger">Логер событий</param>
         /// <param name="loader">Загрузчик штриховок</param>
         /// <param name="style">Стиль отрисовки</param>
-        public Polygon(Primitive primitive, Logging.ILogger logger, HatchPatternLoader loader, MyHatchStyle style) 
-            : base(primitive, logger, style) 
-            => this.loader = loader ?? throw new System.ArgumentNullException(nameof(loader));
+        /// <param name="dispatcher">Диспетчер работы с БД</param>
+        public Polygon(Primitive primitive,
+                       Logging.ILogger logger,
+                       HatchPatternLoader loader,
+                       MyHatchStyle style,
+                       OracleDbDispatcher dispatcher)
+            : base(primitive, logger, style)
+        {
+            this.loader = loader ?? throw new System.ArgumentNullException(nameof(loader));
+            this.dispatcher = dispatcher ?? throw new System.ArgumentNullException(nameof(dispatcher));
+        }
 
         #endregion
 
@@ -65,7 +73,7 @@ namespace Plugins.Entities
 #if OLD
                 return;
 #else
-                lines = Wkt.Parser.ParsePolyline();
+                lines = Wkt.Parser.ParsePolyline(dispatcher.GetLongGeometry(primitive));
 #endif
 
             if (lines[0].Area == 0)

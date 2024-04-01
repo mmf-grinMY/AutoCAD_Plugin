@@ -39,6 +39,10 @@ namespace Plugins.Entities
         /// Фабрика блоков
         /// </summary>
         readonly SymbolTableDispatcher factory;
+        /// <summary>
+        /// Диспетчер работы с БД
+        /// </summary>
+        readonly OracleDbDispatcher dispatcher;
 
         #endregion
 
@@ -49,10 +53,11 @@ namespace Plugins.Entities
         /// </summary>
         /// <param name="creater">Создатель блоков</param>
         /// <param name="log">Логер событий</param>
-        public EntitiesFactory(SymbolTableDispatcher creater, ILogger log)
+        public EntitiesFactory(SymbolTableDispatcher creater, ILogger log, OracleDbDispatcher dispatcher)
         {
             factory = creater ?? throw new ArgumentNullException(nameof(creater));
             logger = log ?? throw new ArgumentNullException(nameof(log));
+            this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             hatchPatternLoader = new HatchPatternLoader();
 
             var config = JObject.Parse(File.ReadAllText(Path.Combine(Constants.AssemblyPath, "style.config.json")));
@@ -85,7 +90,7 @@ namespace Plugins.Entities
                     }
                     else if (primitive.Geometry.StartsWith("POLYGON"))
                     {
-                        return new Polygon(primitive, logger, hatchPatternLoader, hatchStyle);
+                        return new Polygon(primitive, logger, hatchPatternLoader, hatchStyle, dispatcher);
                     }
                     else
                     {

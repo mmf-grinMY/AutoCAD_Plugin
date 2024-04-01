@@ -9,10 +9,11 @@ using System;
 
 using Oracle.ManagedDataAccess.Client;
 using Plugins.Entities;
+using Plugins.View;
 
 namespace Plugins
 {
-    public class OracleDbDispatcher : IDisposable
+    class OracleDbDispatcher : IDisposable
     {
         #region Private Fields
 
@@ -24,6 +25,9 @@ namespace Plugins
         /// Подключение к Oracle БД
         /// </summary>
         readonly OracleConnection connection;
+        /// <summary>
+        /// Текущий горизонт
+        /// </summary>
         readonly string gorizont;
 
         #endregion
@@ -72,16 +76,29 @@ namespace Plugins
         /// </summary>
         /// <param name="log">Логер событий</param>
         /// <exception cref="TypeInitializationException"></exception>
-        public OracleDbDispatcher(ILogger log, string gorizont)
+        public OracleDbDispatcher(ILogger log)
         {
-            this.gorizont = gorizont;
-            logger = log;
+            logger = log ?? throw new ArgumentNullException(nameof(log));
 
-        connect:
+            connect:
             try
             {
                 connection = new OracleConnection(GetDbConnectionStr(ConnectionParams));
                 connection.Open();
+
+                if (gorizont is null)
+                {
+                    var gorizontSelecter = new GorizontSelecterWindow(Gorizonts);
+                    gorizontSelecter.ShowDialog();
+
+                    if (!gorizontSelecter.InputResult)
+                    {
+                        throw new ArgumentException("Не удалось получить рисуемый горизонт!");
+                    }
+
+                    gorizont = gorizontSelecter.Gorizont;
+                    gorizontSelecter.Close();
+                }
             }
             catch (OracleException ex)
             {
@@ -116,6 +133,9 @@ namespace Plugins
 #if DEBUG
         public OracleDbDispatcher(string connectionStr, string gorizont)
         {
+            if (string.IsNullOrWhiteSpace(gorizont))
+                throw new ArgumentException(nameof(gorizont));
+
             this.gorizont = gorizont;
             connection = new OracleConnection(connectionStr);
             connection.Open();
@@ -155,7 +175,7 @@ namespace Plugins
         {
             try
             {
-                connection = new OracleDbDispatcher(logger, gorizont);
+                connection = new OracleDbDispatcher(logger);
                 return true;
             }
             catch (TypeInitializationException)
@@ -220,13 +240,13 @@ namespace Plugins
         /// <param name="gorizont">Выбранный горизонт</param>
         /// <param name="position">Текщуая позиция читателя БД</param>
         /// <returns>Читатель данных</returns>
-        public OracleDataReader GetDrawParams(uint position)
+        public OracleDataReader GetDrawParams(uint position, Session session)
         {
             string command;
 
             using (var reader = new StreamReader(Path.Combine(Constants.AssemblyPath, "draw.sql")))
             {
-                command = string.Format(reader.ReadToEnd(), gorizont, position);
+                command = string.Format(reader.ReadToEnd(), gorizont, position, session.Right, session.Left, session.Top, session.Bottom);
             }
 
             return new OracleCommand(command, connection).ExecuteReader();
@@ -300,9 +320,11 @@ namespace Plugins
 
             return string.Empty;
         }
-
-        #endregion
-
+        /// <summary>
+        /// Получение геометрии больших объектов
+        /// </summary>
+        /// <param name="primitive">Исходный примитив</param>
+        /// <returns>Геометрия в формате wkt</returns>
         public string GetLongGeometry(Primitive primitive)
         {
             var command = $"SELECT page FROM k200f_trans_clone_geowkt WHERE objectguid = '{primitive.Guid}' ORDER BY numb";
@@ -318,5 +340,7 @@ namespace Plugins
 
             return builder.ToString();
         }
+
+        #endregion
     }
 }

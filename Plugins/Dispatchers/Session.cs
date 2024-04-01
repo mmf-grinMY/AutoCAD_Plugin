@@ -3,17 +3,22 @@ using Plugins.Entities;
 using Plugins.Logging;
 using Plugins.View;
 
+using System;
+
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 
 using Oracle.ManagedDataAccess.Client;
+
+using static Plugins.Constants;
+using Autodesk.AutoCAD.Geometry;
 
 namespace Plugins
 {
     /// <summary>
     /// Сеанс работы плагина
     /// </summary>
-    class Session
+    class Session : IDisposable
     {
         #region Private Fields
 
@@ -49,7 +54,29 @@ namespace Plugins
         /// Монитор прогресса отрисовки
         /// </summary>
         DrawInfoWindow window;
-        
+
+        #endregion
+
+        #region Private Methods
+
+        /// <summary>
+        /// Получить запись из таблицы RegAppTable
+        /// </summary>
+        /// <param name="db">Текущая БД документа AutoCAD</param>
+        /// <param name="logger">Логер событий</param>
+        /// <returns>Действие получения записи из таблицы RegAppTable</returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        Action<string> GetRegAppAction(Database db, ILogger logger)
+        {
+            var regAppTableDispatcher = new RegAppTableDispatcher(db, logger);
+
+            return (string name) =>
+            {
+                if (!regAppTableDispatcher.TryAdd(name))
+                    throw new InvalidOperationException("Не удалось сохранить RegApp " + name + "!");
+            };
+        }
+
         #endregion
 
         #region Ctor
@@ -57,20 +84,45 @@ namespace Plugins
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="disp">Диспетчер БД Oracle</param>
-        /// <param name="selectedGorizont">Выбранный для отрисовки горизонт</param>
-        /// <param name="log">Логер событий</param>
-        public Session(OracleDbDispatcher disp, ILogger log)
+        /// <param name="logger">Логер событий</param>
+        public Session(ILogger logger)
         {
-            connection = disp;
-            logger = log;
+            this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            connection = new OracleDbDispatcher(
+#if DEBUG
+            "Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;", "K200F"
+#else
+            logger
+#endif
+            );
+            doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
+                ?? throw new ArgumentNullException(nameof(doc));
+            db = doc.Database ?? throw new ArgumentNullException(nameof(db));
 
-            doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
-            db = doc.Database;
+            layerDispatcher = new LayerTableDispatcher(db, this.logger);
+            blocksFactory = new BlockTableDispatcher(db, this.logger);
+            factory = new EntitiesFactory(blocksFactory, this.logger, connection);
 
-            layerDispatcher = new LayerTableDispatcher(db, logger);
-            blocksFactory = new BlockTableDispatcher(db, logger);
-            factory = new EntitiesFactory(blocksFactory, logger);
+            var addRegApp = GetRegAppAction(db, logger);
+
+            addRegApp(SYSTEM_ID);
+            addRegApp(BASE_NAME);
+            addRegApp(LINK_FIELD);
+            addRegApp(OBJ_ID);
+
+            // TODO: Вынести в конфигурационный файл
+            const string LINE_TYPE_SOURCE = "acad.lin";
+            const string TYPE_NAME = "MMP_2";
+
+            try
+            {
+                db.LoadLineTypeFile(TYPE_NAME, LINE_TYPE_SOURCE);
+            }
+            catch (Autodesk.AutoCAD.Runtime.Exception)
+            {
+                logger.LogError("Не удалось найти стиль линии \"" + TYPE_NAME + "\" в файле \"" + LINE_TYPE_SOURCE + "\"!");
+                throw;
+            }
         }
 
         #endregion
@@ -80,16 +132,29 @@ namespace Plugins
         /// <summary>
         /// Количество примитивов на горизонте, доступных для отрисовки
         /// </summary>
-        public uint PrimitivesCount => System.Convert.ToUInt32(connection.Count(gorizont));
+        public uint PrimitivesCount => System.Convert.ToUInt32(connection.Count);
+
+
+        public long Left { get; set; }
+        public long Right { get; set; }
+        public long Top { get; set; }
+        public long Bottom { get; set; }
 
         #endregion
 
         #region Public Methods
 
         /// <summary>
+        /// Освобождение неуправляемых ресурсов
+        /// </summary>
+        public void Dispose()
+        {
+            connection.Dispose();
+        }
+        /// <summary>
         /// Читатель объектов для отрисовки
         /// </summary>
-        public OracleDataReader DrawDataReader(uint position) => connection.GetDrawParams(gorizont, position);
+        public OracleDataReader DrawDataReader(uint position) => connection.GetDrawParams(position, this);
         /// <summary>
         /// Нарисовать примитив
         /// </summary>
@@ -103,7 +168,7 @@ namespace Plugins
                     var entity = factory.Create(primitive);
                     entity.AppendToDrawing(db);
                 }
-                catch (System.Exception e)
+                catch (Exception e)
                 {
                     logger.LogError(e);
                 }
@@ -122,6 +187,16 @@ namespace Plugins
             window = new DrawInfoWindow() { DataContext = model };
             window.Closed += model.HandleOperationCancel;
             window.ShowDialog();
+
+            try
+            {
+                Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument.Editor
+                    .Zoom(new Extents3d(new Point3d(Left, Bottom, 0), new Point3d(Right, Top, 0)));
+            }
+            catch (Exception)
+            {
+                System.Windows.MessageBox.Show("\n" + "Wrong BB");
+            }
         }
         /// <summary>
         /// Закрытие сессии работы
