@@ -10,6 +10,7 @@ namespace Plugins.Entities
     /// </summary>
     class EntitiesFactory
     {
+        readonly HatchPatternLoader hatchPatternLoader;
         /// <summary>
         /// Текущий логер событий
         /// </summary>
@@ -25,6 +26,7 @@ namespace Plugins.Entities
         {
             factory = creater;
             logger = log;
+            hatchPatternLoader = new HatchPatternLoader();
         }
         /// <summary>
         /// Создание объекта отрисовки
@@ -44,7 +46,7 @@ namespace Plugins.Entities
                     }
                     else if (primitive.Geometry.StartsWith("POLYGON"))
                     {
-                        return new Polygon(primitive, logger);
+                        return new Polygon(primitive, logger, hatchPatternLoader);
                     }
                     else
                     {

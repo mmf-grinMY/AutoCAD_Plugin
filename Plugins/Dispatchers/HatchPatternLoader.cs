@@ -13,22 +13,16 @@ namespace Plugins
         /// <summary>
         /// Кэш параметров заливок
         /// </summary>
-        readonly static Dictionary<string, Dictionary<string, string>> cache;
+        readonly Dictionary<string, Dictionary<string, string>> cache;
         /// <summary>
         /// Корневой узел файла конфигурации паттернов штриховки
         /// </summary>
-        readonly static XElement root;
-        /// <summary>
-        /// Статическое создание
-        /// </summary>
-        static HatchPatternLoader()
-        {
-            root = XDocument.Load(System.IO.Path.Combine(Constants.SupportPath, "Pattern.conf.xml")).Element("AcadPatterns");
-            cache = new Dictionary<string, Dictionary<string, string>>();
-        }
+        static XElement root;
         public HatchPatternLoader()
         {
-            cache.Clear();
+            if (root is null)
+                root = XDocument.Load(System.IO.Path.Combine(Constants.AssemblyPath, "Pattern.conf.xml")).Element("AcadPatterns");
+            cache = new Dictionary<string, Dictionary<string, string>>();
         }
         /// <summary>
         /// Загрузка параметров штриховки
@@ -52,6 +46,7 @@ namespace Plugins
 
             dictionary = new Dictionary<string, string>();
             var args = root.Element(bitmapName).Element($"t{bitmapIndex}").Value.Trim().Split('\n');
+
             foreach (var param in args)
             {
                 var arg = param.Split('=');

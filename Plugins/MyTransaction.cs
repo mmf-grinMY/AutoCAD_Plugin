@@ -26,11 +26,22 @@ namespace Plugins
 
             try
             {
-                var table = transaction.GetObject(blockId, OpenMode.ForWrite) as TTable;
-                var record = new TRecord() { Name = name };
+                var table = transaction.GetObject(blockId, OpenMode.ForRead) as TTable;
+                TRecord record = null;
 
-                table.Add(record);
-                transaction.AddNewlyCreatedDBObject(record, true);
+                if (!table.Has(name))
+                {
+                    table.UpgradeOpen();
+                    record = new TRecord() { Name = name };
+
+                    table.Add(record);
+                    transaction.AddNewlyCreatedDBObject(record, true);
+                }
+                else
+                {
+                    record =  transaction.GetObject(table[name], OpenMode.ForRead) as TRecord;
+                }
+
                 action?.Invoke(transaction, record, name);
             }
             catch (Exception e)

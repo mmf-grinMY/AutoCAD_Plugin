@@ -9,12 +9,14 @@ namespace Plugins.Entities
     /// </summary>
     sealed class Polygon : Entity
     {
+        readonly HatchPatternLoader loader;
         /// <summary>
         /// Создание объекта
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
         /// <param name="logger">Логер событий</param>
-        public Polygon(Primitive primitive, Logging.ILogger logger) : base(primitive, logger) { }
+        public Polygon(Primitive primitive, Logging.ILogger logger, HatchPatternLoader loader) : base(primitive, logger) =>
+            this.loader = loader;
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
             const string PAT_NAME = "PatName";
@@ -22,7 +24,7 @@ namespace Plugins.Entities
             const string PAT_SCALE = "PatScale";
             const string BRUSH_COLOR = "BrushColor";
 
-            var dictionary = SessionDispatcher.Current.LoadHatchPattern(primitive.DrawSettings);
+            var dictionary = loader.Load(primitive.DrawSettings);
 
             double GetValue(string key)
             {
@@ -32,7 +34,7 @@ namespace Plugins.Entities
                 return dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1.0;
             }
 
-            var lines = Wkt.Parser.Parse(primitive.Geometry);
+            var lines = Wkt.Parser.ParsePolyline(primitive.Geometry);
 
             if (!lines.Any())
                 return;
@@ -50,9 +52,11 @@ namespace Plugins.Entities
                 return;
             }
 
+            // TODO: Вынести прозрачность заливки как конфигурационный параметр
             var hatch = new Hatch
             {
-                PatternScale = Constants.HATCH_SCALE * GetValue(PAT_SCALE),
+                PatternScale = Constants.HatchScale * GetValue(PAT_SCALE),
+                Transparency = new Autodesk.AutoCAD.Colors.Transparency(127),
                 Color = ColorConverter.FromMMColor(primitive.DrawSettings.Value<int>(BRUSH_COLOR)),
                 Layer = primitive.LayerName
             };

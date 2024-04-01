@@ -8,9 +8,9 @@ EndProject
 Project("{911E67C6-3D85-4FCE-B560-20A9C3E3FF48}") = "acad", "..\..\..\..\..\Program Files\Autodesk\AutoCAD 2021\acad.exe", "{3CEED13D-DB90-410F-9F6A-EE73E0BD51BB}"
 	ProjectSection(DebuggerProjectSystem) = preProject
 		PortSupplier = 00000000-0000-0000-0000-000000000000
-		Executable = C:\Program Files\Autodesk\AutoCAD 2023\acad.exe
+		Executable = C:\Program Files\Autodesk\AutoCAD 2021\acad.exe
 		RemoteMachine = DESKTOP-RH28DE8
-		StartingDirectory = C:\Program Files\Autodesk\AutoCAD 2023
+		StartingDirectory = C:\Program Files\Autodesk\AutoCAD 2021
 		Arguments = /b load_plugin.scr
 		Environment = По умолчанию
 		LaunchingEngine = fb0d4648-f776-4980-95f8-bb7f36ebc1ee

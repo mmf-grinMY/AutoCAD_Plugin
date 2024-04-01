@@ -52,7 +52,7 @@ namespace Plugins.Dispatchers
             var circle = new Circle()
             {
                 Center = new Point3d(0, 0, 0),
-                Radius = radius * SCALE,
+                Radius = radius,
                 Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)
             };
 
@@ -102,7 +102,7 @@ namespace Plugins.Dispatchers
 
             for (int i = 0; i < points.Length; ++i)
             {
-                polyline.AddVertexAt(i, new Point2d(points[i].X * SCALE, points[i].Y * SCALE), 0, 0, 0);
+                polyline.AddVertexAt(i, new Point2d(points[i].X, points[i].Y), 0, 0, 0);
             }
 
             polyline.Closed = true;
@@ -131,8 +131,8 @@ namespace Plugins.Dispatchers
                     break;
                 case "pnt!.chr_100":
                     AddCircle(transaction, record, 3);
-                    AddLine(transaction, record, new Point3d(-1 * SCALE, 0, 0), new Point3d(1 * SCALE, 0, 0));
-                    AddLine(transaction, record, new Point3d(0, -1 * SCALE, 0), new Point3d(0, 1 * SCALE, 1 * SCALE));
+                    AddLine(transaction, record, new Point3d(-1, 0, 0), new Point3d(1, 0, 0));
+                    AddLine(transaction, record, new Point3d(0, -1, 0), new Point3d(0, 1, 1));
                     break;
                 case "pnt!.chr_117":
                     AddPolygon(transaction, record, new Point2d[] { new Point2d(-3, -3), new Point2d(3, -3), new Point2d(0, 4) });

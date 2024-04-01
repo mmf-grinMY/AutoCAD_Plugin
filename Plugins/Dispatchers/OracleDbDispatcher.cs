@@ -79,11 +79,11 @@ namespace Plugins
         /// </summary>
         /// <param name="connection">Менеджер соединения</param>
         /// <returns>true, если удалось установить соединение, false в противном случае</returns>
-        public static bool TryGetConnection(out OracleDbDispatcher connection)
+        public static bool TryGetConnection(ILogger logger, out OracleDbDispatcher connection)
         {
             try
             {
-                connection = new OracleDbDispatcher(SessionDispatcher.Logger);
+                connection = new OracleDbDispatcher(logger);
                 return true;
             }
             catch (TypeInitializationException)

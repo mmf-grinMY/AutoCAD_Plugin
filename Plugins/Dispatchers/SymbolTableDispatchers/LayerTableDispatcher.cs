@@ -1,7 +1,4 @@
-﻿using Plugins.Logging;
-
-using Autodesk.AutoCAD.DatabaseServices;
-using System.Text.RegularExpressions;
+﻿using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Plugins.Dispatchers
 {
@@ -15,7 +12,7 @@ namespace Plugins.Dispatchers
         /// </summary>
         /// <param name="database">Внeтренняя БД AutoCAD</param>
         /// <param name="log">Логгер событий</param>
-        public LayerTableDispatcher(Database database, ILogger log) : base(database, log) { }
+        public LayerTableDispatcher(Database database, Logging.ILogger log) : base(database, log) { }
         /// <summary>
         /// Попытатсья добавить новый слой
         /// </summary>

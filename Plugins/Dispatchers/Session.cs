@@ -3,12 +3,8 @@ using Plugins.Entities;
 using Plugins.Logging;
 using Plugins.View;
 
-using System.Collections.Generic;
-
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
-
-using Newtonsoft.Json.Linq;
 
 using Oracle.ManagedDataAccess.Client;
 
@@ -29,10 +25,6 @@ namespace Plugins
         /// Создатель примитивов для отрисовки
         /// </summary>
         readonly EntitiesFactory factory;
-        /// <summary>
-        /// Загрузчик штриховок
-        /// </summary>
-        readonly HatchPatternLoader patternLoader;
         /// <summary>
         /// Диспетчер слоев AutoCAD
         /// </summary>
@@ -84,7 +76,6 @@ namespace Plugins
             layerDispatcher = new LayerTableDispatcher(db, logger);
             blocksFactory = new BlockTableDispatcher(db, logger);
             factory = new EntitiesFactory(blocksFactory, logger);
-            patternLoader = new HatchPatternLoader();
         }
 
         #endregion
@@ -104,12 +95,6 @@ namespace Plugins
         /// Читатель объектов для отрисовки
         /// </summary>
         public OracleDataReader DrawDataReader(uint position) => connection.GetDrawParams(gorizont, position);
-        /// <summary>
-        /// Загрузить паттерн штриховки
-        /// </summary>
-        /// <param name="settings">Настройки штриховки</param>
-        /// <returns>Словарь параметров штриховки</returns>
-        public IDictionary<string, string> LoadHatchPattern(JObject settings) => patternLoader.Load(settings);
         /// <summary>
         /// Нарисовать примитив
         /// </summary>

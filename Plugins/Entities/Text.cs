@@ -25,17 +25,16 @@ namespace Plugins.Entities
             const string Y_OFFSET = "YOffset";
 
             var settings = primitive.DrawSettings;
-            var fontSize = settings.Value<int>(FONT_SIZE) * Constants.TEXT_SCALE;
+            var fontSize = settings.Value<int>(FONT_SIZE) * Constants.TextScale;
             var paramJson = primitive.Param;
             var offset = new Vector3d(paramJson.Value<string>(X_OFFSET).ToDouble(),
                                       paramJson.Value<string>(Y_OFFSET).ToDouble(),
-                                      0) * Constants.SCALE;
-            DBText text = null;
+                                      0);
 
             // FIXME: ??? Стоит ли скрывать исключения об тексте с неположительной высотой ???
             try
             {
-                text = new DBText()
+                var text = new DBText()
                 {
                     Layer = primitive.LayerName,
                     Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0),

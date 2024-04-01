@@ -54,7 +54,7 @@ namespace Plugins.View
                 {
                     InputResult = true;
                     Hide();
-                    File.WriteAllText(Constants.DbConfigFilePath, JsonConvert.SerializeObject(
+                    File.WriteAllText(Constants.dbConfigPath, JsonConvert.SerializeObject(
                         Params = new ConnectionParams(model.UserName, password, model.Host, model.Port, model.DbName)));
                 }
             });
@@ -118,7 +118,7 @@ namespace Plugins.View
         /// </summary>
         public LoginViewModel()
         {
-            string content = File.ReadAllText(Constants.DbConfigFilePath);
+            string content = File.ReadAllText(Constants.dbConfigPath);
             if (content != string.Empty)
             {
                 var obj = JsonConvert.DeserializeObject<ConnectionParams>(content);

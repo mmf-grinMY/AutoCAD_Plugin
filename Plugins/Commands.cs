@@ -18,23 +18,22 @@ using Plugins.Logging;
 using Plugins.View;
 
 using System.Collections.Generic;
-using System.Windows;
 using System.Text;
-using System.IO;
 using System;
 
-using AApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
+using System.Configuration.Assemblies;
+
 
 #if POL
-using Point2d = Autodesk.AutoCAD.Geometry.Point2d;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Colors;
+using Plugins.Dispatchers;
 #endif
 
 namespace Plugins
@@ -44,12 +43,12 @@ namespace Plugins
         #region Private Fields
 
         // TODO: Добавить настройку имени штриховки линии и файла источника из конфигурационного файла
-        static readonly Document doc = AApplication.DocumentManager.MdiActiveDocument;
+        static Document doc;
         readonly string LINE_TYPE_SOURCE = "acad.lin";
         public const string TYPE_NAME = "MMP_2";
         static double width;
-        static ILogger logger;
         static string gorizont;
+        static ILogger logger;
 
         #endregion
 
@@ -129,28 +128,29 @@ namespace Plugins
 
             return result;
         }
-        /// <summary>
-        /// Добавить определение поля в таблицу символов
-        /// </summary>
-        /// <param name="regAppName">Имя поля</param>
-        void AddRegAppTableRecord(string regAppName)
+
+        void ShowError(string message)
         {
-            var db = AApplication.DocumentManager.MdiActiveDocument.Database;
-            using (var transaction = db.TransactionManager.StartTransaction())
+            if (string.IsNullOrWhiteSpace(message))
+                throw new ArgumentException(nameof(message));
+
+            System.Windows.MessageBox.Show(message, "Ошибка", 
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+        }
+
+        Action<string> GetRegAppAction(Database db, ILogger logger)
+        {
+            var regAppTableDispatcher = new RegAppTableDispatcher(db, logger);
+
+            return (string name) =>
             {
-                var table = transaction.GetObject(db.RegAppTableId, OpenMode.ForWrite) as RegAppTable;
-                if (!table.Has(regAppName))
-                {
-                    var record = new RegAppTableRecord { Name = regAppName };
-                    table.Add(record);
-                    transaction.AddNewlyCreatedDBObject(record, true);
-                }
-                transaction.Commit();
-            }
+                if (!regAppTableDispatcher.TryAdd(name))
+                    throw new InvalidOperationException("Не удалось сохранить RegApp " + name + "!");
+            };
         }
 
         #endregion
-
+        
         #region Public Methods
 
         /// <summary>
@@ -158,42 +158,85 @@ namespace Plugins
         /// </summary>
         public void Initialize()
         {
+            doc = Application.DocumentManager.MdiActiveDocument;
+
             if (doc is null)
             {
-                MessageBox.Show("Невозможен доступ к активному документу!", "Ошибка", 
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show("Невозможен доступ к активному документу!", "Ошибка",
+                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
                 return;
             }
 
             using (var view = doc.Editor.GetCurrentView()) { width = view.Width; }
 
-            logger = SessionDispatcher.Logger;
+            Editor editor = null;
+            Database db;
 
             try
             {
-                AddRegAppTableRecord(SYSTEM_ID);
-                AddRegAppTableRecord(BASE_NAME);
-                AddRegAppTableRecord(LINK_FIELD);
-                AddRegAppTableRecord(OBJ_ID);
-                doc.Database.LoadLineTypeFile(TYPE_NAME, LINE_TYPE_SOURCE);
-                doc.Editor.WriteMessage("Загрузка плагина прошла успешно!");
-            }
-            catch (Autodesk.AutoCAD.Runtime.Exception e)
-            {
-                if (e.Message == "eUndefinedLineType")
+                Constants.Initialize();
+
+                db = doc.Database ?? throw new ArgumentNullException(nameof(db), "Не удалось получить ссылку на БД документа!");
+
+                // FIXME: ??? Является ли ошибкой сбой получения командной строки текущего документа ???
+                editor = doc.Editor ?? throw new ArgumentNullException(nameof(editor), "Не удалось получить ссылку на командную строку документа!");
+
+                logger = Constants.Logger;
+
+                if (logger is null) throw new ArgumentNullException("Не удалось получить логгер событий", nameof(logger));
+
+                var addRegApp = GetRegAppAction(db, logger);
+
+                addRegApp(SYSTEM_ID);
+                addRegApp(BASE_NAME);
+                addRegApp(LINK_FIELD);
+                addRegApp(OBJ_ID);
+
+                try
                 {
-                    doc.Editor.WriteMessage("Не удалось найти стиль линии \"" + TYPE_NAME + "\" в файле \"" + LINE_TYPE_SOURCE + "\"!");
+                    db.LoadLineTypeFile(TYPE_NAME, LINE_TYPE_SOURCE);
+                }
+                catch (Autodesk.AutoCAD.Runtime.Exception)
+                {
+                    editor.WriteMessage("Не удалось найти стиль линии \"" + TYPE_NAME + "\" в файле \"" + LINE_TYPE_SOURCE + "\"!");
+                    throw;
+                }
+
+                editor.WriteMessage("Загрузка плагина прошла успешно!");
+            }
+            catch (System.Exception e)
+            {
+                var errorMessage = "При загрузке плагина произошла ошибка!";
+
+                Logger.LogError(e);
+
+                if (editor is null)
+                {
+                    ShowError(errorMessage);
                 }
                 else
                 {
-                    throw;
+                    editor.WriteMessage(errorMessage);
                 }
             }
         }
         /// <summary>
         /// Завершить работу плагина
         /// </summary>
-        public void Terminate() => File.Delete(Path.Combine(Path.GetTempPath(), DbConfigFilePath));
+        public void Terminate() 
+        {
+            dynamic app = Application.AcadApplication;
+
+            try
+            {
+                System.IO.File.Delete(dbConfigPath);
+                app.Preferences.Files.SupportPath = app.Preferences.Files.SupportPath.Replace(AssemblyPath, string.Empty);
+            }
+            catch (System.Exception e)
+            {
+                logger.LogError(e);
+            }
+        }
 
         #endregion
 
@@ -208,9 +251,12 @@ namespace Plugins
         {
             // TODO: Добавить поддержку пользовательского BoundingBox
             OracleDbDispatcher connection = null;
+            ILogger logger = Constants.Logger;
+
             try
             {
 #if DEBUG
+
                 connection = new OracleDbDispatcher("Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;");
                 gorizont = "K200F";
 #else
@@ -227,7 +273,7 @@ namespace Plugins
                 gorizont = gorizontSelecter.Gorizont;
                 gorizontSelecter.Close();
 #endif
-                SessionDispatcher.StartSession(connection, gorizont);
+                new Session(connection, gorizont, logger).Run();
                 logger.LogInformation("Закончена отрисовка геометрии!");
             }
             catch (TypeInitializationException)
@@ -250,7 +296,7 @@ namespace Plugins
         [CommandMethod("VRM_INSPECT_EXT_DB")]
         public void InspectExtDB()
         {
-            if (!OracleDbDispatcher.TryGetConnection(out OracleDbDispatcher connection)) return;
+            if (!OracleDbDispatcher.TryGetConnection(Logger, out OracleDbDispatcher connection)) return;
 
             var editor = doc.Editor;
             var options = new PromptEntityOptions("\nВыберите объект: ");
@@ -372,7 +418,7 @@ namespace Plugins
             var db = doc.Database;
             var view = doc.Editor.GetCurrentView();
 
-            var scale = view.Width / SystemParameters.FullPrimaryScreenWidth;
+            var scale = view.Width / System.Windows.SystemParameters.FullPrimaryScreenWidth;
 
             var customBlockRecord = InitializeCustomBlock();
 
@@ -544,7 +590,7 @@ namespace Plugins
 
                 logger.LogInformation("Запущена процедура масштабирования!");
 
-                var scale = view.Width / SystemParameters.FullPrimaryScreenWidth;
+                var scale = view.Width / System.Windows.SystemParameters.FullPrimaryScreenWidth;
 
                 var viewBound = new Extents2d
                 (
@@ -554,7 +600,7 @@ namespace Plugins
 
                 ScaleLogic(viewBound, scale);
                 doc.Editor.WriteMessage("Процедура масштабирования завершена!");
-                AApplication.UpdateScreen();
+                Application.UpdateScreen();
             }
             catch (System.Exception ex)
             {
@@ -594,6 +640,54 @@ namespace Plugins
         {
             reference.UpgradeOpen();
             reference.ScaleFactors = new Scale3d(scale, scale, 0);
+        }
+        [CommandMethod("AddMline")]
+        public void AddMline()
+        {
+            var db = doc.Database;
+            using (var transaction = db.TransactionManager.StartTransaction())
+            {
+                var linetypeTable = transaction.GetObject(db.LinetypeTableId, OpenMode.ForWrite) as LinetypeTable;
+                var linetypeRecord = new LinetypeTableRecord();
+                linetypeTable.Add(linetypeRecord);
+                transaction.AddNewlyCreatedDBObject(linetypeRecord, true);
+                linetypeRecord.Name = "Мой паттерн";
+
+
+                var mlineDic = transaction.GetObject(db.MLStyleDictionaryId, OpenMode.ForWrite) as DBDictionary;
+
+                var color = Color.FromRgb(255, 0, 0);
+                var mlineStyle = new MlineStyle();
+
+                mlineDic.SetAt("TEST", mlineStyle);
+                transaction.AddNewlyCreatedDBObject(mlineStyle, true);
+
+                mlineStyle.EndAngle = Math.PI * 0.5;
+                mlineStyle.StartAngle = Math.PI * 0.5;
+                mlineStyle.Name = "TEST";
+                mlineStyle.Elements.Add(new MlineStyleElement(0.25, color, db.Celtype), true);
+                mlineStyle.Elements.Add(new MlineStyleElement(-0.25, color, db.Celtype), false);
+                mlineStyle.FillColor = Color.FromRgb(0, 255, 0);
+                mlineStyle.Filled = true;
+                mlineStyle.Elements.Add(new MlineStyleElement(0.5, color, db.Celtype), true);
+                mlineStyle.FillColor = Color.FromRgb(0, 0, 255);
+
+                Mline line = new Mline
+                {
+                    Style = mlineStyle.ObjectId,
+                    Normal = Vector3d.ZAxis
+                };
+                line.AppendSegment(new Point3d(0, 0, 0));
+                line.AppendSegment(new Point3d(10, 10, 0));
+                line.AppendSegment(new Point3d(20, 10, 0));
+
+                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
+                var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+                record.AppendEntity(line);
+                transaction.AddNewlyCreatedDBObject(line, true);
+                transaction.Commit();
+            }
         }
 #endif
     }
