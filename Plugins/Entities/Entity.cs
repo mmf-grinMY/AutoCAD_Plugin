@@ -38,10 +38,11 @@ namespace Plugins.Entities
         /// </summary>
         /// <param name="prim">Параметры отрисовки объекта</param>
         /// <param name="log">Логер событий</param>
+        /// <exception cref="System.ArgumentNullException"></exception>
         public Entity(Primitive prim, ILogger log)
         {
-            primitive = prim;
-            logger = log;
+            primitive = prim ?? throw new System.ArgumentNullException(nameof(prim)); ;
+            logger = log ?? throw new System.ArgumentNullException(nameof(log)); ;
         }
 
         #endregion
@@ -54,7 +55,18 @@ namespace Plugins.Entities
         /// <param name="transaction">Текщуая транзакия в БД AutoCAD</param>
         /// <param name="table">Таблица блоков</param>
         /// <param name="record">Текущая запись в таблицу блоков</param>
-        protected abstract void Draw(Transaction transaction, BlockTable table, BlockTableRecord record);
+        /// <exception cref="System.ArgumentNullException"></exception>
+        protected virtual void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
+        {
+            if (transaction is null)
+                throw new System.ArgumentNullException(nameof(transaction));
+
+            if (table is null)
+                throw new System.ArgumentNullException(nameof(table));
+
+            if (record is null)
+                throw new System.ArgumentNullException(nameof(record));
+        }
 
         #endregion
 
@@ -64,13 +76,45 @@ namespace Plugins.Entities
         /// Рисование объекта
         /// </summary>
         /// <param name="db">Текущая БД AutoCAD</param>
+        /// <exception cref="System.ArgumentNullException"></exception>
         public void AppendToDrawing(Database db) 
         {
+            if (db is null)
+                throw new System.ArgumentNullException(nameof(db));
+
             using (var transaction = new MyTransaction(db, logger))
             {
                 transaction.AddBlockRecord(Draw);
             }
         }
+
+        #endregion
+    }
+    /// <summary>
+    /// Стилизированный объект отрисовки
+    /// </summary>
+    abstract class StyledEntity : Entity
+    {
+        #region Protected Fields
+
+        /// <summary>
+        /// Стиль отрисовки
+        /// </summary>
+        protected readonly MyEntityStyle style;
+
+        #endregion
+
+        #region Ctor
+
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
+        /// <param name="prim">Рисуемый примитив</param>
+        /// <param name="log">Логер событий</param>
+        /// <param name="style">Стиль отрисовки</param>
+        /// <exception cref="System.ArgumentNullException"></exception>
+        public StyledEntity(Primitive prim, ILogger log, MyEntityStyle style) : base(prim, log)
+            => this.style = style ?? throw new System.ArgumentNullException(nameof(style));
 
         #endregion
     }

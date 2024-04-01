@@ -129,7 +129,7 @@ namespace Plugins.View
                     {
                         if (token.IsCancellationRequested) return;
 
-                        while (queue.Count > QUEUE_LIMIT) await Task.Delay(READER_SLEEP_TIME);
+                        while (queue.Count > QueueLimit) await Task.Delay(ReaderSleepTime);
 
                         queue.Enqueue(new Entities.Primitive(reader["geowkt"].ToString(),
                                                           reader["drawjson"].ToString(),
@@ -138,7 +138,8 @@ namespace Plugins.View
                                                           reader["systemid"].ToString(),
                                                           reader["basename"].ToString(),
                                                           reader["childfields"].ToString(),
-                                                          reader["rn"].ToString()));
+                                                          reader["rn"].ToString(),
+                                                          reader["objectguid"].ToString()));
 
                         uint currentPrecent = ++readPosition * 100 / totalCount;
 

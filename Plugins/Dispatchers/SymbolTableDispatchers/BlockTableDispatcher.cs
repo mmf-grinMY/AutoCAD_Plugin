@@ -1,13 +1,10 @@
-﻿using Plugins.Entities;
-using Plugins.Logging;
+﻿using Plugins.Logging;
 
 using System;
 
-using Autodesk.AutoCAD.Colors;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-
-using static Plugins.Constants;
+using Autodesk.AutoCAD.Colors;
 
 namespace Plugins.Dispatchers
 {
@@ -35,7 +32,7 @@ namespace Plugins.Dispatchers
         /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
         /// <param name="record">Текущая запись в таблицу блоков</param>
         /// <param name="entity">Записываемый объект</param>
-        void Append(Transaction transaction, BlockTableRecord record, Autodesk.AutoCAD.DatabaseServices.Entity entity)
+        void Append(Transaction transaction, BlockTableRecord record, Entity entity)
         {
             record.AppendEntity(entity);
             transaction.AddNewlyCreatedDBObject(entity, true);
@@ -52,7 +49,7 @@ namespace Plugins.Dispatchers
             var circle = new Circle()
             {
                 Center = new Point3d(0, 0, 0),
-                Radius = radius * SCALE,
+                Radius = radius,
                 Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)
             };
 
@@ -66,7 +63,7 @@ namespace Plugins.Dispatchers
         /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
         /// <param name="record">Текущая запись в таблицу блоков</param>
         /// <param name="owner">Владелец штриховки</param>
-        void AddHatch(Transaction transaction, BlockTableRecord record, Autodesk.AutoCAD.DatabaseServices.Entity owner)
+        void AddHatch(Transaction transaction, BlockTableRecord record, Entity owner)
         {
             var hatch = new Hatch();
 
@@ -95,14 +92,14 @@ namespace Plugins.Dispatchers
         /// <param name="points">Точки вершин</param>
         void AddPolygon(Transaction transaction, BlockTableRecord record, Point2d[] points)
         {
-            var polyline = new Autodesk.AutoCAD.DatabaseServices.Polyline()
+            var polyline = new Polyline()
             {
                 Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)
             };
 
             for (int i = 0; i < points.Length; ++i)
             {
-                polyline.AddVertexAt(i, new Point2d(points[i].X * SCALE, points[i].Y * SCALE), 0, 0, 0);
+                polyline.AddVertexAt(i, new Point2d(points[i].X, points[i].Y), 0, 0, 0);
             }
 
             polyline.Closed = true;
@@ -131,8 +128,8 @@ namespace Plugins.Dispatchers
                     break;
                 case "pnt!.chr_100":
                     AddCircle(transaction, record, 3);
-                    AddLine(transaction, record, new Point3d(-1 * SCALE, 0, 0), new Point3d(1 * SCALE, 0, 0));
-                    AddLine(transaction, record, new Point3d(0, -1 * SCALE, 0), new Point3d(0, 1 * SCALE, 1 * SCALE));
+                    AddLine(transaction, record, new Point3d(-1, 0, 0), new Point3d(1, 0, 0));
+                    AddLine(transaction, record, new Point3d(0, -1, 0), new Point3d(0, 1, 1));
                     break;
                 case "pnt!.chr_117":
                     AddPolygon(transaction, record, new Point2d[] { new Point2d(-3, -3), new Point2d(3, -3), new Point2d(0, 4) });
@@ -158,11 +155,6 @@ namespace Plugins.Dispatchers
 
         #region Public Methods
 
-        /// <summary>
-        /// Создать блок
-        /// </summary>
-        /// <param name="name">Имя добавляемого блока</param>
-        /// <returns>true, если блок отрисован, false в противном случае</returns>
         public override bool TryAdd(string name) => TryAdd<BlockTable, BlockTableRecord>(name, db.BlockTableId, Create);
 
         #endregion

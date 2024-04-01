@@ -39,7 +39,14 @@ namespace Plugins.Entities
         /// Столбец линковки
         /// </summary>
         public string ChildField { get; }
+        /// <summary>
+        /// Уникальный порядковый номер
+        /// </summary>
         public int Id { get; }
+        /// <summary>
+        /// Уникальный Guid объекта
+        /// </summary>
+        public Guid Guid { get; }
 
         #endregion
 
@@ -62,16 +69,18 @@ namespace Plugins.Entities
                          string systemid,
                          string baseName,
                          string childFields,
-                         string id)
+                         string id,
+                         string guid)
         {
             Geometry = wkt;
             DrawSettings = JObject.Parse(settings);
             Param = JObject.Parse(param);
-            LayerName = System.Text.RegularExpressions.Regex.Replace(layername, "[:]+", "_");
+            LayerName = System.Text.RegularExpressions.Regex.Replace(layername, "[<>\\*\\?/|\\\\\":;,=]", "_");
             SystemId = Convert.ToInt32(systemid);
             BaseName = baseName;
             ChildField = childFields;
             Id = Convert.ToInt32(id);
+            Guid = Guid.Parse(guid);
         }
 
         #endregion

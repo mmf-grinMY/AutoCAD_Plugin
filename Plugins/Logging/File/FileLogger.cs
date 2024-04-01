@@ -1,4 +1,6 @@
-﻿namespace Plugins.Logging
+﻿using System.IO;
+
+namespace Plugins.Logging
 {
     /// <summary>
     /// Файловый логер событий
@@ -17,7 +19,12 @@
         /// Создание объекта
         /// </summary>
         /// <param name="path">Расположение файла логов</param>
-        public FileLogger(string path) => filePath = path;
+        public FileLogger(string path, bool logOverwrite = true)
+        {
+            filePath = path;
+
+            if (logOverwrite && File.Exists(filePath)) File.Delete(filePath);
+        }
         public void Log(LogLevel level, string message, System.Exception ex)
         {
             lock (lockObj)

@@ -1,10 +1,12 @@
-﻿using System.IO;
+﻿using Plugins.Logging;
+
+using System.IO;
+using System;
 
 using Autodesk.AutoCAD.ApplicationServices;
 
 using Newtonsoft.Json.Linq;
 
-//TODO: Проверить корректность инициализации констант
 namespace Plugins
 {
     /// <summary>
@@ -12,90 +14,111 @@ namespace Plugins
     /// </summary>
     class Constants
     {
+        #region Private Fields
+
         /// <summary>
         /// Расположение файла с параметрами подключения
         /// </summary>
-        static readonly string DB_CONFIG_PATH;
-        /// <summary>
-        /// Расположение папки AutoCAD Support
-        /// </summary>
-        static readonly string SUPPORT_PATH;
+        static string dbConfigPath;
         /// <summary>
         /// Расположение сборки
         /// </summary>
-        static readonly string ASSEMBLY_PATH;
-
-        public readonly static string CONFIG_FILE;
-        public static readonly int QUEUE_LIMIT;
-        public static readonly int READER_SLEEP_TIME;
-        public static readonly string OBJ_ID = "OBJ_ID";
-        static Constants()
-        {
-            CONFIG_FILE = "plugin.config.json";
-
-            var fileName = Application.DocumentManager.MdiActiveDocument.Database.Filename;
-            SUPPORT_PATH = Path.Combine(Directory.GetParent(
-                    Path.GetDirectoryName(fileName)).FullName, "Support").Replace("Local", "Roaming");
-            DB_CONFIG_PATH = System.IO.Path.GetTempFileName();
-            ASSEMBLY_PATH = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Commands)).Location);
-
-            var config = JObject.Parse(File.ReadAllText(Path.Combine(Constants.SupportPath, CONFIG_FILE)));
-
-            SCALE = config.Value<double>("Scale");
-            TEXT_SCALE = config.Value<double>("TextScale") * SCALE;
-            HATCH_SCALE = config.Value<double>("HatchScale") * SCALE * SCALE;
-
-            config = config.Value<JObject>("queue");
-
-            QUEUE_LIMIT = config.Value<int>("limit");
-            READER_SLEEP_TIME = config.Value<int>("sleep");
-        }
-
-        #region Константы масштабирования
-
+        static string assemblyPath;
         /// <summary>
-        /// Масштаб рисуемых примитивов
+        /// Логер событий
         /// </summary>
-        public static readonly double SCALE;
+        static ILogger logger;
         /// <summary>
-        /// Масштаб рисуемого текста относительно общего масштаба примитивов
+        /// Количественный предел у очереди рисуемых объектов
         /// </summary>
-        public static readonly double TEXT_SCALE;
+        static int queueLimit;
         /// <summary>
-        /// Масштаб штриховки относительно общего масштаба примитивов
+        /// Время сна потока чтения в одной итерации
         /// </summary>
-        public static readonly double HATCH_SCALE;
-
-        #endregion
-
-        #region Ключевые слова для XData
-
-        /// <summary>
-        /// Ключевое слово в XData для нахождения столбца SystemId
-        /// </summary>
-        public static readonly string SYSTEM_ID = "varMM_SystemID";
-        /// <summary>
-        /// Ключевое слово в XData для нахождения столбца линковоной таблицы
-        /// </summary>
-        public static readonly string BASE_NAME = "varMM_BaseName";
-        /// <summary>
-        /// Ключевое слово в XData для нахождения столбца линковки
-        /// </summary>
-        public static readonly string LINK_FIELD = "varMM_LinkField";
+        static int readerSleepTime;
 
         #endregion
 
         #region Public Properties
 
+        /// <inheritdoc cref="dbConfigPath"/>
+        public static string DbConfigPath => dbConfigPath;
+        /// <inheritdoc cref="assemblyPath"/>
+        public static string AssemblyPath => assemblyPath;
+        /// <inheritdoc cref="logger"/>
+        public static ILogger Logger => logger;
+        /// <inheritdoc cref="queueLimit"/>
+        public static int QueueLimit => queueLimit;
+        ///<inheritdoc cref="readerSleepTime"/> 
+        public static int ReaderSleepTime => readerSleepTime;
+
+        #endregion
+
+        #region Public Methods
+
         /// <summary>
-        /// Расположение файла с параметрами подключения
+        /// Инициализация общих констант плагина
         /// </summary>
-        public static string DbConfigFilePath => DB_CONFIG_PATH;
+        public static void Initialize()
+        {
+            dynamic app = Application.AcadApplication;
+
+            try
+            {
+                const string logFile = "main.log";
+
+                assemblyPath = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(Commands)).Location);
+
+                if (string.IsNullOrWhiteSpace(assemblyPath))
+                    throw new ArgumentException(nameof(assemblyPath), "Не удалось получить расположение сборки плагина!");
+
+                logger = new FileLogger(Path.Combine(assemblyPath, logFile));
+                dbConfigPath = System.IO.Path.GetTempFileName();
+
+                var config = JObject.Parse(File.ReadAllText(Path.Combine(assemblyPath, CONFIG_FILE)));
+
+                config = config.Value<JObject>("queue");
+                queueLimit = config.Value<int>("limit");
+                readerSleepTime = config.Value<int>("sleep");
+
+                string path = app.Preferences.Files.SupportPath;
+
+                if (!path.Contains(assemblyPath))
+                {
+                    // FIXME: !!! Может повредить дружественные папки AutoCAD !!!
+                    app.Preferences.Files.SupportPath = path + ";" + assemblyPath;
+                }
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e);
+            }
+        }
+
+        #endregion
+
+        #region Public Const Fields
+
         /// <summary>
-        /// Расположение папки AutoCAD Support
+        /// Ключевое слово в XData для нахождения столбца SystemId
         /// </summary>
-        public static string SupportPath => SUPPORT_PATH;
-        public static string AssemblyPath => ASSEMBLY_PATH;
+        public const string SYSTEM_ID = "varMM_SystemID";
+        /// <summary>
+        /// Ключевое слово в XData для нахождения столбца линковоной таблицы
+        /// </summary>
+        public const string BASE_NAME = "varMM_BaseName";
+        /// <summary>
+        /// Ключевое слово в XData для нахождения столбца линковки
+        /// </summary>
+        public const string LINK_FIELD = "varMM_LinkField";
+        /// <summary>
+        /// Id объекта в БД Oracle
+        /// </summary>
+        public const string OBJ_ID = "OBJ_ID";
+        /// <summary>
+        /// Главный конфигурационный файл
+        /// </summary>
+        public const string CONFIG_FILE = "plugin.config.json";
 
         #endregion
     }

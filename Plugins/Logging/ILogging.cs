@@ -14,64 +14,6 @@
         void Log(LogLevel level, string message = null, System.Exception exception = null);
     }
     /// <summary>
-    /// Провайдер логера
-    /// </summary>
-    public interface ILoggerProvider
-    {
-        /// <summary>
-        /// Создать логер
-        /// </summary>
-        /// <param name="categoryName">Имя категории логера</param>
-        /// <returns>Новый логер</returns>
-        ILogger CreateLogger(string categoryName);
-    }
-    /// <summary>
-    /// Фабрика логеров
-    /// </summary>
-    public interface ILoggerFactory
-    {
-        /// <summary>
-        /// Создать новый логер
-        /// </summary>
-        /// <typeparam name="T">Тип владельца логера</typeparam>
-        /// <returns>Новый логер</returns>
-        ILogger CreateLogger<T>();
-        /// <summary>
-        /// Создать новый логер
-        /// </summary>
-        /// <returns>Новый логер</returns>
-        ILogger CreateLogger();
-    }
-    /// <summary>
-    /// Фабрика логеров
-    /// </summary>
-    public sealed class LoggerFactory : ILoggerFactory
-    {
-        /// <summary>
-        /// Провайдер логеров
-        /// </summary>
-        readonly ILoggerProvider provider;
-        /// <summary>
-        /// Создание объекта
-        /// </summary>
-        /// <param name="loggerProvider">Провайдер логеров</param>
-        LoggerFactory(ILoggerProvider loggerProvider)
-        {
-            provider = loggerProvider;
-        }
-        /// <summary>
-        /// Создать новую фабрику
-        /// </summary>
-        /// <param name="provider">Провайдер логеров</param>
-        /// <returns>Новая фабрика логеров</returns>
-        public static ILoggerFactory Create(ILoggerProvider provider)
-        {
-            return new LoggerFactory(provider);
-        }
-        public ILogger CreateLogger<T>() => provider.CreateLogger(typeof(T).ToString());
-        public ILogger CreateLogger() => provider.CreateLogger(string.Empty);
-    }
-    /// <summary>
     /// Расширения логеров
     /// </summary>
     public static class LoggerExtensions

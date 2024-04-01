@@ -7,22 +7,57 @@ namespace Plugins.Entities
     /// <summary>
     /// Полигон
     /// </summary>
-    sealed class Polygon : Entity
+    sealed class Polygon : StyledEntity
     {
+        #region Private Fields
+
+        /// <summary>
+        /// Загрузчик штриховок
+        /// </summary>
+        readonly HatchPatternLoader loader;
+        /// <summary>
+        /// Диспетчер работы с БД
+        /// </summary>
+        readonly OracleDbDispatcher dispatcher;
+
+        #endregion
+
+        #region Ctor
+
         /// <summary>
         /// Создание объекта
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
         /// <param name="logger">Логер событий</param>
-        public Polygon(Primitive primitive, Logging.ILogger logger) : base(primitive, logger) { }
+        /// <param name="loader">Загрузчик штриховок</param>
+        /// <param name="style">Стиль отрисовки</param>
+        /// <param name="dispatcher">Диспетчер работы с БД</param>
+        public Polygon(Primitive primitive,
+                       Logging.ILogger logger,
+                       HatchPatternLoader loader,
+                       MyHatchStyle style,
+                       OracleDbDispatcher dispatcher)
+            : base(primitive, logger, style)
+        {
+            this.loader = loader ?? throw new System.ArgumentNullException(nameof(loader));
+            this.dispatcher = dispatcher ?? throw new System.ArgumentNullException(nameof(dispatcher));
+        }
+
+        #endregion
+
+        #region Protected Methods
+        
+        // TODO: Раздробить метод
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
+            base.Draw(transaction, table, record);
+
             const string PAT_NAME = "PatName";
             const string PAT_ANGLE = "PatAngle";
             const string PAT_SCALE = "PatScale";
             const string BRUSH_COLOR = "BrushColor";
 
-            var dictionary = SessionDispatcher.Current.LoadHatchPattern(primitive.DrawSettings);
+            var dictionary = loader.Load(primitive.DrawSettings);
 
             double GetValue(string key)
             {
@@ -32,10 +67,14 @@ namespace Plugins.Entities
                 return dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1.0;
             }
 
-            var lines = Wkt.Parser.Parse(primitive.Geometry);
+            var lines = Wkt.Parser.ParsePolyline(primitive.Geometry);
 
             if (!lines.Any())
+#if OLD
                 return;
+#else
+                lines = Wkt.Parser.ParsePolyline(dispatcher.GetLongGeometry(primitive));
+#endif
 
             if (lines[0].Area == 0)
                 return;
@@ -50,9 +89,11 @@ namespace Plugins.Entities
                 return;
             }
 
+            // TODO: Вынести прозрачность заливки как конфигурационный параметр
             var hatch = new Hatch
             {
-                PatternScale = Constants.HATCH_SCALE * GetValue(PAT_SCALE),
+                PatternScale = style.scale * GetValue(PAT_SCALE),
+                Transparency = new Autodesk.AutoCAD.Colors.Transparency((style as MyHatchStyle).transparency),
                 Color = ColorConverter.FromMMColor(primitive.DrawSettings.Value<int>(BRUSH_COLOR)),
                 Layer = primitive.LayerName
             };
@@ -86,5 +127,7 @@ namespace Plugins.Entities
 
             hatch.EvaluateHatch(true);
         }
+
+#endregion
     }
 }

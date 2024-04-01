@@ -1,6 +1,5 @@
 ﻿using Plugins.Logging;
 
-using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Windows;
@@ -9,10 +8,12 @@ using System.IO;
 using System;
 
 using Oracle.ManagedDataAccess.Client;
+using Plugins.Entities;
+using Plugins.View;
 
 namespace Plugins
 {
-    public class OracleDbDispatcher : IDisposable
+    class OracleDbDispatcher : IDisposable
     {
         #region Private Fields
 
@@ -24,6 +25,10 @@ namespace Plugins
         /// Подключение к Oracle БД
         /// </summary>
         readonly OracleConnection connection;
+        /// <summary>
+        /// Текущий горизонт
+        /// </summary>
+        readonly string gorizont;
 
         #endregion
 
@@ -53,46 +58,15 @@ namespace Plugins
 
         #endregion
 
-        #region Public Static Methods
+        #region Private Methods
 
         /// <summary>
-        /// Получение строки подключения из параметров подключения
+        /// Преобразование json-строки в удобочитаемый вид
         /// </summary>
-        /// <param name="param">Параметры подключения</param>
-        /// <returns>Строка подключения</returns>
-        public static string GetDbConnectionStr(ConnectionParams param) 
-            => new StringBuilder()
-                .Append("Data Source=(DESCRIPTION =(ADDRESS = (PROTOCOL = TCP)(HOST = ")
-                .Append(param.Host)
-                .Append(")(PORT = ")
-                .Append(param.Port)
-                .Append("))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = ")
-                .Append(param.Sid)
-                .Append(")));Password=")
-                .Append(param.Password)
-                .Append(";User ID=")
-                .Append(param.UserName)
-                .Append(";Connection Timeout = 360;")
-                .ToString();
-        /// <summary>
-        /// Установка соединения с БД
-        /// </summary>
-        /// <param name="connection">Менеджер соединения</param>
-        /// <returns>true, если удалось установить соединение, false в противном случае</returns>
-        public static bool TryGetConnection(out OracleDbDispatcher connection)
-        {
-            try
-            {
-                connection = new OracleDbDispatcher(SessionDispatcher.Logger);
-                return true;
-            }
-            catch (TypeInitializationException)
-            {
-                connection = null;
-                return false;
-            }
-        }
-        
+        /// <param name="json">исходная строка в формате json</param>
+        /// <returns>Преобразованная строка</returns>
+        string JsonNormalize(string json) => json.Substring(1, json.Length - 1).Replace(',', '\n');
+
         #endregion
 
         #region Ctors
@@ -102,14 +76,29 @@ namespace Plugins
         /// </summary>
         /// <param name="log">Логер событий</param>
         /// <exception cref="TypeInitializationException"></exception>
-        public OracleDbDispatcher(ILogger log) 
+        public OracleDbDispatcher(ILogger log)
         {
-            logger = log;
-connect:
+            logger = log ?? throw new ArgumentNullException(nameof(log));
+
+            connect:
             try
             {
                 connection = new OracleConnection(GetDbConnectionStr(ConnectionParams));
                 connection.Open();
+
+                if (gorizont is null)
+                {
+                    var gorizontSelecter = new GorizontSelecterWindow(Gorizonts);
+                    gorizontSelecter.ShowDialog();
+
+                    if (!gorizontSelecter.InputResult)
+                    {
+                        throw new ArgumentException("Не удалось получить рисуемый горизонт!");
+                    }
+
+                    gorizont = gorizontSelecter.Gorizont;
+                    gorizontSelecter.Close();
+                }
             }
             catch (OracleException ex)
             {
@@ -142,8 +131,12 @@ connect:
             }
         }
 #if DEBUG
-        public OracleDbDispatcher(string connectionStr)
+        public OracleDbDispatcher(string connectionStr, string gorizont)
         {
+            if (string.IsNullOrWhiteSpace(gorizont))
+                throw new ArgumentException(nameof(gorizont));
+
+            this.gorizont = gorizont;
             connection = new OracleConnection(connectionStr);
             connection.Open();
         }
@@ -151,14 +144,46 @@ connect:
 
         #endregion
 
-        #region Private Methods
-        
+        #region Public Static Methods
+
         /// <summary>
-        /// Преобразование json-строки в удобочитаемый вид
+        /// Получение строки подключения из параметров подключения
         /// </summary>
-        /// <param name="json">исходная строка в формате json</param>
-        /// <returns>Преобразованная строка</returns>
-        string JsonNormalize(string json) => json.Substring(1, json.Length - 1).Replace(',', '\n');
+        /// <param name="param">Параметры подключения</param>
+        /// <returns>Строка подключения</returns>
+        public static string GetDbConnectionStr(ConnectionParams param)
+            => new StringBuilder()
+                .Append("Data Source=(DESCRIPTION =(ADDRESS = (PROTOCOL = TCP)(HOST = ")
+                .Append(param.Host)
+                .Append(")(PORT = ")
+                .Append(param.Port)
+                .Append("))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = ")
+                .Append(param.Sid)
+                .Append(")));Password=")
+                .Append(param.Password)
+                .Append(";User ID=")
+                .Append(param.UserName)
+                .Append(";Connection Timeout = 360;")
+                .ToString();
+        /// <summary>
+        /// Установка соединения с БД
+        /// </summary>
+        /// <param name="connection">Менеджер соединения</param>
+        /// <param name="logger">Логер событий</param>
+        /// <returns>true, если удалось установить соединение, false в противном случае</returns>
+        public static bool TryGetConnection(ILogger logger, out OracleDbDispatcher connection)
+        {
+            try
+            {
+                connection = new OracleDbDispatcher(logger);
+                return true;
+            }
+            catch (TypeInitializationException)
+            {
+                connection = null;
+                return false;
+            }
+        }
 
         #endregion
 
@@ -193,8 +218,8 @@ connect:
                     }
                 }
 
-                foreach (var key in selectedGorizonts.Keys) 
-                    if (selectedGorizonts[key]) 
+                foreach (var key in selectedGorizonts.Keys)
+                    if (selectedGorizonts[key])
                         gorizonts.Add(key);
 
                 return gorizonts;
@@ -213,14 +238,15 @@ connect:
         /// Получение параметров отрисовки
         /// </summary>
         /// <param name="gorizont">Выбранный горизонт</param>
+        /// <param name="position">Текщуая позиция читателя БД</param>
         /// <returns>Читатель данных</returns>
-        public OracleDataReader GetDrawParams(string gorizont, uint position)
+        public OracleDataReader GetDrawParams(uint position, Session session)
         {
             string command;
-            
+
             using (var reader = new StreamReader(Path.Combine(Constants.AssemblyPath, "draw.sql")))
             {
-                command = string.Format(reader.ReadToEnd(), gorizont, position);
+                command = string.Format(reader.ReadToEnd(), gorizont, position, session.Right, session.Left, session.Top, session.Bottom);
             }
 
             return new OracleCommand(command, connection).ExecuteReader();
@@ -230,14 +256,17 @@ connect:
         /// </summary>
         /// <param name="gorizont">Имя горизонта для поиска</param>
         /// <returns>Количество записей</returns>
-        public int Count(string gorizont)
+        public int Count 
         {
-            string command = "SELECT COUNT(*) FROM " + gorizont + "_trans_clone";
-
-            using (var reader = new OracleCommand(command, connection).ExecuteReader())
+            get
             {
-                reader.Read();
-                return reader.GetInt32(0);
+                string command = "SELECT COUNT(*) FROM " + gorizont + "_trans_clone";
+
+                using (var reader = new OracleCommand(command, connection).ExecuteReader())
+                {
+                    reader.Read();
+                    return reader.GetInt32(0);
+                }
             }
         }
         /// <summary>
@@ -275,9 +304,8 @@ connect:
         /// Получение характеристик отрисвоки объекта по его Id
         /// </summary>
         /// <param name="id">Id объекта в БД Oracle</param>
-        /// <param name="gorizont">Горизонт, на котором расположен объект</param>
         /// <returns>Строковое представление характеристик отрисовки</returns>
-        public string GetObjectJsonById(int id, string gorizont)
+        public string GetObjectJsonById(int id)
         {
             var command = string.Format("SELECT * FROM (SELECT a.drawjson, a.paramjson, ROWNUM AS rn FROM {0}_trans_clone a " + 
                 "INNER JOIN {0}_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid WHERE a.geowkt IS NOT NULL) WHERE rn = {1}", gorizont, id);
@@ -291,6 +319,26 @@ connect:
             }
 
             return string.Empty;
+        }
+        /// <summary>
+        /// Получение геометрии больших объектов
+        /// </summary>
+        /// <param name="primitive">Исходный примитив</param>
+        /// <returns>Геометрия в формате wkt</returns>
+        public string GetLongGeometry(Primitive primitive)
+        {
+            var command = $"SELECT page FROM k200f_trans_clone_geowkt WHERE objectguid = '{primitive.Guid}' ORDER BY numb";
+            var builder = new StringBuilder().Append(primitive.Geometry);
+
+            using (var reader = new OracleCommand(command, connection).ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    builder.Append(reader.GetString(0));
+                }
+            }
+
+            return builder.ToString();
         }
 
         #endregion

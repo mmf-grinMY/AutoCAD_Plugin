@@ -2,6 +2,8 @@
 using System;
 
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Geometry;
 
 using Newtonsoft.Json.Linq;
 
@@ -11,6 +13,27 @@ namespace Plugins
 {
     static class ExtensionMethods
     {
+        private static Matrix3d EyeToWorld(this ViewTableRecord view)
+        {
+            return
+                Matrix3d.Rotation(-view.ViewTwist, view.ViewDirection, view.Target) *
+                Matrix3d.Displacement(view.Target - Point3d.Origin) *
+                Matrix3d.PlaneToWorld(view.ViewDirection);
+        }
+        private static Matrix3d WorldToEye(this ViewTableRecord view) => view.EyeToWorld().Inverse();
+        public static void Zoom(this Editor ed, Extents3d ext)
+        {
+            using (var view = ed.GetCurrentView())
+            {
+                ext.TransformBy(view.WorldToEye());
+                view.Width = ext.MaxPoint.X - ext.MinPoint.X;
+                view.Height = ext.MaxPoint.Y - ext.MinPoint.Y;
+                view.CenterPoint = new Point2d(
+                    (ext.MaxPoint.X + ext.MinPoint.X) / 2.0,
+                    (ext.MaxPoint.Y + ext.MinPoint.Y) / 2.0);
+                ed.SetCurrentView(view);
+            }
+        }
         /// <summary>
         /// Конвертация строки в вещественное число
         /// </summary>
@@ -87,7 +110,7 @@ namespace Plugins
             }
             else if (settings.Value<int>(PEN_STYLE) == 1)
             {
-                polyline.Linetype = Commands.TYPE_NAME;
+                polyline.Linetype = "MMP_2"; // Commands.TYPE_NAME;
             }
 
             return polyline;
