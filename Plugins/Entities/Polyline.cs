@@ -15,6 +15,8 @@ namespace Plugins.Entities
         public Polyline(Primitive primitive, Logging.ILogger logger) : base(primitive, logger) { }
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
+            base.Draw(transaction, table, record);
+
             foreach(var line in Wkt.Parser.ParsePolyline(primitive.Geometry))
             {
                 try

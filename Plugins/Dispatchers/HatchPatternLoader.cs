@@ -10,20 +10,41 @@ namespace Plugins
     /// </summary>
     class HatchPatternLoader
     {
+        #region Private Fields
+
         /// <summary>
         /// Кэш параметров заливок
         /// </summary>
         readonly Dictionary<string, Dictionary<string, string>> cache;
+
+        #endregion
+
+        #region Private Static Fields
+
         /// <summary>
         /// Корневой узел файла конфигурации паттернов штриховки
         /// </summary>
         static XElement root;
+
+        #endregion
+
+        #region Ctor
+
+        /// <summary>
+        /// Создание объекта
+        /// </summary>
         public HatchPatternLoader()
         {
             if (root is null)
                 root = XDocument.Load(System.IO.Path.Combine(Constants.AssemblyPath, "Pattern.conf.xml")).Element("AcadPatterns");
+
             cache = new Dictionary<string, Dictionary<string, string>>();
         }
+
+        #endregion
+
+        #region Public Methods
+
         /// <summary>
         /// Загрузка параметров штриховки
         /// </summary>
@@ -55,5 +76,7 @@ namespace Plugins
 
             return dictionary;
         }
+
+        #endregion
     }
 }

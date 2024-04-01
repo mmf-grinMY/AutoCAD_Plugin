@@ -7,18 +7,39 @@ namespace Plugins.Entities
     /// <summary>
     /// Полигон
     /// </summary>
-    sealed class Polygon : Entity
+    sealed class Polygon : StyledEntity
     {
+        #region Private Fields
+
+        /// <summary>
+        /// Загрузчик штриховок
+        /// </summary>
         readonly HatchPatternLoader loader;
+
+        #endregion
+
+        #region Ctor
+
         /// <summary>
         /// Создание объекта
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
         /// <param name="logger">Логер событий</param>
-        public Polygon(Primitive primitive, Logging.ILogger logger, HatchPatternLoader loader) : base(primitive, logger) =>
-            this.loader = loader;
+        /// <param name="loader">Загрузчик штриховок</param>
+        /// <param name="style">Стиль отрисовки</param>
+        public Polygon(Primitive primitive, Logging.ILogger logger, HatchPatternLoader loader, MyHatchStyle style) 
+            : base(primitive, logger, style) 
+            => this.loader = loader ?? throw new System.ArgumentNullException(nameof(loader));
+
+        #endregion
+
+        #region Protected Methods
+        
+        // TODO: Раздробить метод
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
+            base.Draw(transaction, table, record);
+
             const string PAT_NAME = "PatName";
             const string PAT_ANGLE = "PatAngle";
             const string PAT_SCALE = "PatScale";
@@ -55,8 +76,8 @@ namespace Plugins.Entities
             // TODO: Вынести прозрачность заливки как конфигурационный параметр
             var hatch = new Hatch
             {
-                PatternScale = Constants.HatchScale * GetValue(PAT_SCALE),
-                Transparency = new Autodesk.AutoCAD.Colors.Transparency(127),
+                PatternScale = style.scale * GetValue(PAT_SCALE),
+                Transparency = new Autodesk.AutoCAD.Colors.Transparency((style as MyHatchStyle).transparency),
                 Color = ColorConverter.FromMMColor(primitive.DrawSettings.Value<int>(BRUSH_COLOR)),
                 Layer = primitive.LayerName
             };
@@ -90,5 +111,7 @@ namespace Plugins.Entities
 
             hatch.EvaluateHatch(true);
         }
+
+        #endregion
     }
 }

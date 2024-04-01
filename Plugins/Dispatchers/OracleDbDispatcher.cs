@@ -1,6 +1,5 @@
 ﻿using Plugins.Logging;
 
-using System.Text.RegularExpressions;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Windows;
@@ -52,47 +51,16 @@ namespace Plugins
         }
 
         #endregion
-
-        #region Public Static Methods
-
-        /// <summary>
-        /// Получение строки подключения из параметров подключения
-        /// </summary>
-        /// <param name="param">Параметры подключения</param>
-        /// <returns>Строка подключения</returns>
-        public static string GetDbConnectionStr(ConnectionParams param) 
-            => new StringBuilder()
-                .Append("Data Source=(DESCRIPTION =(ADDRESS = (PROTOCOL = TCP)(HOST = ")
-                .Append(param.Host)
-                .Append(")(PORT = ")
-                .Append(param.Port)
-                .Append("))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = ")
-                .Append(param.Sid)
-                .Append(")));Password=")
-                .Append(param.Password)
-                .Append(";User ID=")
-                .Append(param.UserName)
-                .Append(";Connection Timeout = 360;")
-                .ToString();
-        /// <summary>
-        /// Установка соединения с БД
-        /// </summary>
-        /// <param name="connection">Менеджер соединения</param>
-        /// <returns>true, если удалось установить соединение, false в противном случае</returns>
-        public static bool TryGetConnection(ILogger logger, out OracleDbDispatcher connection)
-        {
-            try
-            {
-                connection = new OracleDbDispatcher(logger);
-                return true;
-            }
-            catch (TypeInitializationException)
-            {
-                connection = null;
-                return false;
-            }
-        }
         
+        #region Private Methods
+
+        /// <summary>
+        /// Преобразование json-строки в удобочитаемый вид
+        /// </summary>
+        /// <param name="json">исходная строка в формате json</param>
+        /// <returns>Преобразованная строка</returns>
+        string JsonNormalize(string json) => json.Substring(1, json.Length - 1).Replace(',', '\n');
+
         #endregion
 
         #region Ctors
@@ -151,14 +119,46 @@ connect:
 
         #endregion
 
-        #region Private Methods
-        
+        #region Public Static Methods
+
         /// <summary>
-        /// Преобразование json-строки в удобочитаемый вид
+        /// Получение строки подключения из параметров подключения
         /// </summary>
-        /// <param name="json">исходная строка в формате json</param>
-        /// <returns>Преобразованная строка</returns>
-        string JsonNormalize(string json) => json.Substring(1, json.Length - 1).Replace(',', '\n');
+        /// <param name="param">Параметры подключения</param>
+        /// <returns>Строка подключения</returns>
+        public static string GetDbConnectionStr(ConnectionParams param)
+            => new StringBuilder()
+                .Append("Data Source=(DESCRIPTION =(ADDRESS = (PROTOCOL = TCP)(HOST = ")
+                .Append(param.Host)
+                .Append(")(PORT = ")
+                .Append(param.Port)
+                .Append("))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = ")
+                .Append(param.Sid)
+                .Append(")));Password=")
+                .Append(param.Password)
+                .Append(";User ID=")
+                .Append(param.UserName)
+                .Append(";Connection Timeout = 360;")
+                .ToString();
+        /// <summary>
+        /// Установка соединения с БД
+        /// </summary>
+        /// <param name="connection">Менеджер соединения</param>
+        /// <param name="logger">Логер событий</param>
+        /// <returns>true, если удалось установить соединение, false в противном случае</returns>
+        public static bool TryGetConnection(ILogger logger, out OracleDbDispatcher connection)
+        {
+            try
+            {
+                connection = new OracleDbDispatcher(logger);
+                return true;
+            }
+            catch (TypeInitializationException)
+            {
+                connection = null;
+                return false;
+            }
+        }
 
         #endregion
 
@@ -213,6 +213,7 @@ connect:
         /// Получение параметров отрисовки
         /// </summary>
         /// <param name="gorizont">Выбранный горизонт</param>
+        /// <param name="position">Текщуая позиция читателя БД</param>
         /// <returns>Читатель данных</returns>
         public OracleDataReader GetDrawParams(string gorizont, uint position)
         {

@@ -9,32 +9,56 @@ using Newtonsoft.Json.Linq;
 
 namespace Plugins
 {
-    // TODO: Добавить константу масштабирования для блоков
     /// <summary>
     /// Хранилище общих констант
     /// </summary>
     class Constants
     {
+        #region Private Fields
+
         /// <summary>
         /// Расположение файла с параметрами подключения
         /// </summary>
-        public static string dbConfigPath;
+        static string dbConfigPath;
         /// <summary>
         /// Расположение сборки
         /// </summary>
         static string assemblyPath;
+        /// <summary>
+        /// Логер событий
+        /// </summary>
         static ILogger logger;
-        public static ILogger Logger => logger;
-        public static string AssemblyPath => assemblyPath;
-
-        public const string CONFIG_FILE = "plugin.config.json";
-        public string DbConfigPath => dbConfigPath;
+        /// <summary>
+        /// Количественный предел у очереди рисуемых объектов
+        /// </summary>
         static int queueLimit;
+        /// <summary>
+        /// Время сна потока чтения в одной итерации
+        /// </summary>
         static int readerSleepTime;
+
+        #endregion
+
+        #region Public Properties
+
+        /// <inheritdoc cref="dbConfigPath"/>
+        public static string DbConfigPath => dbConfigPath;
+        /// <inheritdoc cref="assemblyPath"/>
+        public static string AssemblyPath => assemblyPath;
+        /// <inheritdoc cref="logger"/>
+        public static ILogger Logger => logger;
+        /// <inheritdoc cref="queueLimit"/>
         public static int QueueLimit => queueLimit;
+        ///<inheritdoc cref="readerSleepTime"/> 
         public static int ReaderSleepTime => readerSleepTime;
-        static double textScale;
-        static double hatchScale;
+
+        #endregion
+
+        #region Public Methods
+
+        /// <summary>
+        /// Инициализация общих констант плагина
+        /// </summary>
         public static void Initialize()
         {
             dynamic app = Application.AcadApplication;
@@ -52,8 +76,7 @@ namespace Plugins
                 dbConfigPath = System.IO.Path.GetTempFileName();
 
                 var config = JObject.Parse(File.ReadAllText(Path.Combine(assemblyPath, CONFIG_FILE)));
-                textScale = config.Value<double>("TextScale");
-                hatchScale = config.Value<double>("HatchScale");
+
                 config = config.Value<JObject>("queue");
                 queueLimit = config.Value<int>("limit");
                 readerSleepTime = config.Value<int>("sleep");
@@ -72,20 +95,9 @@ namespace Plugins
             }
         }
 
-        #region Константы масштабирования
-
-        /// <summary>
-        /// Масштаб рисуемого текста относительно общего масштаба примитивов
-        /// </summary>
-        public static double TextScale => textScale;
-        /// <summary>
-        /// Масштаб штриховки относительно общего масштаба примитивов
-        /// </summary>
-        public static double HatchScale => hatchScale;
-
         #endregion
 
-        #region Ключевые слова для XData
+        #region Public Const Fields
 
         /// <summary>
         /// Ключевое слово в XData для нахождения столбца SystemId
@@ -103,6 +115,10 @@ namespace Plugins
         /// Id объекта в БД Oracle
         /// </summary>
         public const string OBJ_ID = "OBJ_ID";
+        /// <summary>
+        /// Главный конфигурационный файл
+        /// </summary>
+        public const string CONFIG_FILE = "plugin.config.json";
 
         #endregion
     }

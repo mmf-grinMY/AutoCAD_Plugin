@@ -9,21 +9,38 @@ namespace Plugins.Entities
     /// <summary>
     /// Специальный знак
     /// </summary>
-    sealed class Sign : Entity
+    sealed class Sign : StyledEntity
     {
+        #region Private Fields
+
         /// <summary>
         /// Создатель блоков
         /// </summary>
         readonly SymbolTableDispatcher factory;
+
+        #endregion
+
+        #region Ctor
+
         /// <summary>
         /// Создание объекта
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
         /// <param name="logger">Логер событий</param>
         /// <param name="creater">Создатель блоков</param>
-        public Sign(Primitive primitive, ILogger logger, SymbolTableDispatcher creater) : base(primitive, logger) => factory = creater;
+        /// <param name="style">Стиль отрисовки</param>
+        public Sign(Primitive primitive, ILogger logger, SymbolTableDispatcher creater, MyEntityStyle style)
+            : base(primitive, logger, style) 
+            => factory = creater ?? throw new System.ArgumentNullException(nameof(creater));
+
+        #endregion
+
+        #region Protected Methods
+
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
         {
+            base.Draw(transaction, table, record);
+
             var settings = primitive.DrawSettings;
             var key = settings.Value<string>("FontName") + "_" + settings.Value<string>("Symbol");
 
@@ -33,8 +50,10 @@ namespace Plugins.Entities
             {
                 Color = ColorConverter.FromMMColor(settings.Value<int>(COLOR)),
                 Layer = primitive.LayerName,
-                ScaleFactors = new Scale3d(settings.Value<string>("FontScaleX").ToDouble())
+                ScaleFactors = new Scale3d(settings.Value<string>("FontScaleX").ToDouble()) * style.scale
             }.AppendToDb(transaction, record, primitive);
         }
+
+        #endregion
     }
 }

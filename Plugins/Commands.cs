@@ -12,6 +12,13 @@
 
 // TODO: В случае неудачного подключения плагина формировать отчет о неудавшихся операциях в процессе загрузки
 
+// TODO: Изменить модель поведения команды MMP_DRAW
+//       Необходимо изменить модель на DrawInfoViewModel <-> ConcurrentQueue <-> OracleDbDispatcher
+
+// TODO: Изменить модель чтения на ленивую
+//       Запоминать текущую позицию и запускать читателя читать данные с текущей позиции с определенным количеством
+//       только когда понадобятся новые данные
+
 #define POL // Команда рисования полилинии
 
 using Plugins.Logging;
@@ -27,8 +34,6 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
-using System.Configuration.Assemblies;
-
 
 #if POL
 using Autodesk.AutoCAD.Geometry;
@@ -229,7 +234,7 @@ namespace Plugins
 
             try
             {
-                System.IO.File.Delete(dbConfigPath);
+                System.IO.File.Delete(DbConfigPath);
                 app.Preferences.Files.SupportPath = app.Preferences.Files.SupportPath.Replace(AssemblyPath, string.Empty);
             }
             catch (System.Exception e)
