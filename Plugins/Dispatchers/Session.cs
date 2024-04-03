@@ -7,12 +7,11 @@ using System;
 
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Geometry;
 
 using Oracle.ManagedDataAccess.Client;
 
 using static Plugins.Constants;
-using Autodesk.AutoCAD.Geometry;
-using System.Windows.Automation.Peers;
 
 namespace Plugins
 {

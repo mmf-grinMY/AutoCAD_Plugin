@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using Plugins.Logging;
+
+using System.Linq;
 
 using Autodesk.AutoCAD.DatabaseServices;
 
@@ -33,7 +35,7 @@ namespace Plugins.Entities
         /// <param name="style">Стиль отрисовки</param>
         /// <param name="dispatcher">Диспетчер работы с БД</param>
         public Polygon(Primitive primitive,
-                       Logging.ILogger logger,
+                       ILogger logger,
                        HatchPatternLoader loader,
                        MyHatchStyle style,
                        OracleDbDispatcher dispatcher)
@@ -70,11 +72,18 @@ namespace Plugins.Entities
             var lines = Wkt.Parser.ParsePolyline(primitive.Geometry);
 
             if (!lines.Any())
-#if OLD
-                return;
-#else
-                lines = Wkt.Parser.ParsePolyline(dispatcher.GetLongGeometry(primitive));
-#endif
+            {
+                var geometry = dispatcher.GetLongGeometry(primitive);
+                lines = Wkt.Parser.ParsePolyline(geometry);
+
+                // Объект с ObjectGuid 'C173414D-AE5E-43AF-9110-0D9EF20553D8' хранит не полную геометрию,
+                // но в таблице допгеометрии нет записей для него
+                if (!lines.Any())
+                {
+                    logger.LogWarning("Для объекта {0} не смогла быть прочитана геометрия!", primitive.Guid);
+                    return;
+                }
+            }
 
             if (lines[0].Area == 0)
                 return;
@@ -100,9 +109,19 @@ namespace Plugins.Entities
 
             hatch.AppendToDb(transaction, record, primitive);
 
-            // FIXME: Добавить поддержку свойства ForeColor
-            // На горизонте K450E нет заливок, требующих это свойство
-            hatch.SetHatchPattern(HatchPatternType.PreDefined, dictionary[PAT_NAME]);
+            try
+            {
+                // FIXME: Добавить поддержку свойства ForeColor
+                // На горизонте K450E нет заливок, требующих это свойство
+                hatch.SetHatchPattern(HatchPatternType.PreDefined, dictionary[PAT_NAME]);
+            }
+            catch (Autodesk.AutoCAD.Runtime.Exception e)
+            {
+                if (e.Message.Contains("eInvalidInput"))
+                    logger.LogError("Не удалось найти штриховку " + dictionary[PAT_NAME] + "!");
+                else
+                    throw;
+            }
 
             if (dictionary.TryGetValue(PAT_ANGLE, out var angle))
             {

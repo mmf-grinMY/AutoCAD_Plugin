@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Windows.Navigation;
 using System.Xml.Linq;
 
 using Newtonsoft.Json.Linq;
@@ -66,7 +67,13 @@ namespace Plugins
                 return dictionary;
 
             dictionary = new Dictionary<string, string>();
-            var args = root.Element(bitmapName).Element($"t{bitmapIndex}").Value.Trim().Split('\n');
+            // Для DRO32!30 не существует конфигурации заливки
+            // TODO: Если не найдены конфигурации, искать файл с паттерном заливки
+            var name = root.Element(bitmapName);
+            if (name is null) return new Dictionary<string, string>() { { "PatName", bitmapName.Replace('-', '!') + bitmapIndex } };
+            var index = name.Element($"t{bitmapIndex}");
+            if (index is null) return new Dictionary<string, string>() { { "PatName", bitmapName.Replace('-', '!') + bitmapIndex } };
+            var args = index.Value.Trim().Split('\n');
 
             foreach (var param in args)
             {

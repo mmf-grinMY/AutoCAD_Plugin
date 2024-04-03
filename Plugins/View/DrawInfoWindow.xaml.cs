@@ -98,8 +98,8 @@ namespace Plugins.View
         {
             session.WriteMessage("Работа команды " + Commands.DRAW_COMMAND + (isWriteEnded ? " успешно завершена!" : " была прервана!"));
             StopDrawing();
-            logger.LogInformation(readPosition.ToString());
-            logger.LogInformation(writePosition.ToString());
+            logger.LogInformation("Текущая позиция чтения " + readPosition.ToString());
+            logger.LogInformation("Текущая позиция записи " + writePosition.ToString());
         }
         /// <summary>
         /// Логика остановки работы
