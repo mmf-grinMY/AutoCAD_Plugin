@@ -266,7 +266,9 @@ namespace Plugins
 
                 var points = GetPoints(doc);
 
-                if (points is null && points.Length == 2) 
+                session = new Session(logger);
+
+                if (points != null && points.Length == 2) 
                 {
                     var pt1 = points[0];
                     var pt2 = points[1];
@@ -287,7 +289,6 @@ namespace Plugins
                     session.Top = long.MaxValue;
                 }
 
-                session = new Session(logger);
                 session.Run();
                 logger.LogInformation("Закончена отрисовка геометрии!");
             }

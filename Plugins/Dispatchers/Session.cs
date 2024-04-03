@@ -12,6 +12,7 @@ using Oracle.ManagedDataAccess.Client;
 
 using static Plugins.Constants;
 using Autodesk.AutoCAD.Geometry;
+using System.Windows.Automation.Peers;
 
 namespace Plugins
 {
@@ -89,7 +90,7 @@ namespace Plugins
         {
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
             connection = new OracleDbDispatcher(
-#if DEBUG
+#if !DEBUG
             "Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;", "K200F"
 #else
             logger
@@ -186,7 +187,8 @@ namespace Plugins
             var model = new DrawInfoViewModel(this, logger);
             window = new DrawInfoWindow() { DataContext = model };
             window.Closed += model.HandleOperationCancel;
-            window.ShowDialog();
+            if (!isClosed)
+                window.ShowDialog();
 
             try
             {
@@ -198,11 +200,21 @@ namespace Plugins
                 System.Windows.MessageBox.Show("\n" + "Wrong BB");
             }
         }
+        bool isClosed = false;
         /// <summary>
         /// Закрытие сессии работы
         /// </summary>
-        public void Close() => window.Dispatcher.Invoke(() => window.Close());
-        public void WriteMessage(string message) => window.Dispatcher.Invoke(() => doc.Editor.WriteMessage(message));
+        public void Close()
+        {
+            if (window != null)
+                window.Dispatcher.Invoke(() => window.Close());
+            isClosed = true;
+        }
+        public void WriteMessage(string message)
+        {
+            if (window != null)
+                window.Dispatcher.Invoke(() => doc.Editor.WriteMessage(message));
+        }
 
         #endregion
     }
