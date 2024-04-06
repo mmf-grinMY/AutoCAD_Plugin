@@ -327,7 +327,8 @@ namespace Plugins
         /// <returns>Геометрия в формате wkt</returns>
         public string GetLongGeometry(Primitive primitive)
         {
-            var command = $"SELECT page FROM {gorizont}_trans_clone_geowkt WHERE objectguid = '{primitive.Guid}' ORDER BY numb";
+            var command = "SELECT page FROM {gorizont}_trans_clone_geowkt WHERE objectguid = '" + 
+                primitive.Guid.ToString().ToUpper() + " ORDER BY numb";
             var builder = new StringBuilder().Append(primitive.Geometry);
 
             using (var reader = new OracleCommand(command, connection).ExecuteReader())

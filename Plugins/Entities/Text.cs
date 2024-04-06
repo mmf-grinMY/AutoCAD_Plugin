@@ -39,7 +39,7 @@ namespace Plugins.Entities
             var paramJson = primitive.Param;
             var offset = new Vector3d(paramJson.Value<string>(X_OFFSET).ToDouble(), paramJson.Value<string>(Y_OFFSET).ToDouble(), 0);
 
-            // FIXME: ??? Стоит ли скрывать исключения об тексте с неположительной высотой ???
+            // FIXME: Присваивать высоту 10 для объектов с высотой 0
             try
             {
                 var text = new DBText()

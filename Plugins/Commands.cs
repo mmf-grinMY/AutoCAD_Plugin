@@ -8,8 +8,6 @@
 
 // TODO: Сделать ограничение на отрисовку в одном чертеже только одного горизонта
 
-// TODO: Constants.SCALE = 1 => Нужно выпилить все вхождения
-
 // TODO: В случае неудачного подключения плагина формировать отчет о неудавшихся операциях в процессе загрузки
 
 // TODO: Изменить модель поведения команды MMP_DRAW
@@ -20,6 +18,8 @@
 //       только когда понадобятся новые данные
 
 // #define POL // Команда рисования полилинии
+
+#define FAST_DEBUG // Быстрая проверка на 305 горизонте
 
 using Plugins.Logging;
 using Plugins.View;
@@ -257,14 +257,18 @@ namespace Plugins
         [CommandMethod(DRAW_COMMAND)]
         public void DrawCommand()
         {
-            // TODO: Добавить поддержку пользовательского BoundingBox
             Session session = null;
 
             try
             {
                 var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
 
-                var points = GetPoints(doc);
+                Point3d[] points =
+#if !FAST_DEBUG
+                    GetPoints(doc);
+#else
+                    null;
+#endif
 
                 session = new Session(logger);
 

@@ -46,6 +46,8 @@ namespace Plugins
             }
             catch (Exception e)
             {
+                // FIXME: При попытке создания блока pnt.chr 188 появляется сообщение 
+                //        "Forgot to call Dispose? (Autodesk.AutoCAD.DatabaseServices.Polyline): DisposableWrapper"
                 if (e.StackTrace.Contains("в Autodesk.AutoCAD.DatabaseServices.SymbolTableRecord.set_Name(String name)"))
                 {
                     logger.LogInformation(name);

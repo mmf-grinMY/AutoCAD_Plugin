@@ -3,6 +3,7 @@
 using System.Linq;
 
 using Autodesk.AutoCAD.DatabaseServices;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace Plugins.Entities
 {
@@ -76,8 +77,7 @@ namespace Plugins.Entities
                 var geometry = dispatcher.GetLongGeometry(primitive);
                 lines = Wkt.Parser.ParsePolyline(geometry);
 
-                // Объект с ObjectGuid 'C173414D-AE5E-43AF-9110-0D9EF20553D8' хранит не полную геометрию,
-                // но в таблице допгеометрии нет записей для него
+                // FIXME: ??? Необоходима ли эта проверка ???
                 if (!lines.Any())
                 {
                     logger.LogWarning("Для объекта {0} не смогла быть прочитана геометрия!", primitive.Guid);

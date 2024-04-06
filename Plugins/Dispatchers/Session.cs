@@ -1,4 +1,6 @@
-﻿using Plugins.Dispatchers;
+﻿#define FAST_DEBUG
+
+using Plugins.Dispatchers;
 using Plugins.Entities;
 using Plugins.Logging;
 using Plugins.View;
@@ -89,8 +91,8 @@ namespace Plugins
         {
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
             connection = new OracleDbDispatcher(
-#if !DEBUG
-            "Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;", "K200F"
+#if FAST_DEBUG
+            "Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;", "K305F"
 #else
             logger
 #endif
