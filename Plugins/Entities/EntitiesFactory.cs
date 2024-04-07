@@ -1,5 +1,4 @@
 ﻿using Plugins.Dispatchers;
-using Plugins.Logging;
 
 using System.IO;
 using System;
@@ -30,19 +29,15 @@ namespace Plugins.Entities
         /// <summary>
         /// Загрузчик штриховок
         /// </summary>
-        readonly HatchPatternLoader hatchPatternLoader;
-        /// <summary>
-        /// Текущий логер событий
-        /// </summary>
-        readonly ILogger logger;
+        readonly IHatchLoad hatchPatternLoader;
         /// <summary>
         /// Фабрика блоков
         /// </summary>
-        readonly SymbolTableDispatcher factory;
+        readonly ITableDispatcher factory;
         /// <summary>
         /// Диспетчер работы с БД
         /// </summary>
-        readonly OracleDbDispatcher dispatcher;
+        readonly IDbDispatcher dispatcher;
 
         #endregion
 
@@ -52,11 +47,9 @@ namespace Plugins.Entities
         /// Создание объекта
         /// </summary>
         /// <param name="creater">Создатель блоков</param>
-        /// <param name="log">Логер событий</param>
-        public EntitiesFactory(SymbolTableDispatcher creater, ILogger log, OracleDbDispatcher dispatcher)
+        public EntitiesFactory(ITableDispatcher creater, IDbDispatcher dispatcher)
         {
             factory = creater ?? throw new ArgumentNullException(nameof(creater));
-            logger = log ?? throw new ArgumentNullException(nameof(log));
             this.dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             hatchPatternLoader = new HatchPatternLoader();
 
@@ -86,19 +79,19 @@ namespace Plugins.Entities
                 case "Polyline":
                     if (primitive.Geometry.StartsWith("MULTILINESTRING"))
                     {
-                        return new Polyline(primitive, logger);
+                        return new Polyline(primitive, dispatcher);
                     }
                     else if (primitive.Geometry.StartsWith("POLYGON"))
                     {
-                        return new Polygon(primitive, logger, hatchPatternLoader, hatchStyle, dispatcher);
+                        return new Polygon(primitive, hatchStyle, hatchPatternLoader, dispatcher);
                     }
                     else
                     {
-                        throw new NotImplementedException("При отрисовке полилинии произошла ошибка!");
+                        throw new NotImplementedException($"При отрисовке полилинии {primitive.Guid} произошла ошибка!");
                     }
                 case "BasicSignDrawParams":
-                case "TMMTTFSignDrawParams": return new Sign(primitive, logger, factory, signStyle);
-                case "LabelDrawParams": return new Text(primitive, logger, textStyle);
+                case "TMMTTFSignDrawParams": return new Sign(primitive, factory, signStyle);
+                case "LabelDrawParams": return new Text(primitive, textStyle);
                 default: throw new ArgumentException("Неизвестный тип рисуемого объекта");
             }
         }

@@ -16,11 +16,11 @@ namespace Plugins.Entities
         /// <summary>
         /// Загрузчик штриховок
         /// </summary>
-        readonly HatchPatternLoader loader;
+        readonly IHatchLoad loader;
         /// <summary>
         /// Диспетчер работы с БД
         /// </summary>
-        readonly OracleDbDispatcher dispatcher;
+        readonly IDbDispatcher dispatcher;
 
         #endregion
 
@@ -30,16 +30,14 @@ namespace Plugins.Entities
         /// Создание объекта
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
-        /// <param name="logger">Логер событий</param>
-        /// <param name="loader">Загрузчик штриховок</param>
         /// <param name="style">Стиль отрисовки</param>
+        /// <param name="loader">Загрузчик штриховок</param>
         /// <param name="dispatcher">Диспетчер работы с БД</param>
         public Polygon(Primitive primitive,
-                       ILogger logger,
-                       HatchPatternLoader loader,
                        MyHatchStyle style,
-                       OracleDbDispatcher dispatcher)
-            : base(primitive, logger, style)
+                       IHatchLoad loader,
+                       IDbDispatcher dispatcher)
+            : base(primitive, style)
         {
             this.loader = loader ?? throw new System.ArgumentNullException(nameof(loader));
             this.dispatcher = dispatcher ?? throw new System.ArgumentNullException(nameof(dispatcher));
@@ -50,9 +48,9 @@ namespace Plugins.Entities
         #region Protected Methods
         
         // TODO: Раздробить метод
-        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
+        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record, ILogger logger)
         {
-            base.Draw(transaction, table, record);
+            base.Draw(transaction, table, record, logger);
 
             const string PAT_NAME = "PatName";
             const string PAT_ANGLE = "PatAngle";

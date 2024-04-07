@@ -9,5 +9,4 @@
 /**/*.xsd
 /Plugins.Tests/
 /Plugins.Core.Tests/
-/Plugins/Properties/AssemblyInfo.cs
 /Plugins/ClassDiagram1.cd

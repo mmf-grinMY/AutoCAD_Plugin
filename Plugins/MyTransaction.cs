@@ -112,14 +112,14 @@ namespace Plugins
         /// Добавление объекта в существующую запись блоков
         /// </summary>
         /// <param name="action">Действие записи</param>
-        public void AddBlockRecord(Action<Transaction, BlockTable, BlockTableRecord> action)
+        public void AddBlockRecord(Action<Transaction, BlockTable, BlockTableRecord, ILogger> action)
         {
             try
             {
                 var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
                 var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
-                action(transaction, table, record);
+                action(transaction, table, record, logger);
             }
             catch (Exception e)
             {

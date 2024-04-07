@@ -1,8 +1,6 @@
 ﻿using Plugins.Dispatchers;
 using Plugins.Logging;
 
-using System.Collections.Generic;
-
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 
@@ -15,11 +13,10 @@ namespace Plugins.Entities
     {
         #region Private Fields
 
-        readonly HashSet<string> cache;
         /// <summary>
         /// Создатель блоков
         /// </summary>
-        readonly SymbolTableDispatcher factory;
+        readonly ITableDispatcher factory;
 
         #endregion
 
@@ -30,22 +27,19 @@ namespace Plugins.Entities
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
         /// <param name="logger">Логер событий</param>
-        /// <param name="creater">Создатель блоков</param>
+        /// <param name="blockDispatcher">Создатель блоков</param>
         /// <param name="style">Стиль отрисовки</param>
-        public Sign(Primitive primitive, ILogger logger, SymbolTableDispatcher creater, MyEntityStyle style)
-            : base(primitive, logger, style)
-        {
-            factory = creater ?? throw new System.ArgumentNullException(nameof(creater));
-            cache = new HashSet<string>();
-        }
+        public Sign(Primitive primitive, ITableDispatcher blockDispatcher, MyEntityStyle style)
+            : base(primitive, style)
+            => factory = blockDispatcher ?? throw new System.ArgumentNullException(nameof(blockDispatcher));
 
         #endregion
 
         #region Protected Methods
 
-        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
+        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record, ILogger logger)
         {
-            base.Draw(transaction, table, record);
+            base.Draw(transaction, table, record, logger);
 
             var settings = primitive.DrawSettings;
             var key = settings.Value<string>("FontName") + "#" + settings.Value<string>("Symbol");
@@ -54,7 +48,7 @@ namespace Plugins.Entities
 
             new BlockReference(Wkt.Parser.ParsePoint(primitive.Geometry), table[key])
             {
-                Color = ColorConverter.FromMMColor(settings.Value<int>(COLOR)),
+                Color = ColorConverter.FromMMColor(settings.Value<int>("Color")),
                 Layer = primitive.LayerName,
                 ScaleFactors = new Scale3d(settings.Value<string>("FontScaleX").ToDouble()) * style.scale
             }.AppendToDb(transaction, record, primitive);

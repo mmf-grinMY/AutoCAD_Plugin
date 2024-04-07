@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Windows.Navigation;
 using System.Xml.Linq;
 
 using Newtonsoft.Json.Linq;
@@ -9,7 +8,7 @@ namespace Plugins
     /// <summary>
     /// Загрузчик параметров паттернов штриховки
     /// </summary>
-    class HatchPatternLoader
+    class HatchPatternLoader : IHatchLoad
     {
         #region Private Fields
 
@@ -85,5 +84,9 @@ namespace Plugins
         }
 
         #endregion
+    }
+    interface IHatchLoad
+    {
+        IDictionary<string, string> Load(JObject settings);
     }
 }

@@ -10,9 +10,6 @@
 
 // TODO: В случае неудачного подключения плагина формировать отчет о неудавшихся операциях в процессе загрузки
 
-// TODO: Изменить модель поведения команды MMP_DRAW
-//       Необходимо изменить модель на DrawInfoViewModel <-> ConcurrentQueue <-> OracleDbDispatcher
-
 // TODO: Изменить модель чтения на ленивую
 //       Запоминать текущую позицию и запускать читателя читать данные с текущей позиции с определенным количеством
 //       только когда понадобятся новые данные
@@ -59,32 +56,16 @@ namespace Plugins
         /// </summary>
         /// <param name="doc">Текущий документ</param>
         /// <returns>Граничные точки, в случае успеха и UndefinedType в противном случае</returns>
-        private static Point3d[] GetPoints(Document doc)
+        private static Point3d[] GetPoints(Editor editor)
         {
-            // TODO: Переписать этот метод
-            var editor = doc.Editor;
-            bool bound_fl = true;
+            var pointOptions = new PromptPointOptions("\n\tЛевый нижний угол: ");
+            var left = editor.GetPoint(pointOptions);
+            var cornerOptions = new PromptCornerOptions("\n\tПравый верхний угол: ", left.Value);
+            var right = editor.GetCorner(cornerOptions);
 
-            PromptPointOptions ppo = new PromptPointOptions("\n\tЛевый нижний угол: ");
-
-            PromptPointResult pprLeft = editor.GetPoint(ppo);
-
-            bound_fl = bound_fl && pprLeft.Status == PromptStatus.OK;
-
-            PromptCornerOptions pco = new PromptCornerOptions("\n\tПравый верхний угол: ", pprLeft.Value);
-
-            PromptPointResult pprRight = editor.GetCorner(pco);
-
-            bound_fl = bound_fl && pprRight.Status == PromptStatus.OK;
-
-            if (bound_fl)
-            {
-                return new Point3d[] { pprLeft.Value, pprRight.Value };
-            }
-            else
-            {
-                return null;
-            }
+            return right.Status == PromptStatus.OK && left.Status == PromptStatus.OK
+                ? new Point3d[] { left.Value, right.Value }
+                : null;
         }
         /// <summary>
         /// Создание команды выборки данных
@@ -264,27 +245,20 @@ namespace Plugins
             {
                 var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
 
-                Point3d[] points =
-#if !FAST_DEBUG
-                    GetPoints(doc);
-#else
-                    null;
-#endif
+                Point3d[] points = GetPoints(doc.Editor);
 
                 session = new Session(logger);
 
                 if (points != null && points.Length == 2) 
                 {
-                    var pt1 = points[0];
-                    var pt2 = points[1];
+                    var point = points[0];
+                    var corner = points[1];
 
-                    double shfX = 0; // 511800 - 156;
-                    double shfY = 0; // 5835990 - 64;
-                    double Prec = 1000; //Obj.Precision;
-                    session.Left = (long)((Math.Min(pt1.X, pt2.X) - shfX) * Prec);
-                    session.Right = (long)((Math.Max(pt1.X, pt2.X) - shfX) * Prec);
-                    session.Bottom = (long)((Math.Min(pt1.Y, pt2.Y) - shfY) * Prec);
-                    session.Top = (long)((Math.Max(pt1.Y, pt2.Y) - shfY) * Prec);
+                    const double precession = 1000;
+                    session.Left = (long)(Math.Min(point.X, corner.X) * precession);
+                    session.Right = (long)(Math.Max(point.X, corner.X) * precession);
+                    session.Bottom = (long)(Math.Min(point.Y, corner.Y) * precession);
+                    session.Top = (long)(Math.Max(point.Y, corner.Y) * precession);
                 }
                 else
                 {
@@ -371,365 +345,8 @@ namespace Plugins
                 }
             }
         }
-        /// <summary>
-        /// Команда просмотра внутренней легендаризации объекта
-        /// </summary>
-        [CommandMethod("MMP_DEBUG")]
-        public void GetObjectParams()
-        {
-            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
-                ?? throw new ArgumentNullException("document");
-
-            var connection = new OracleDbDispatcher();
-            var editor = doc.Editor;
-            var options = new PromptEntityOptions("\nВыберите объект: ");
-            using (var transaction = doc.TransactionManager.StartTransaction())
-            {
-                PromptEntityResult result = null;
-                if ((result = editor.GetEntity(options)).Status == PromptStatus.OK)
-                {
-                    var buffer = transaction.GetObject(result.ObjectId, OpenMode.ForRead).XData;
-                    if (buffer == null)
-                    {
-                        editor.WriteMessage("\nУ объекта отсутствуют параметры XData");
-                        return;
-                    }
-
-                    var id = Convert.ToInt32(buffer.GetXData(OBJ_ID));
-                    var content = connection.GetObjectJsonById(id);
-                    var window = new DebugWindow()
-                    {
-                        Title = "Параметры объекта под индексом" + id
-                    };
-                    window.txt.Text = content;
-                    window.Show();
-                }
-            }
-        }
 
         #endregion
-
-#if POL
-        BlockTableRecord InitializeCustomBlock(Document doc)
-        {
-            var db = doc.Database;
-
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
-
-                var customBlockRecord = new BlockTableRecord();
-                table.Add(customBlockRecord);
-                customBlockRecord.Name = "CustomBlock";
-                transaction.AddNewlyCreatedDBObject(customBlockRecord, true);
-
-                var circle = new Circle
-                {
-                    Center = new Point3d(0, 0, 0),
-                    Radius = 3,
-                    Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)
-                };
-
-                customBlockRecord.AppendEntity(circle);
-                transaction.AddNewlyCreatedDBObject(circle, true);
-
-                transaction.Commit();
-
-                return customBlockRecord;
-            }
-        }
-        [CommandMethod("MMP_TEST_DRAW")]
-        public void DrawPolyline()
-        {
-            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
-                ?? throw new ArgumentNullException("document");
-
-            const int limit = 1;
-
-            var db = doc.Database;
-            var view = doc.Editor.GetCurrentView();
-
-            var scale = view.Width / System.Windows.SystemParameters.FullPrimaryScreenWidth;
-
-            var customBlockRecord = InitializeCustomBlock(doc);
-
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForWrite) as BlockTable;
-                var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
-
-                for (int i = 0; i < limit; ++i)
-                {
-                    var polyline = new Polyline
-                    {
-                        Color = Autodesk.AutoCAD.Colors.Color.FromRgb(255, 0, 0),
-                        Linetype = "MMP_2" // TYPE_NAME
-                    };
-
-                    polyline.AddVertexAt(0, new Point2d(2, 2), 0, 0, 0);
-                    polyline.AddVertexAt(1, new Point2d(2, 10), 0, 0, 0);
-                    polyline.AddVertexAt(2, new Point2d(10, 10), 0, 0, 0);
-                    polyline.AddVertexAt(3, new Point2d(10, 2), 0, 0, 0);
-                    polyline.AddVertexAt(4, new Point2d(2, 2), 0, 0, 0);
-
-                    record.AppendEntity(polyline);
-                    transaction.AddNewlyCreatedDBObject(polyline, true);
-
-                    var hatch = new Hatch
-                    {
-                        PatternScale = scale * 1_000,
-                        Color = Color.FromRgb(0, 255, 0),
-                    };
-
-                    record.AppendEntity(hatch);
-                    transaction.AddNewlyCreatedDBObject(hatch, true);
-
-                    hatch.SetHatchPattern(HatchPatternType.PreDefined, "DRO32!3");
-                    hatch.Associative = true;
-                    hatch.AppendLoop(HatchLoopTypes.Default, new ObjectIdCollection() { polyline.ObjectId });
-                    hatch.EvaluateHatch(true);
-
-                    var text = new DBText()
-                    {
-                        TextString = "Строка для теста!",
-                        Position = new Point3d(10, 12, 0),
-                        Color = Color.FromRgb(0, 0, 255),
-                        Height = scale
-                    };
-
-                    record.AppendEntity(text);
-                    transaction.AddNewlyCreatedDBObject(text, true);
-
-                    var reference = new BlockReference(new Point3d(0, 0, 0), customBlockRecord.ObjectId)
-                    {
-                        Color = Color.FromRgb(0, 255, 255)
-                    };
-
-                    record.AppendEntity(reference);
-                    transaction.AddNewlyCreatedDBObject(reference, true);
-                }
-
-                transaction.Commit();
-            }
-
-            doc.Editor.WriteMessage("Закончена отрисовка объектов!");
-        }
-        [CommandMethod("MMP_COUNT")]
-        public void GetCount()
-        {
-            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
-                ?? throw new ArgumentNullException("document");
-
-            var db = doc.Database;
-
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
-                var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForRead) as BlockTableRecord;
-
-                int counter = 0;
-
-                foreach (var id in record)
-                {
-                    ++counter;
-                }
-
-                doc.Editor.WriteMessage(counter.ToString());
-            }
-        }
-        public static int PATTERN_SCALE = 10_000;
-        public static int TEXT_SCALE = 8;
-        void ScaleLogic(Document doc, Extents2d viewBound, double scale)
-        {
-            var db = doc.Database;
-
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
-                var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForRead) as BlockTableRecord;
-
-                foreach (var id in record)
-                {
-                    Entity entity = transaction.GetObject(id, OpenMode.ForRead) as Entity;
-
-                    if (entity.Bounds != null && !IsIntersecting(viewBound, entity.Bounds.Value))
-                    {
-                        return;
-                    }
-
-                    try
-                    {
-                        switch (entity)
-                        {
-                            case Polyline polyline:
-                                if (polyline.LinetypeScale != scale)
-                                {
-                                    Update(polyline, scale);
-                                    logger.LogInformation("Произошла перерисовка {0}", typeof(Polyline));
-                                }
-                                break;
-                            case Hatch hatch:
-                                var patternScale = scale * Commands.PATTERN_SCALE;
-                                if (hatch.PatternScale != patternScale)
-                                {
-                                    Update(hatch, scale);
-                                    logger.LogInformation("Произошла перерисовка {0}", typeof(Hatch));
-                                }
-                                break;
-                            case DBText text:
-                                var textScale = scale * Commands.TEXT_SCALE;
-                                if (text.Height != textScale)
-                                {
-                                    Update(text, scale);
-                                    logger.LogInformation("Произошла перерисовка {0}", typeof(DBText));
-                                }
-                                break;
-                            case BlockReference reference:
-                                if (reference.ScaleFactors.X != scale)
-                                {
-                                    // TODO: Переделать перерисовку блока
-                                    Update(reference, scale);
-                                    logger.LogInformation("Произошла перерисовка {0}", typeof(BlockReference));
-                                }
-                                break;
-                            default:
-                                {
-                                    logger.LogWarning("Не обработан объект типа {0}", entity.GetType());
-                                }
-                                break;
-                        }
-                    }
-                    catch (System.Exception ex)
-                    {
-                        logger.LogError(ex);
-                    }
-                }
-
-                transaction.Commit();
-            }
-        }
-        // Линия и заливка, которые частично находятся на видимой области чертежа не масштабируются
-        // Блок вообще не участвует в масштабировании
-        const string _SCALE = "MMP_SCALE";
-        [CommandMethod(_SCALE)]
-        public void ViewScale()
-        {
-            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
-                ?? throw new ArgumentNullException("document");
-
-            ViewTableRecord view = null;
-            try
-            {
-                logger.LogInformation("Запущена команда {0}", _SCALE);
-                view = doc.Editor.GetCurrentView();
-
-                if (Math.Abs(view.Width - width) < 0.001) return;
-
-                logger.LogInformation("Запущена процедура масштабирования!");
-
-                var scale = view.Width / System.Windows.SystemParameters.FullPrimaryScreenWidth;
-
-                var viewBound = new Extents2d
-                (
-                    view.CenterPoint - (view.Height / 2.0) * Vector2d.YAxis - (view.Width / 2.0) * Vector2d.XAxis,
-                    view.CenterPoint + (view.Height / 2.0) * Vector2d.YAxis + (view.Width / 2.0) * Vector2d.XAxis
-                );
-
-                ScaleLogic(doc, viewBound, scale);
-                doc.Editor.WriteMessage("Процедура масштабирования завершена!");
-                Application.UpdateScreen();
-            }
-            catch (System.Exception ex)
-            {
-                logger.LogError(ex);
-            }
-            finally
-            {
-                width = view.Width;
-                view.Dispose();
-                logger.LogInformation("Завершена команда {0}{1}", _SCALE, Environment.NewLine);
-            }
-        }
-        bool IsIntersecting(Extents2d rect1, Extents3d rect2) =>
-           !(rect1.MaxPoint.X < rect2.MinPoint.X || rect1.MinPoint.X > rect2.MaxPoint.X
-           || rect1.MaxPoint.Y < rect2.MinPoint.Y || rect1.MinPoint.Y > rect2.MaxPoint.Y);
-        void Update(DBText text, double scale)
-        {
-            text.UpgradeOpen();
-            text.Height = scale * Commands.TEXT_SCALE;
-        }
-        void Update(Hatch hatch, double scale)
-        {
-            hatch.UpgradeOpen();
-            hatch.PatternScale = scale * Commands.PATTERN_SCALE;
-            hatch.SetHatchPattern(HatchPatternType.PreDefined, hatch.PatternName);
-            hatch.EvaluateHatch(true);
-        }
-        void Update(Polyline polyline, double scale)
-        {
-            string log = "Изменен масштаб штриховки с " + polyline.LinetypeScale.ToString();
-            polyline.UpgradeOpen();
-            polyline.LinetypeScale = scale;
-            log += " на " + polyline.LinetypeScale.ToString();
-            logger.LogInformation(log);
-        }
-        void Update(BlockReference reference, double scale)
-        {
-            reference.UpgradeOpen();
-            reference.ScaleFactors = new Scale3d(scale, scale, 0);
-        }
-        [CommandMethod("AddMline")]
-        public void AddMline()
-        {
-            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
-                ?? throw new ArgumentNullException("document");
-
-            var db = doc.Database;
-            using (var transaction = db.TransactionManager.StartTransaction())
-            {
-                var linetypeTable = transaction.GetObject(db.LinetypeTableId, OpenMode.ForWrite) as LinetypeTable;
-                var linetypeRecord = new LinetypeTableRecord();
-                linetypeTable.Add(linetypeRecord);
-                transaction.AddNewlyCreatedDBObject(linetypeRecord, true);
-                linetypeRecord.Name = "Мой паттерн";
-
-
-                var mlineDic = transaction.GetObject(db.MLStyleDictionaryId, OpenMode.ForWrite) as DBDictionary;
-
-                var color = Color.FromRgb(255, 0, 0);
-                var mlineStyle = new MlineStyle();
-
-                mlineDic.SetAt("TEST", mlineStyle);
-                transaction.AddNewlyCreatedDBObject(mlineStyle, true);
-
-                mlineStyle.EndAngle = Math.PI * 0.5;
-                mlineStyle.StartAngle = Math.PI * 0.5;
-                mlineStyle.Name = "TEST";
-                mlineStyle.Elements.Add(new MlineStyleElement(0.25, color, db.Celtype), true);
-                mlineStyle.Elements.Add(new MlineStyleElement(-0.25, color, db.Celtype), false);
-                mlineStyle.FillColor = Color.FromRgb(0, 255, 0);
-                mlineStyle.Filled = true;
-                mlineStyle.Elements.Add(new MlineStyleElement(0.5, color, db.Celtype), true);
-                mlineStyle.FillColor = Color.FromRgb(0, 0, 255);
-
-                Mline line = new Mline
-                {
-                    Style = mlineStyle.ObjectId,
-                    Normal = Vector3d.ZAxis
-                };
-                line.AppendSegment(new Point3d(0, 0, 0));
-                line.AppendSegment(new Point3d(10, 10, 0));
-                line.AppendSegment(new Point3d(20, 10, 0));
-
-                var table = transaction.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
-                var record = transaction.GetObject(table[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
-
-                record.AppendEntity(line);
-                transaction.AddNewlyCreatedDBObject(line, true);
-                transaction.Commit();
-            }
-        }
-#endif
     }
     sealed class NotDrawingLineException : System.Exception { }
 }

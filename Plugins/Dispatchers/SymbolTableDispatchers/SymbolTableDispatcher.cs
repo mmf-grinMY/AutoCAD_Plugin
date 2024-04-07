@@ -75,16 +75,5 @@ namespace Plugins.Dispatchers
         }
 
         #endregion
-
-        #region Public Methods
-
-        /// <summary>
-        /// Попытаться добавить новую запись в таблицу
-        /// </summary>
-        /// <param name="name">Имя записи</param>
-        /// <returns>true, если запись успешно добавлена или уже существует, false в противном случае</returns>
-        public abstract bool TryAdd(string name);
-
-        #endregion
     }
 }
