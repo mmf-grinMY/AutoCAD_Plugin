@@ -1,6 +1,8 @@
 ﻿using Plugins.Dispatchers;
 using Plugins.Logging;
 
+using System.Collections.Generic;
+
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 
@@ -13,6 +15,7 @@ namespace Plugins.Entities
     {
         #region Private Fields
 
+        readonly HashSet<string> cache;
         /// <summary>
         /// Создатель блоков
         /// </summary>
@@ -30,8 +33,11 @@ namespace Plugins.Entities
         /// <param name="creater">Создатель блоков</param>
         /// <param name="style">Стиль отрисовки</param>
         public Sign(Primitive primitive, ILogger logger, SymbolTableDispatcher creater, MyEntityStyle style)
-            : base(primitive, logger, style) 
-            => factory = creater ?? throw new System.ArgumentNullException(nameof(creater));
+            : base(primitive, logger, style)
+        {
+            factory = creater ?? throw new System.ArgumentNullException(nameof(creater));
+            cache = new HashSet<string>();
+        }
 
         #endregion
 
@@ -42,9 +48,9 @@ namespace Plugins.Entities
             base.Draw(transaction, table, record);
 
             var settings = primitive.DrawSettings;
-            var key = settings.Value<string>("FontName") + "_" + settings.Value<string>("Symbol");
+            var key = settings.Value<string>("FontName") + "#" + settings.Value<string>("Symbol");
 
-            if (!table.Has(key) && !factory.TryAdd(key)) return;
+            if (!factory.TryAdd(key)) return;
 
             new BlockReference(Wkt.Parser.ParsePoint(primitive.Geometry), table[key])
             {

@@ -1,4 +1,4 @@
-﻿#define FAST_DEBUG
+﻿// #define FAST_DEBUG
 
 using Plugins.Dispatchers;
 using Plugins.Entities;

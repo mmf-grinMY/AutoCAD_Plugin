@@ -1,4 +1,6 @@
-﻿using Plugins.Logging;
+﻿using Plugins.Entities;
+using Plugins.Logging;
+using Plugins.View;
 
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
@@ -8,8 +10,6 @@ using System.IO;
 using System;
 
 using Oracle.ManagedDataAccess.Client;
-using Plugins.Entities;
-using Plugins.View;
 
 namespace Plugins
 {
@@ -327,8 +327,8 @@ namespace Plugins
         /// <returns>Геометрия в формате wkt</returns>
         public string GetLongGeometry(Primitive primitive)
         {
-            var command = "SELECT page FROM {gorizont}_trans_clone_geowkt WHERE objectguid = '" + 
-                primitive.Guid.ToString().ToUpper() + " ORDER BY numb";
+            var command = $"SELECT page FROM {gorizont}_trans_clone_geowkt WHERE objectguid = '" + 
+                primitive.Guid.ToString().ToUpper() + "' ORDER BY numb";
             var builder = new StringBuilder().Append(primitive.Geometry);
 
             using (var reader = new OracleCommand(command, connection).ExecuteReader())

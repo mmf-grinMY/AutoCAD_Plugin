@@ -12,25 +12,20 @@ namespace Plugins.Dispatchers
     /// </summary>
     abstract class SymbolTableDispatcher
     {
-        #region Private Fields
-
-        /// <summary>
-        /// Логер событий
-        /// </summary>
-        readonly ILogger logger;
-        /// <summary>
-        /// Кэш для хранения сделанных записей
-        /// </summary>
-        readonly HashSet<string> cache;
-
-        #endregion
-
         #region Protected Fields
 
         /// <summary>
         /// Внeтренняя БД AutoCAD
         /// </summary>
         protected readonly Database db;
+        /// <summary>
+        /// Кэш для хранения сделанных записей
+        /// </summary>
+        protected readonly HashSet<string> cache;
+        /// <summary>
+        /// Логер событий
+        /// </summary>
+        protected readonly ILogger logger;
 
         #endregion
 

@@ -163,8 +163,6 @@ namespace Plugins.View
                 {
                     if (e.Message != "Invalid operation on a closed object")
                         throw;
-                    else
-                        MessageBox.Show("Из-за сбоя подключение к БД Oracle прервано!");
                 }
                 finally
                 {

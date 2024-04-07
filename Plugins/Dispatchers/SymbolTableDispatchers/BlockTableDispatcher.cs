@@ -1,10 +1,8 @@
 ﻿using Plugins.Logging;
 
-using System;
+using System.IO;
 
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.Colors;
 
 namespace Plugins.Dispatchers
 {
@@ -27,135 +25,78 @@ namespace Plugins.Dispatchers
         #region Private Methods
 
         /// <summary>
-        /// Добавить элемент в БД
+        /// Заполнение записи блока из файла
         /// </summary>
-        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
-        /// <param name="record">Текущая запись в таблицу блоков</param>
-        /// <param name="entity">Записываемый объект</param>
-        void Append(Transaction transaction, BlockTableRecord record, Entity entity)
-        {
-            record.AppendEntity(entity);
-            transaction.AddNewlyCreatedDBObject(entity, true);
-        }
-        /// <summary>
-        /// Добавить круг
-        /// </summary>
-        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
-        /// <param name="record">Текущая запись в таблицу блоков</param>
-        /// <param name="radius">Радиус круга</param>
-        /// <param name="hasHatch">Наличие штриховки</param>
-        void AddCircle(Transaction transaction, BlockTableRecord record, double radius, bool hasHatch = false)
-        {
-            var circle = new Circle()
-            {
-                Center = new Point3d(0, 0, 0),
-                Radius = radius,
-                Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)
-            };
-
-            Append(transaction, record, circle);
-
-            if (hasHatch) AddHatch(transaction, record, circle);
-        }
-        /// <summary>
-        /// Добавить штриховку
-        /// </summary>
-        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
-        /// <param name="record">Текущая запись в таблицу блоков</param>
-        /// <param name="owner">Владелец штриховки</param>
-        void AddHatch(Transaction transaction, BlockTableRecord record, Entity owner)
-        {
-            var hatch = new Hatch();
-
-            Append(transaction, record, hatch);
-
-            hatch.SetHatchPattern(HatchPatternType.UserDefined, "SOLID");
-            hatch.Color = Color.FromColorIndex(ColorMethod.ByBlock, 0);
-            hatch.Associative = true;
-            hatch.AppendLoop(HatchLoopTypes.Outermost, new ObjectIdCollection { owner.ObjectId });
-            hatch.EvaluateHatch(true);
-        }
-        /// <summary>
-        /// Добавить линию
-        /// </summary>
-        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
-        /// <param name="record">Текущая запись в таблицу блоков</param>
-        /// <param name="p1">Начальная точка</param>
-        /// <param name="p2">Конечная точка</param>
-        void AddLine(Transaction transaction, BlockTableRecord record, Point3d p1, Point3d p2) =>
-            Append(transaction, record, new Line(p1, p2) { Color = Color.FromColorIndex(ColorMethod.ByBlock, 0) });
-        /// <summary>
-        /// Добавить полигон
-        /// </summary>
-        /// <param name="transaction">Текущая транзакция в БД AutoCAD</param>
-        /// <param name="record">Текущая запись в таблицу блоков</param>
-        /// <param name="points">Точки вершин</param>
-        void AddPolygon(Transaction transaction, BlockTableRecord record, Point2d[] points)
-        {
-            var polyline = new Polyline()
-            {
-                Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)
-            };
-
-            for (int i = 0; i < points.Length; ++i)
-            {
-                polyline.AddVertexAt(i, new Point2d(points[i].X, points[i].Y), 0, 0, 0);
-            }
-
-            polyline.Closed = true;
-
-            Append(transaction, record, polyline);
-            AddHatch(transaction, record, polyline);
-        }
-        /// <summary>
-        /// Создать новую запись блока
-        /// </summary>
-        /// <param name="transaction">Текущая транзакция</param>
-        /// <param name="record">Запись таблциы блоков</param>
-        /// <param name="name">Имя записи</param>
-        /// <exception cref="NotImplementedException"></exception>
+        /// <param name="transaction">Текущая открытая транзакция</param>
+        /// <param name="record">Запись в таблицу блоков</param>
+        /// <param name="name">Имя новой записи блока</param>
+        /// <exception cref="FileNotFoundException"></exception>
         void Create(Transaction transaction, BlockTableRecord record, string name)
         {
-            switch (name)
+            using (var source = new Database())
             {
-                // TODO: Сделать создание блоков по описанию в файле
-                case "pnt!.chr_48":
-                    AddCircle(transaction, record, 2);
-                    AddCircle(transaction, record, 4);
-                    break;
-                case "pnt!.chr_53":
-                    AddCircle(transaction, record, 2, true);
-                    break;
-                case "pnt!.chr_100":
-                    AddCircle(transaction, record, 3);
-                    AddLine(transaction, record, new Point3d(-1, 0, 0), new Point3d(1, 0, 0));
-                    AddLine(transaction, record, new Point3d(0, -1, 0), new Point3d(0, 1, 1));
-                    break;
-                case "pnt!.chr_117":
-                    AddPolygon(transaction, record, new Point2d[] { new Point2d(-3, -3), new Point2d(3, -3), new Point2d(0, 4) });
-                    break;
-                case "pnt!.chr_123":
-                    AddPolygon(transaction, record, new Point2d[] { new Point2d(-3, 3), new Point2d(3, 3), new Point2d(0, -4) });
-                    break;
-                case "pnt!.chr_139":
-                    AddCircle(transaction, record, 3);
-                    break;
-                default:
-                    {
-                        var e = new NotImplementedException("Не определена логика отрисовки блока " + name + "!");
-                        var strings = name.Split('_');
-                        e.Data.Add("FontName", strings[0]);
-                        e.Data.Add("Symbol", strings[1]);
-                        throw e;
-                    }
+                var path = Path.Combine(Constants.AssemblyPath, "Blocks", name + ".dwg");
+
+                try
+                {
+                    source.ReadDwgFile(path, FileOpenMode.OpenForReadAndWriteNoShare, false, string.Empty);
+                }
+                catch (Autodesk.AutoCAD.Runtime.Exception)
+                {
+                    throw new FileNotFoundException(path);
+                }
+
+                var oids = GetDbModelEntities(source);
+
+                if (oids.Count > 0)
+                {
+                    var mapping = new IdMapping();
+                    source.WblockCloneObjects(oids, record.Id, mapping, DuplicateRecordCloning.Ignore, false);
+                }
             }
+        }
+        /// <summary>
+        /// Копирование коллекции всех объектов из БД
+        /// </summary>
+        /// <param name="db">БД копируемого документа</param>
+        /// <returns>Коллекция Id объектов</returns>
+        ObjectIdCollection GetDbModelEntities(Database db)
+        {
+            var collection = new ObjectIdCollection();
+
+            using (var transaction = db.TransactionManager.StartTransaction())
+            {
+                var record = transaction.GetObject(db.CurrentSpaceId, OpenMode.ForRead) as BlockTableRecord;
+
+                foreach (var id in record)
+                {
+                    if (transaction.GetObject(id, OpenMode.ForRead) is Entity)
+                    {
+                        collection.Add(id);
+                    }
+                }
+            }
+
+            return collection;
         }
 
         #endregion
 
         #region Public Methods
 
-        public override bool TryAdd(string name) => TryAdd<BlockTable, BlockTableRecord>(name, db.BlockTableId, Create);
+        public override bool TryAdd(string name)
+        {
+            try
+            {
+                return TryAdd<BlockTable, BlockTableRecord>(name, db.BlockTableId, Create);
+            }
+            catch (FileNotFoundException)
+            {
+                cache.Add(name);
+                logger.LogInformation("Не найден файл определения блока \"{0}\"!", name);
+                return false;
+            }
+        }
 
         #endregion
     }
