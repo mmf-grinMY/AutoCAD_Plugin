@@ -40,6 +40,8 @@ using static Plugins.Constants;
 using Autodesk.AutoCAD.Colors;
 #endif
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Plugins.Tests")]
+
 namespace Plugins
 {
     public class Commands : IExtensionApplication
@@ -210,7 +212,7 @@ namespace Plugins
 
                 if (logger is null) throw new ArgumentNullException("Не удалось получить логгер событий", nameof(logger));
 
-                editor.WriteMessage("Загрузка плагина прошла успешно!");
+                editor.WriteMessage("Загрузка плагина прошла успешно!\n");
             }
             catch (System.Exception e)
             {
@@ -293,6 +295,7 @@ namespace Plugins
                     session.Top = long.MaxValue;
                 }
 
+                // FIXME: !!! Если на горизонте 0 объектов, команда подвисает, а при закрытии окна AutoCAD выдает критическую ошибку !!!
                 session.Run();
                 logger.LogInformation("Закончена отрисовка геометрии!");
             }
