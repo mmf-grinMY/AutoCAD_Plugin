@@ -6,15 +6,8 @@
 /packages
 /Plugins/bin
 /Plugins/obj
-/Plugins.Chr.Tests/bin
-/Plugins.Chr.Tests/obj
-/Plugins.Chr/bin
-/Plugins.Chr/obj
 /**/*.xsd
-/Plugins.Console.Old
-/Plugins.Console
-/Plugins.Tests
-/Plugins.Core.Tests
-/Plugins.sln
+/Plugins.Tests/
+/Plugins.Core.Tests/
 /Plugins/Properties/AssemblyInfo.cs
 /Plugins/ClassDiagram1.cd

@@ -35,7 +35,6 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
-using Oracle.ManagedDataAccess.Client;
 
 #if POL
 using Autodesk.AutoCAD.Colors;
@@ -731,19 +730,6 @@ namespace Plugins
             }
         }
 #endif
-        [CommandMethod("TEST_NULL")]
-        public void Test()
-        {
-            try
-            {
-                var connection = new OracleConnection(null);
-                connection.Open();
-            }
-            catch (System.Exception e) // InvalidOperationException
-            {
-                Logger.LogError(e);
-            }
-        }
     }
     sealed class NotDrawingLineException : System.Exception { }
 }
