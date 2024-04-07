@@ -48,5 +48,23 @@ namespace Plugins
             Port = port;
             Sid = sid;
         }
+        /// <summary>
+        /// Конвертация параметров подключения в строку подключения
+        /// </summary>
+        /// <returns>Строка подключения</returns>
+        public override string ToString() => 
+            new System.Text.StringBuilder()
+                .Append("Data Source=(DESCRIPTION =(ADDRESS = (PROTOCOL = TCP)(HOST = ")
+                .Append(Host)
+                .Append(")(PORT = ")
+                .Append(Port)
+                .Append("))(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = ")
+                .Append(Sid)
+                .Append(")));Password=")
+                .Append(Password)
+                .Append(";User ID=")
+                .Append(UserName)
+                .Append(";Connection Timeout = 360;")
+                .ToString();
     }
 }

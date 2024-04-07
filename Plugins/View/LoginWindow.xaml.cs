@@ -1,6 +1,5 @@
 ﻿using System.Windows;
 using System.IO;
-using System;
 
 using Newtonsoft.Json;
 
@@ -9,20 +8,10 @@ namespace Plugins.View
     /// <summary>
     /// Окно ввода параметров для подключения к БД
     /// </summary>
-    partial class LoginWindow : Window, IDisposable
+    partial class LoginWindow : Window, IResult
     {
-        #region Public Properties
-        /// <summary>
-        /// Строка подключения
-        /// </summary>
-        public ConnectionParams Params { get; private set; }
-        /// <summary>
-        /// Результат ввода информации
-        /// </summary>
-        public bool InputResult { get; private set; }
-        #endregion
+        #region Ctor
 
-        #region Ctors
         /// <summary>
         /// Создание объекта
         /// </summary>
@@ -30,43 +19,26 @@ namespace Plugins.View
         {
             InitializeComponent();
             SizeChanged += HandleSizeChanged;
-            LoginViewModel model = new LoginViewModel();
-            DataContext = model;
             Top = (SystemParameters.FullPrimaryScreenHeight - ActualHeight) / 2;
+            IsSuccess = false;
+
+            var model = new LoginViewModel();
+            DataContext = model;
             model.SaveCommand = new RelayCommand(obj =>
             {
-                string message = string.Empty;
-                if (string.IsNullOrWhiteSpace(model.UserName))
-                    message += "имя пользователя";
-                string password = passwordBox.Password;
-                if (string.IsNullOrWhiteSpace(password))
-                    message += message == string.Empty ? "пароль" : ", пароль";
-                if (string.IsNullOrWhiteSpace(model.Host))
-                    message += message == string.Empty ? "имя базы данных" : ", имя базы данных";
-                if (message != string.Empty)
-                {
-                    message = "Некорректно введено " + message;
-                    Hide();
-                    MessageBox.Show(message);
-                    ShowDialog();
-                }
-                else
-                {
-                    InputResult = true;
-                    Hide();
-                    File.WriteAllText(Constants.DbConfigPath, JsonConvert.SerializeObject(
-                        Params = new ConnectionParams(model.UserName, password, model.Host, model.Port, model.DbName)));
-                }
-            });
-            model.CancelCommand = new RelayCommand(obj => 
-            {
-                InputResult = false;
+                IsSuccess = true;
                 Hide();
+                var args = new ConnectionParams(model.UserName, passwordBox.Password, model.Host, model.Port, model.DbName);
+                File.WriteAllText(Constants.DbConfigPath, JsonConvert.SerializeObject(args));
+                Result = args.ToString();
             });
+            model.CancelCommand = new RelayCommand(obj => Hide());
         }
+
         #endregion
 
         #region Private Methods
+
         /// <summary>
         /// Изменение размера окна
         /// </summary>
@@ -78,12 +50,11 @@ namespace Plugins.View
             if (Left != left)
                 Left = left;
         }
+
         #endregion
 
-        public void Dispose()
-        {
-            Close();
-        }
+        public bool IsSuccess { get; internal set; }
+        public string Result { get; internal set; }
     }
     /// <summary>
     /// Модель предстваления для класса LoginWindow
@@ -200,5 +171,10 @@ namespace Plugins.View
         public RelayCommand CancelCommand { get; set; }
 
         #endregion
+    }
+    interface IResult
+    {
+        string Result { get; }
+        bool IsSuccess { get; }
     }
 }

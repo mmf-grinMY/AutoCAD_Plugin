@@ -35,12 +35,12 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
+using Oracle.ManagedDataAccess.Client;
 
 #if POL
 using Autodesk.AutoCAD.Colors;
 #endif
 
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Plugins.Tests")]
 
 namespace Plugins
 {
@@ -322,7 +322,7 @@ namespace Plugins
             var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
                 ?? throw new ArgumentNullException("document");
 
-            if (!OracleDbDispatcher.TryGetConnection(Logger, out OracleDbDispatcher connection)) return;
+            var connection = new OracleDbDispatcher();
 
             var editor = doc.Editor;
             var options = new PromptEntityOptions("\nВыберите объект: ");
@@ -381,7 +381,7 @@ namespace Plugins
             var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
                 ?? throw new ArgumentNullException("document");
 
-            var connection = new OracleDbDispatcher(logger);
+            var connection = new OracleDbDispatcher();
             var editor = doc.Editor;
             var options = new PromptEntityOptions("\nВыберите объект: ");
             using (var transaction = doc.TransactionManager.StartTransaction())
@@ -731,6 +731,19 @@ namespace Plugins
             }
         }
 #endif
+        [CommandMethod("TEST_NULL")]
+        public void Test()
+        {
+            try
+            {
+                var connection = new OracleConnection(null);
+                connection.Open();
+            }
+            catch (System.Exception e) // InvalidOperationException
+            {
+                Logger.LogError(e);
+            }
+        }
     }
     sealed class NotDrawingLineException : System.Exception { }
 }

@@ -6,16 +6,8 @@ namespace Plugins.View
     /// <summary>
     /// Логика взаимодействия для GorizontSelecterWindow.xaml
     /// </summary>
-    partial class GorizontSelecterWindow : Window
+    partial class GorizontSelecterWindow : Window, IResult
     {
-        /// <summary>
-        /// Выбранный горизонт
-        /// </summary>
-        public string Gorizont { get; private set; }
-        /// <summary>
-        /// Результат ввода
-        /// </summary>
-        public bool InputResult { get; private set; }
         /// <summary>
         /// Создание объекта
         /// </summary>
@@ -23,22 +15,20 @@ namespace Plugins.View
         public GorizontSelecterWindow(ObservableCollection<string> dbGorizonts)
         {
             InitializeComponent();
-            var model = new GorizontSelecterViewModel(dbGorizonts)
-            {
-                CancelCommand = new RelayCommand(obj =>
-                {
-                    InputResult = false;
-                    Hide();
-                })
-            };
+            IsSuccess = false;
+
+            var model = new GorizontSelecterViewModel(dbGorizonts);
             DataContext = model;
+            model.CancelCommand = new RelayCommand(obj => Hide());
             model.SelectCommand = new RelayCommand(obj =>
             {
-                InputResult = true;
-                Gorizont = model.Gorizonts[model.SelectedGorizont];
+                IsSuccess = true;
+                Result = model.Gorizonts[model.SelectedGorizont];
                 Hide();
             });
         }
+        public string Result { get; internal set; }
+        public bool IsSuccess { get; internal set; }
     }
     /// <summary>
     /// Модель представления для GorizontSelecterWindow.xaml

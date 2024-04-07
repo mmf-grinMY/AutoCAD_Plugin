@@ -3,7 +3,6 @@
 using System.Linq;
 
 using Autodesk.AutoCAD.DatabaseServices;
-using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace Plugins.Entities
 {

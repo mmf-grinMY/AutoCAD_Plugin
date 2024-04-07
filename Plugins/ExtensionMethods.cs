@@ -8,6 +8,8 @@ using Autodesk.AutoCAD.Geometry;
 using Newtonsoft.Json.Linq;
 
 using static Plugins.Constants;
+using Oracle.ManagedDataAccess.Client;
+using System.Windows;
 
 namespace Plugins
 {
@@ -63,7 +65,7 @@ namespace Plugins
         /// </summary>
         /// <param name="entity">Связываемый объект</param>
         /// <param name="primitive">Параметры отрисовки</param>
-        public static void AddXData(this Entity entity, Entities.Primitive primitive)
+        public static Entity AddXData(this Entity entity, Entities.Primitive primitive)
         {
             var typedValues = new List<TypedValue>
             {
@@ -82,6 +84,8 @@ namespace Plugins
             }
 
             entity.XData = new ResultBuffer(typedValues.ToArray());
+
+            return entity;
         }
         /// <summary>
         /// Установка свойств для объекта Polyline
@@ -167,9 +171,28 @@ namespace Plugins
             if (primitive is null)
                 throw new ArgumentNullException(nameof(primitive));
 
-            entity.AddXData(primitive);
-            record.AppendEntity(entity);
+            record.AppendEntity(entity.AddXData(primitive));
             transaction.AddNewlyCreatedDBObject(entity, true);
+        }
+        /// <summary>
+        /// Преобразование json-строки в удобочитаемый вид
+        /// </summary>
+        /// <param name="json">исходная строка в формате json</param>
+        /// <returns>Преобразованная строка</returns>
+        public static string JsonNormalize(this string json) => json.Substring(1, json.Length - 1).Replace(',', '\n');
+        /// <summary>
+        /// Получение текста ошибки по ее коду
+        /// </summary>
+        /// <param name="e">Ошибка подключения</param>
+        /// <returns>Текстовое содержимое ошибки</returns>
+        public static string GetCodeDescription(this OracleException e)
+        {
+            switch (e.Number)
+            {
+                case 12154: return "Неправильно указаны данные подключения к базе данных!";
+                case 1017: return "Неправильный логин или пароль!";
+                default: return "При попытки подключения произошла ошибка! Проверьте введенные данные и повторите попытку!";
+            }
         }
     }
 }

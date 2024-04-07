@@ -14,3 +14,7 @@
 /Plugins.Console.Old
 /Plugins.Console
 /Plugins.Tests
+/Plugins.Core.Tests
+/Plugins.sln
+/Plugins/Properties/AssemblyInfo.cs
+/Plugins/ClassDiagram1.cd
