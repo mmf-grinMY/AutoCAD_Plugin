@@ -6,10 +6,6 @@ using System.Threading;
 using System.Windows;
 using System;
 
-using Oracle.ManagedDataAccess.Client;
-
-using static Plugins.Constants;
-
 namespace Plugins.View
 {
     /// <summary>
@@ -53,7 +49,7 @@ namespace Plugins.View
         /// <summary>
         /// Завершение операции чтения из БД Oracle
         /// </summary>
-        bool isReadEnded;
+        public bool isReadEnded;
         /// <summary>
         /// Прогресс чтения объектов
         /// </summary>
@@ -73,7 +69,7 @@ namespace Plugins.View
         /// <summary>
         /// Количество прочитанных объектов
         /// </summary>
-        uint readPosition;
+        public uint readPosition;
         /// <summary>
         /// Количество записанных объектов
         /// </summary>
@@ -109,66 +105,6 @@ namespace Plugins.View
             cts.Cancel();
             ProgressVisibility = Visibility.Collapsed;
             IsStopedVisibility = Visibility.Visible;
-        }
-        /// <summary>
-        /// Чтение данных из БД Oracle
-        /// </summary>
-        /// <param name="token">Токен отмены асинхронной операции</param>
-        async void ReadAsync(CancellationToken token)
-        {
-            await Task.Run(async () =>
-            {
-                uint percent = readPosition * 100 / totalCount;
-                OracleDataReader reader = null;
-
-                try
-                {
-                    reader = session.DrawDataReader(readPosition);
-
-                    while (reader.Read())
-                    {
-                        if (token.IsCancellationRequested) return;
-
-                        while (queue.Count > QueueLimit) await Task.Delay(ReaderSleepTime);
-
-                        queue.Enqueue(new Entities.Primitive(reader["geowkt"].ToString(),
-                                                          reader["drawjson"].ToString(),
-                                                          reader["paramjson"].ToString(),
-                                                          reader["layername"] + " | " + reader["sublayername"],
-                                                          reader["systemid"].ToString(),
-                                                          reader["basename"].ToString(),
-                                                          reader["childfields"].ToString(),
-                                                          reader["rn"].ToString(),
-                                                          reader["objectguid"].ToString()));
-
-                        uint currentPrecent = ++readPosition * 100 / totalCount;
-
-                        if (currentPrecent > percent)
-                        {
-                            percent = currentPrecent;
-                            ReadProgress = percent;
-                        }
-                    }
-
-                    isReadEnded = true;
-                }
-                catch (OracleException e)
-                {
-                    if (e.Message == "ORA-03135: Connection lost contact")
-                        logger.LogError("Разорвано соединение с БД!");
-                    else
-                        throw;
-                }
-                catch (InvalidOperationException e)
-                {
-                    if (e.Message != "Invalid operation on a closed object")
-                        throw;
-                }
-                finally
-                {
-                    reader?.Dispose();
-                }
-            }, token);
         }
         /// <summary>
         /// Запись примитивов на чертеж
@@ -210,7 +146,7 @@ namespace Plugins.View
             IsStopedVisibility = Visibility.Collapsed;
             cts?.Dispose();
             cts = new CancellationTokenSource();
-            ReadAsync(cts.Token);
+            connection.ReadAsync(cts.Token, queue, this, session);
             WriteAsync(cts.Token);
         }
 
@@ -223,10 +159,11 @@ namespace Plugins.View
         /// </summary>
         /// <param name="s">Текущая сессия работы</param>
         /// <param name="log">Логер событий</param>
-        public DrawInfoViewModel(Session s, ILogger log)
+        public DrawInfoViewModel(Session s, ILogger log, OracleDbDispatcher dispatcher)
         {
             logger = log;
             session = s;
+            connection = dispatcher;
 
             CancelCommand = new RelayCommand(obj => CancelDrawing());
             StopCommand = new RelayCommand(obj => StopDrawing());
@@ -247,6 +184,7 @@ namespace Plugins.View
 
             logger.LogInformation("Запущена отрисовка геометрии!");
         }
+        readonly OracleDbDispatcher connection;
 
         #endregion
 

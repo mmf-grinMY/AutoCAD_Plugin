@@ -93,8 +93,6 @@ namespace Plugins
             connection = new OracleDbDispatcher(
 #if FAST_DEBUG
             "Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;", "K305F"
-#else
-            logger
 #endif
             );
             doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
@@ -135,8 +133,6 @@ namespace Plugins
         /// Количество примитивов на горизонте, доступных для отрисовки
         /// </summary>
         public uint PrimitivesCount => System.Convert.ToUInt32(connection.Count);
-
-
         public long Left { get; set; }
         public long Right { get; set; }
         public long Top { get; set; }
@@ -153,10 +149,6 @@ namespace Plugins
         {
             connection.Dispose();
         }
-        /// <summary>
-        /// Читатель объектов для отрисовки
-        /// </summary>
-        public OracleDataReader DrawDataReader(uint position) => connection.GetDrawParams(position, this);
         /// <summary>
         /// Нарисовать примитив
         /// </summary>
@@ -185,7 +177,7 @@ namespace Plugins
         /// </summary>
         public void Run()
         {
-            var model = new DrawInfoViewModel(this, logger);
+            var model = new DrawInfoViewModel(this, logger, connection);
             window = new DrawInfoWindow() { DataContext = model };
             window.Closed += model.HandleOperationCancel;
             if (!isClosed)

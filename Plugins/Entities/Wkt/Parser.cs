@@ -23,7 +23,7 @@ namespace Plugins.Entities.Wkt
         /// </summary>
         static Parser()
         {
-            line = new Regex(@"\((\d+(\.\d{0,3})? \d+(\.\d{0,3})?,( ?))+\d+(\.\d{0,3})? \d+(\.\d{0,3})?\)");
+            line = new Regex(@"\((\d+(\.\d{0,3})? \d+(\.\d{0,3})?,( ?))*\d+(\.\d{0,3})? \d+(\.\d{0,3})?\)");
             point = new Regex(@"\d+(\.\d{0,3})? \d+(\.\d{0,3})?");
         }
         /// <summary>
