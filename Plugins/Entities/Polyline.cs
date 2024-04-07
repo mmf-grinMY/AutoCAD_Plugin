@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Plugins.Logging;
+
 using System.Linq;
 
 using Autodesk.AutoCAD.DatabaseServices;
@@ -11,33 +12,42 @@ namespace Plugins.Entities
     /// </summary>
     sealed class Polyline : Entity
     {
+        readonly IDbDispatcher dispatcher;
+
         /// <summary>
         /// Создание объекта
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
-        /// <param name="logger">Логер событий</param>
-        public Polyline(Primitive primitive, Logging.ILogger logger) : base(primitive, logger) { }
-        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
+        /// <param name="dispatcher">Диспетчер работы с БД</param>
+        public Polyline(Primitive primitive, IDbDispatcher dispatcher) : base(primitive)
         {
-            base.Draw(transaction, table, record);
+            if (dispatcher is null)
+                throw new System.ArgumentNullException(nameof(dispatcher));
 
-            Autodesk.AutoCAD.DatabaseServices.Polyline[] polylines = null;
+            this.dispatcher = dispatcher;
+        }
+        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record, ILogger logger)
+        {
+            base.Draw(transaction, table, record, logger);
 
-            try
+            Autodesk.AutoCAD.DatabaseServices.Polyline[] lines = Wkt.Parser.ParsePolyline(primitive.Geometry);
+
+            if (!lines.Any())
             {
-                polylines = Wkt.Parser.ParsePolyline(primitive.Geometry);
+                var geometry = dispatcher.GetLongGeometry(primitive);
+                lines = Wkt.Parser.ParsePolyline(geometry);
 
-                if (polylines is null || !polylines.Any())
-                    throw new ArgumentException(primitive.Geometry);
+                // FIXME: ??? Необоходима ли эта проверка ???
+                if (!lines.Any())
+                {
+                    logger.LogWarning("Для объекта {0} не смогла быть прочитана геометрия!", primitive.Guid);
+                    return;
+                }
             }
-            catch (ArgumentException)
-            {
 
-            }
-
-            if (polylines.Length == 1)
+            if (lines.Length == 1)
             {
-                polylines[0]
+                lines[0]
                     .SetDrawSettings(primitive.DrawSettings, primitive.LayerName)
                     .AppendToDb(transaction, record, primitive);
             }
@@ -47,7 +57,7 @@ namespace Plugins.Entities
                 var id = table.Add(block);
                 transaction.AddNewlyCreatedDBObject(block, true);
 
-                foreach (var line in polylines)
+                foreach (var line in lines)
                 {
                     line
                         .SetDrawSettings(primitive.DrawSettings, primitive.LayerName)

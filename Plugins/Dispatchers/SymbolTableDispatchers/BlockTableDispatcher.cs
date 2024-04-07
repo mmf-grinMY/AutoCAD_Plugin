@@ -9,7 +9,7 @@ namespace Plugins.Dispatchers
     /// <summary>
     /// Диспетчер таблицы блоков
     /// </summary>
-    class BlockTableDispatcher : SymbolTableDispatcher
+    class BlockTableDispatcher : SymbolTableDispatcher, ITableDispatcher
     {
         #region Ctors
 
@@ -84,7 +84,7 @@ namespace Plugins.Dispatchers
 
         #region Public Methods
 
-        public override bool TryAdd(string name)
+        public bool TryAdd(string name)
         {
             try
             {

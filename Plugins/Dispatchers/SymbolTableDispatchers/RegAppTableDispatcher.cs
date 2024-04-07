@@ -2,7 +2,7 @@
 
 namespace Plugins.Dispatchers
 {
-    class RegAppTableDispatcher : SymbolTableDispatcher
+    class RegAppTableDispatcher : SymbolTableDispatcher, ITableDispatcher
     {
         /// <summary>
         /// Создание объекта
@@ -10,6 +10,6 @@ namespace Plugins.Dispatchers
         /// <param name="database">Внeтренняя БД AutoCAD</param>
         /// <param name="log">Логгер событий</param>
         public RegAppTableDispatcher(Database database, Logging.ILogger log) : base(database, log) { }
-        public override bool TryAdd(string name) => TryAdd<RegAppTable, RegAppTableRecord>(name, db.RegAppTableId, null);
+        public bool TryAdd(string name) => TryAdd<RegAppTable, RegAppTableRecord>(name, db.RegAppTableId, null);
     }
 }

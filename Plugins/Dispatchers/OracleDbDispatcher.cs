@@ -14,7 +14,10 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace Plugins
 {
-    class OracleDbDispatcher : IDisposable
+    /// <summary>
+    ///  Диспетчер для работы с БД Oracle
+    /// </summary>
+    class OracleDbDispatcher : IDbDispatcher
     {
         #region Private Fields
 
@@ -151,26 +154,6 @@ namespace Plugins
             }
         }
         /// <summary>
-        /// Получение характеристик отрисвоки объекта по его Id
-        /// </summary>
-        /// <param name="id">Id объекта в БД Oracle</param>
-        /// <returns>Строковое представление характеристик отрисовки</returns>
-        public string GetObjectJsonById(int id)
-        {
-            var command = string.Format("SELECT * FROM (SELECT a.drawjson, a.paramjson, ROWNUM AS rn FROM k{0}_trans_clone a " + 
-                "INNER JOIN k{0}_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid WHERE a.geowkt IS NOT NULL) WHERE rn = {1}", gorizont, id);
-
-            using (var reader = new OracleCommand(command, connection).ExecuteReader())
-            {
-                if (reader.Read())
-                {
-                    return reader["drawjson"].ToString().JsonNormalize() + "\n\n" + reader["paramjson"].ToString().JsonNormalize();
-                }
-            }
-
-            return string.Empty;
-        }
-        /// <summary>
         /// Получение геометрии больших объектов
         /// </summary>
         /// <param name="primitive">Исходный примитив</param>
@@ -191,23 +174,26 @@ namespace Plugins
 
             return builder.ToString();
         }
-
-        #endregion
-
+        /// <summary>
+        /// Логика чтения данных о примитиве из БД
+        /// </summary>
+        /// <param name="token">Токен остановки потока</param>
+        /// <param name="queue">Очередь на запись</param>
+        /// <param name="model">Логика работы процесса записи</param>
+        /// <param name="session">Текущая сессия работы команды</param>
         public async void ReadAsync(CancellationToken token, ConcurrentQueue<Primitive> queue, DrawInfoViewModel model, Session session)
         {
-            uint readPosition = model.readPosition;
-            uint totalCount = Count;
-
             await Task.Run(async () =>
             {
-                uint percent = readPosition * 100 / totalCount;
-
-                string command;
+                var readPosition = model.readPosition;
+                var totalCount = Count;
+                var percent = readPosition * 100 / totalCount;
+                var command = string.Empty;
 
                 using (var stream = new StreamReader(Path.Combine(Constants.AssemblyPath, "draw.sql")))
                 {
-                    command = string.Format(stream.ReadToEnd(), gorizont, readPosition, session.Right, session.Left, session.Top, session.Bottom);
+                    command = string.Format(stream.ReadToEnd(), gorizont, readPosition,
+                        session.Right, session.Left, session.Top, session.Bottom);
                 }
 
                 using (var reader = new OracleCommand(command, connection).ExecuteReader())
@@ -228,7 +214,7 @@ namespace Plugins
                                                           reader["rn"].ToString(),
                                                           reader["objectguid"].ToString()));
 
-                        uint currentPrecent = ++readPosition * 100 / totalCount;
+                        var currentPrecent = ++readPosition * 100 / totalCount;
 
                         if (currentPrecent > percent)
                         {
@@ -242,7 +228,12 @@ namespace Plugins
                 }
             }, token);
         }
+
+        #endregion
     }
+    /// <summary>
+    /// Класс-помощник для получения данных из БД
+    /// </summary>
     static class DbHelper
     {
         static string GetResult<T>(T window) where T : Window, IResult
@@ -262,5 +253,17 @@ namespace Plugins
         }
         public static string ConnectionStr => GetResult(new LoginWindow());
         public static string SelectGorizont(ObservableCollection<string> gorizonts) => GetResult(new GorizontSelecterWindow(gorizonts));
+    }
+    /// <summary>
+    /// Диспетчер для работы с БД
+    /// </summary>
+    interface IDbDispatcher : IDisposable
+    {
+        uint Count { get; }
+        ObservableCollection<string> Gorizonts { get; }
+        string GetExternalDbLink(string baseName);
+        System.Data.DataTable GetDataTable(string command);
+        string GetLongGeometry(Primitive primitive);
+        void ReadAsync(CancellationToken token, ConcurrentQueue<Primitive> queue, DrawInfoViewModel model, Session session);
     }
 }

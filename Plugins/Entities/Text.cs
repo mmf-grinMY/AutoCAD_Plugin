@@ -18,15 +18,15 @@ namespace Plugins.Entities
         /// <param name="primitive">Параметры отрисовки</param>
         /// <param name="logger">Логер событий</param>
         /// <param name="style">Стиль отрисовки</param>
-        public Text(Primitive primitive, Logging.ILogger logger, MyEntityStyle style) : base(primitive, logger, style) { }
+        public Text(Primitive primitive, MyEntityStyle style) : base(primitive, style) { }
 
         #endregion
 
         #region Protected Methods
 
-        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
+        protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record, Logging.ILogger logger)
         {
-            base.Draw(transaction, table, record);
+            base.Draw(transaction, table, record, logger);
 
             const string FONT_SIZE = "FontSize";
             const string ANGLE = "Angle";

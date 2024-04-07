@@ -9,19 +9,6 @@ namespace Plugins.Entities
     /// </summary>
     abstract class Entity
     {
-        #region Protected Fields
-
-        /// <summary>
-        /// Логер событий
-        /// </summary>
-        protected readonly ILogger logger;
-        /// <summary>
-        /// Ключевое слово
-        /// </summary>
-        protected readonly string COLOR = "Color";
-
-        #endregion
-
         #region Public Fields
 
         /// <summary>
@@ -31,19 +18,15 @@ namespace Plugins.Entities
 
         #endregion
 
-        #region Ctors
+        #region Ctor
 
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="prim">Параметры отрисовки объекта</param>
-        /// <param name="log">Логер событий</param>
+        /// <param name="primitive">Параметры отрисовки объекта</param>
         /// <exception cref="System.ArgumentNullException"></exception>
-        public Entity(Primitive prim, ILogger log)
-        {
-            primitive = prim ?? throw new System.ArgumentNullException(nameof(prim)); ;
-            logger = log ?? throw new System.ArgumentNullException(nameof(log)); ;
-        }
+        public Entity(Primitive primitive) =>
+            this.primitive = primitive ?? throw new System.ArgumentNullException(nameof(primitive));
 
         #endregion
 
@@ -55,8 +38,9 @@ namespace Plugins.Entities
         /// <param name="transaction">Текщуая транзакия в БД AutoCAD</param>
         /// <param name="table">Таблица блоков</param>
         /// <param name="record">Текущая запись в таблицу блоков</param>
+        /// <param name="logger">Логер событий</param>
         /// <exception cref="System.ArgumentNullException"></exception>
-        protected virtual void Draw(Transaction transaction, BlockTable table, BlockTableRecord record)
+        protected virtual void Draw(Transaction transaction, BlockTable table, BlockTableRecord record, ILogger logger)
         {
             if (transaction is null)
                 throw new System.ArgumentNullException(nameof(transaction));
@@ -66,6 +50,9 @@ namespace Plugins.Entities
 
             if (record is null)
                 throw new System.ArgumentNullException(nameof(record));
+
+            if (logger is null)
+                throw new System.ArgumentNullException(nameof(logger));
         }
 
         #endregion
@@ -76,11 +63,15 @@ namespace Plugins.Entities
         /// Рисование объекта
         /// </summary>
         /// <param name="db">Текущая БД AutoCAD</param>
+        /// <param name="logger">Логер событий</param>
         /// <exception cref="System.ArgumentNullException"></exception>
-        public void AppendToDrawing(Database db) 
+        public void AppendToDrawing(Database db, ILogger logger) 
         {
             if (db is null)
                 throw new System.ArgumentNullException(nameof(db));
+
+            if (logger is null)
+                throw new System.ArgumentNullException(nameof(logger));
 
             using (var transaction = new MyTransaction(db, logger))
             {
@@ -109,11 +100,10 @@ namespace Plugins.Entities
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="prim">Рисуемый примитив</param>
-        /// <param name="log">Логер событий</param>
+        /// <param name="primitive">Рисуемый примитив</param>
         /// <param name="style">Стиль отрисовки</param>
         /// <exception cref="System.ArgumentNullException"></exception>
-        public StyledEntity(Primitive prim, ILogger log, MyEntityStyle style) : base(prim, log)
+        public StyledEntity(Primitive primitive, MyEntityStyle style) : base(primitive)
             => this.style = style ?? throw new System.ArgumentNullException(nameof(style));
 
         #endregion

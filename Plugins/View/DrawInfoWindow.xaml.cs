@@ -96,6 +96,7 @@ namespace Plugins.View
             StopDrawing();
             logger.LogInformation("Текущая позиция чтения " + readPosition.ToString());
             logger.LogInformation("Текущая позиция записи " + writePosition.ToString());
+            session.Close();
         }
         /// <summary>
         /// Логика остановки работы
@@ -159,7 +160,7 @@ namespace Plugins.View
         /// </summary>
         /// <param name="s">Текущая сессия работы</param>
         /// <param name="log">Логер событий</param>
-        public DrawInfoViewModel(Session s, ILogger log, OracleDbDispatcher dispatcher)
+        public DrawInfoViewModel(Session s, ILogger log, IDbDispatcher dispatcher)
         {
             logger = log;
             session = s;
@@ -184,7 +185,7 @@ namespace Plugins.View
 
             logger.LogInformation("Запущена отрисовка геометрии!");
         }
-        readonly OracleDbDispatcher connection;
+        readonly IDbDispatcher connection;
 
         #endregion
 

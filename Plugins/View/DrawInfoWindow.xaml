@@ -5,18 +5,21 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
         xmlns:local="clr-namespace:Plugins.View"
         d:DataContext="{d:DesignInstance local:DrawInfoViewModel}"
-        mc:Ignorable="d">
+        WindowStyle="None"
+        mc:Ignorable="d"
+        MinWidth="200"
+        MinHeight="100">
     <StackPanel>
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
 
             <Grid.RowDefinitions>
                 <RowDefinition/>
                 <RowDefinition/>
-                 <RowDefinition/>
+                <RowDefinition/>
             </Grid.RowDefinitions>
 
             <Grid.Resources>
@@ -32,30 +35,16 @@
                 </Style>
             </Grid.Resources>
 
-            <TextBlock Text="Прочтено:"/>
+            <TextBlock Text="Прочтено"/>
             <ProgressBar
                 Value="{Binding ReadProgress}"/>
             <TextBlock
                 Grid.Row="1"
-                Text="Записано:"/>
+                Text="Записано"/>
             <ProgressBar
                 Value="{Binding WriteProgress}"
                 Grid.Row="1"/>
-            <TextBlock
-                Grid.Row="2"
-                Text="В очереди:"/>
-            <!--TODO: Переделть текстовое поле в динамический график наподобие 
-            графика отслеживания загруженности процессора в диспетчере задач-->
-            <TextBlock
-                Text="{Binding QueueCount}"
-                Grid.Column="1"
-                Grid.Row="2"/>
         </Grid>
-        <TextBlock
-            FontSize="16"
-            HorizontalAlignment="Center"
-            Visibility="{Binding IsStopedVisibility}"
-            Text="Отрисовка прекращена!"/>
         <StackPanel Orientation="Horizontal">
             <Button
                 Visibility="{Binding ProgressVisibility}"

@@ -1,6 +1,4 @@
-﻿// #define FAST_DEBUG
-
-using Plugins.Dispatchers;
+﻿using Plugins.Dispatchers;
 using Plugins.Entities;
 using Plugins.Logging;
 using Plugins.View;
@@ -10,8 +8,6 @@ using System;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-
-using Oracle.ManagedDataAccess.Client;
 
 using static Plugins.Constants;
 
@@ -35,15 +31,16 @@ namespace Plugins
         /// <summary>
         /// Диспетчер слоев AutoCAD
         /// </summary>
-        readonly SymbolTableDispatcher layerDispatcher;
+        readonly ITableDispatcher layerDispatcher;
         /// <summary>
         /// Создатель блоков AutoCAD
         /// </summary>
-        readonly SymbolTableDispatcher blocksFactory;
+        readonly ITableDispatcher blockDispatcher;
+        readonly ITableDispatcher regAppDispatcher;
         /// <summary>
         /// Диспетчер подключения к БД Oracle
         /// </summary>
-        readonly OracleDbDispatcher connection;
+        readonly IDbDispatcher connection;
         /// <summary>
         /// Внутренняя БД AutoCAD
         /// </summary>
@@ -62,21 +59,14 @@ namespace Plugins
         #region Private Methods
 
         /// <summary>
-        /// Получить запись из таблицы RegAppTable
+        /// Добавить запись в RegAppTable
         /// </summary>
-        /// <param name="db">Текущая БД документа AutoCAD</param>
-        /// <param name="logger">Логер событий</param>
-        /// <returns>Действие получения записи из таблицы RegAppTable</returns>
+        /// <param name="name">Регистрируемое имя</param>
         /// <exception cref="InvalidOperationException"></exception>
-        Action<string> GetRegAppAction(Database db, ILogger logger)
+        void RegApp(string name)
         {
-            var regAppTableDispatcher = new RegAppTableDispatcher(db, logger);
-
-            return (string name) =>
-            {
-                if (!regAppTableDispatcher.TryAdd(name))
-                    throw new InvalidOperationException("Не удалось сохранить RegApp " + name + "!");
-            };
+            if (!regAppDispatcher.TryAdd(name))
+                throw new InvalidOperationException("Не удалось сохранить RegApp " + name + "!");
         }
 
         #endregion
@@ -87,6 +77,8 @@ namespace Plugins
         /// Создание объекта
         /// </summary>
         /// <param name="logger">Логер событий</param>
+        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
         public Session(ILogger logger)
         {
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -99,16 +91,15 @@ namespace Plugins
                 ?? throw new ArgumentNullException(nameof(doc));
             db = doc.Database ?? throw new ArgumentNullException(nameof(db));
 
+            regAppDispatcher = new RegAppTableDispatcher(db, this.logger);
             layerDispatcher = new LayerTableDispatcher(db, this.logger);
-            blocksFactory = new BlockTableDispatcher(db, this.logger);
-            factory = new EntitiesFactory(blocksFactory, this.logger, connection);
+            blockDispatcher = new BlockTableDispatcher(db, this.logger);
+            factory = new EntitiesFactory(blockDispatcher, connection);
 
-            var addRegApp = GetRegAppAction(db, logger);
-
-            addRegApp(SYSTEM_ID);
-            addRegApp(BASE_NAME);
-            addRegApp(LINK_FIELD);
-            addRegApp(OBJ_ID);
+            RegApp(SYSTEM_ID);
+            RegApp(BASE_NAME);
+            RegApp(LINK_FIELD);
+            RegApp(OBJ_ID);
 
             // TODO: Вынести в конфигурационный файл
             const string LINE_TYPE_SOURCE = "acad.lin";
@@ -147,7 +138,7 @@ namespace Plugins
         /// </summary>
         public void Dispose()
         {
-            connection.Dispose();
+            connection?.Dispose();
         }
         /// <summary>
         /// Нарисовать примитив
@@ -159,8 +150,7 @@ namespace Plugins
             {
                 try
                 {
-                    var entity = factory.Create(primitive);
-                    entity.AppendToDrawing(db);
+                    factory.Create(primitive).AppendToDrawing(db, logger);
                 }
                 catch (Exception e)
                 {
