@@ -1,6 +1,6 @@
 ﻿using Plugins.Logging;
 
-using System.Linq;
+using System.Collections.Generic;
 
 using Autodesk.AutoCAD.DatabaseServices;
 
@@ -47,7 +47,6 @@ namespace Plugins.Entities
 
         #region Protected Methods
         
-        // TODO: Раздробить метод
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record, ILogger logger)
         {
             base.Draw(transaction, table, record, logger);
@@ -57,7 +56,7 @@ namespace Plugins.Entities
             const string PAT_SCALE = "PatScale";
             const string BRUSH_COLOR = "BrushColor";
 
-            var dictionary = loader.Load(primitive.DrawSettings);
+            IDictionary<string, string> dictionary;
 
             double GetValue(string key)
             {
@@ -67,35 +66,23 @@ namespace Plugins.Entities
                 return dictionary.ContainsKey(key) ? dictionary[key].ToDouble() : 1.0;
             }
 
-            var lines = Wkt.Parser.ParsePolyline(primitive.Geometry);
-
-            if (!lines.Any())
-            {
-                var geometry = dispatcher.GetLongGeometry(primitive);
-                lines = Wkt.Parser.ParsePolyline(geometry);
-
-                // FIXME: ??? Необоходима ли эта проверка ???
-                if (!lines.Any())
-                {
-                    logger.LogWarning("Для объекта {0} не смогла быть прочитана геометрия!", primitive.Guid);
-                    return;
-                }
-            }
+            var lines = DbHelper.Parse(dispatcher, primitive);
 
             if (lines[0].Area == 0)
                 return;
+
+            dictionary = loader.Load(primitive.DrawSettings);
 
             if (dictionary is null)
             {
                 foreach (var line in lines)
                 {
-                    line.SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
+                    line.Append(transaction, record, primitive);
                 }
 
                 return;
             }
 
-            // TODO: Вынести прозрачность заливки как конфигурационный параметр
             var hatch = new Hatch
             {
                 PatternScale = style.scale * GetValue(PAT_SCALE),
@@ -128,7 +115,7 @@ namespace Plugins.Entities
             var collection = new ObjectIdCollection();
 
             hatch.Associative = true;
-            lines[0].SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
+            lines[0].Append(transaction, record, primitive);
             collection.Add(lines[0].ObjectId);
 
             hatch.AppendLoop(HatchLoopTypes.Default, collection);
@@ -136,7 +123,7 @@ namespace Plugins.Entities
             for (int i = 1; i < lines.Length; i++)
             {
                 collection.Clear();
-                lines[i].SetDrawSettings(primitive.DrawSettings, primitive.LayerName).AppendToDb(transaction, record, primitive);
+                lines[i].Append(transaction, record, primitive);
                 collection.Add(lines[i].ObjectId);
                 hatch.AppendLoop(HatchLoopTypes.Default, collection);
             }
@@ -144,6 +131,6 @@ namespace Plugins.Entities
             hatch.EvaluateHatch(true);
         }
 
-#endregion
+        #endregion
     }
 }

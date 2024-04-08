@@ -7,6 +7,8 @@ namespace Plugins.Logging
     /// </summary>
     sealed class FileLogger : ILogger
     {
+        #region Private Fields
+
         /// <summary>
         /// Объект для синхронизации потоков
         /// </summary>
@@ -15,16 +17,30 @@ namespace Plugins.Logging
         /// Расположение файла логов
         /// </summary>
         readonly string filePath;
+
+        #endregion
+
+        #region Ctor
+
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="path">Расположение файла логов</param>
-        public FileLogger(string path, bool logOverwrite = true)
+        /// <param name="name">Расположение файла логов</param>
+        public FileLogger(string name, bool logOverwrite = true)
         {
-            filePath = path;
+            var root = Path.Combine(Constants.AssemblyPath, "Logs");
+
+            if (!Directory.Exists(root)) Directory.CreateDirectory(root);
+
+            filePath = Path.Combine(root, name);
 
             if (logOverwrite && File.Exists(filePath)) File.Delete(filePath);
         }
+
+        #endregion
+
+        #region Public Methods
+
         public void Log(LogLevel level, string message, System.Exception ex)
         {
             lock (lockObj)
@@ -60,5 +76,7 @@ namespace Plugins.Logging
                 }
             }
         }
+
+        #endregion
     }
 }

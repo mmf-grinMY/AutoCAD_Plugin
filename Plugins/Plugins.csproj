@@ -150,13 +150,16 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Dispatchers\DbHelper.cs" />
     <Compile Include="Dispatchers\HatchPatternLoader.cs" />
+    <Compile Include="Dispatchers\IDbDispatcher.cs" />
     <Compile Include="Dispatchers\ITableDispatcher.cs" />
     <Compile Include="Dispatchers\Session.cs" />
     <Compile Include="Dispatchers\SymbolTableDispatchers\BlockTableDispatcher.cs" />
     <Compile Include="Dispatchers\SymbolTableDispatchers\LayerTableDispatcher.cs" />
     <Compile Include="Dispatchers\SymbolTableDispatchers\RegAppTableDispatcher.cs" />
     <Compile Include="Entities\MyEntityStyle.cs" />
+    <Compile Include="Entities\PolylineExtension.cs" />
     <Compile Include="Entities\Wkt\Parser.cs" />
     <Compile Include="Logging\File\FileLogger.cs" />
     <Compile Include="Logging\ILogging.cs" />

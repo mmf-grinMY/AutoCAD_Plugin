@@ -1,0 +1,12 @@
+{
+    "linetype" : {
+        "source" : "acad.lin",
+        "linetypes" : [
+            "MMP_2"
+        ]
+    },
+    "queue" : {
+        "limit" : 1000,
+        "sleep" : 2000
+    }
+}

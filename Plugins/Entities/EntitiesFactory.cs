@@ -70,10 +70,14 @@ namespace Plugins.Entities
         /// </summary>
         /// <param name="primitive">Параметры отрисовки</param>
         /// <returns>Объект отрисовки</returns>
-        /// <exception cref="NotImplementedException">Возникает при невозможности отрисовки объектов типа Polyline</exception>
         /// <exception cref="ArgumentException">Возникает при отрисовке неизвестных геометрий</exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="NotImplementedException">Возникает при невозможности отрисовки объектов типа Polyline</exception>
         public Entity Create(Primitive primitive)
         {
+            if (primitive is null)
+                throw new ArgumentNullException(nameof(primitive));
+
             switch (primitive.DrawSettings.Value<string>("DrawType"))
             {
                 case "Polyline":

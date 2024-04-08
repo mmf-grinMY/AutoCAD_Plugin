@@ -6,9 +6,11 @@
         xmlns:local="clr-namespace:Plugins.View"
         d:DataContext="{d:DesignInstance local:DrawInfoViewModel}"
         WindowStyle="None"
+        ResizeMode="NoResize"
         mc:Ignorable="d"
-        MinWidth="200"
-        MinHeight="100">
+        WindowStartupLocation="CenterScreen"
+        MaxWidth="280"
+        MaxHeight="80">
     <StackPanel>
         <Grid>
             <Grid.ColumnDefinitions>
@@ -31,7 +33,7 @@
                 <Style TargetType="{x:Type ProgressBar}">
                     <Setter Property="Grid.Column" Value="1"/>
                     <Setter Property="MinWidth" Value="200"/>
-                    <Setter Property="Margin" Value="0 4"/>
+                    <Setter Property="Margin" Value="4 4"/>
                 </Style>
             </Grid.Resources>
 
@@ -45,12 +47,13 @@
                 Value="{Binding WriteProgress}"
                 Grid.Row="1"/>
         </Grid>
-        <StackPanel Orientation="Horizontal">
-            <Button
-                Visibility="{Binding ProgressVisibility}"
-                Command="{Binding CancelCommand}"
-                Margin="4"
-                Content="Отмена"/>
+        <Button
+            HorizontalAlignment="Stretch"
+            Visibility="{Binding ProgressVisibility}"
+            Command="{Binding CancelCommand}"
+            Margin="4"
+            Content="Отмена"/>
+        <!--<StackPanel Orientation="Horizontal">
             <Button
                 Margin="4"
                 Content="Остановить"
@@ -59,6 +62,6 @@
                 Margin="4"
                 Content="Продолжить"
                 Command="{Binding ContinueCommand}"/>
-        </StackPanel>
+        </StackPanel>-->
     </StackPanel>
 </Window>

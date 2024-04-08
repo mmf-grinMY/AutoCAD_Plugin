@@ -30,26 +30,11 @@ namespace Plugins.Entities
         {
             base.Draw(transaction, table, record, logger);
 
-            Autodesk.AutoCAD.DatabaseServices.Polyline[] lines = Wkt.Parser.ParsePolyline(primitive.Geometry);
-
-            if (!lines.Any())
-            {
-                var geometry = dispatcher.GetLongGeometry(primitive);
-                lines = Wkt.Parser.ParsePolyline(geometry);
-
-                // FIXME: ??? Необоходима ли эта проверка ???
-                if (!lines.Any())
-                {
-                    logger.LogWarning("Для объекта {0} не смогла быть прочитана геометрия!", primitive.Guid);
-                    return;
-                }
-            }
+            var lines = DbHelper.Parse(dispatcher, primitive);
 
             if (lines.Length == 1)
             {
-                lines[0]
-                    .SetDrawSettings(primitive.DrawSettings, primitive.LayerName)
-                    .AppendToDb(transaction, record, primitive);
+                lines[0].Append(transaction, record, primitive);
             }
             else
             {
@@ -59,9 +44,7 @@ namespace Plugins.Entities
 
                 foreach (var line in lines)
                 {
-                    line
-                        .SetDrawSettings(primitive.DrawSettings, primitive.LayerName)
-                        .AppendToDb(transaction, block, primitive);
+                    line.Append(transaction, block, primitive);
                 }
 
                 new BlockReference(new Point3d(0, 0, 0), id)

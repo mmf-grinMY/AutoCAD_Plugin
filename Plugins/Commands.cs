@@ -1,28 +1,7 @@
-﻿// TODO: Добавить в окно мониторинга за процессом отрисовки график заполнения очереди
-
-// TODO: Добавить фильтр для выборки только определенных слоев
-
-// TODO: Добавить панель со слоями как в MapManager
-
-// TODO: Сделать нормальное масштабирование
-
-// TODO: Сделать ограничение на отрисовку в одном чертеже только одного горизонта
-
-// TODO: В случае неудачного подключения плагина формировать отчет о неудавшихся операциях в процессе загрузки
-
-// TODO: Изменить модель чтения на ленивую
-//       Запоминать текущую позицию и запускать читателя читать данные с текущей позиции с определенным количеством
-//       только когда понадобятся новые данные
-
-// #define POL // Команда рисования полилинии
-
-#define FAST_DEBUG // Быстрая проверка на 305 горизонте
-
-using Plugins.Logging;
+﻿using Plugins.Logging;
 using Plugins.View;
 
 using System.Collections.Generic;
-using System.Text;
 using System;
 
 using Autodesk.AutoCAD.ApplicationServices;
@@ -32,23 +11,12 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
-
-#if POL
-using Autodesk.AutoCAD.Colors;
-#endif
-
+using System.Management;
 
 namespace Plugins
 {
     public class Commands : IExtensionApplication
     {
-        #region Private Fields
-
-        static double width;
-        static ILogger logger;
-
-        #endregion
-
         #region Private Methods
 
         /// <summary>
@@ -56,7 +24,7 @@ namespace Plugins
         /// </summary>
         /// <param name="doc">Текущий документ</param>
         /// <returns>Граничные точки, в случае успеха и UndefinedType в противном случае</returns>
-        private static Point3d[] GetPoints(Editor editor)
+        Point3d[] GetPoints(Editor editor)
         {
             var pointOptions = new PromptPointOptions("\n\tЛевый нижний угол: ");
             var left = editor.GetPoint(pointOptions);
@@ -66,80 +34,6 @@ namespace Plugins
             return right.Status == PromptStatus.OK && left.Status == PromptStatus.OK
                 ? new Point3d[] { left.Value, right.Value }
                 : null;
-        }
-        /// <summary>
-        /// Создание команды выборки данных
-        /// </summary>
-        /// <param name="baseName">Имя линкованной таблицы</param>
-        /// <param name="linkField">Столбец линковки</param>
-        /// <param name="systemId">Уникальный номер примитива</param>
-        /// <param name="fieldNames">Список столбцов таблицы</param>
-        /// <returns>Команда для получения данных</returns>
-        string CreateCommand(string baseName, string linkField, int systemId, IDictionary<string, string> fieldNames)
-        {
-            var builder = new StringBuilder().Append("SELECT ");
-
-            foreach (var item in fieldNames)
-            {
-                builder.Append(item.Key).Append(" as \"").Append(item.Value).Append("\"").Append(",");
-            }
-
-            builder
-                .Remove(builder.Length - 1, 1)
-                .Append(" FROM ")
-                .Append(baseName)
-                .Append(" WHERE ")
-                .Append(linkField)
-                .Append(" = ")
-                .Append(systemId);
-
-            return builder.ToString();
-        }
-        /// <summary>
-        /// Получение списка столбцов таблицы
-        /// </summary>
-        /// <param name="fields">Исходные столбцы</param>
-        /// <returns>Список столбцов</returns>
-        Dictionary<string, string> ParseFieldNames(IEnumerable<string> fields)
-        {
-            bool fieldsFlag = true;
-            var result = new Dictionary<string, string>();
-
-            foreach (var field in fields)
-            {
-                if (fieldsFlag)
-                {
-                    if (field == "FIELDS")
-                    {
-                        fieldsFlag = false;
-                    }
-                    continue;
-                }
-                else if (field == "ENDFIELDS")
-                {
-                    break;
-                }
-                else if (field.Contains("+"))
-                {
-                    continue;
-                }
-                var rows = field.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (rows.Length <= 1) continue;
-
-                var builder = new StringBuilder();
-
-                for (int j = 1; j < rows.Length; ++j)
-                {
-                    builder.Append(rows[j]).Append("_");
-                }
-
-                if (!result.ContainsKey(rows[0]))
-                {
-                    result.Add(rows[0], builder.ToString());
-                }
-            }
-
-            return result;
         }
         /// <summary>
         /// Вывести сообщение об ошибке
@@ -173,32 +67,24 @@ namespace Plugins
                 return;
             }
 
-            using (var view = doc.Editor.GetCurrentView()) { width = view.Width; }
-
             Editor editor = null;
             Database db;
+            ILogger logger = null;
 
             try
             {
                 Constants.Initialize();
 
+                logger = new FileLogger(nameof(Initialize));
                 db = doc.Database ?? throw new ArgumentNullException(nameof(db), "Не удалось получить ссылку на БД документа!");
-
-                // FIXME: ??? Является ли ошибкой сбой получения командной строки текущего документа ???
-                editor = doc.Editor ?? throw new ArgumentNullException(nameof(editor), 
-                    "Не удалось получить ссылку на командную строку документа!");
-
-                logger = Constants.Logger;
-
-                if (logger is null) throw new ArgumentNullException("Не удалось получить логгер событий", nameof(logger));
+                editor = doc.Editor;
 
                 editor.WriteMessage("Загрузка плагина прошла успешно!\n");
             }
             catch (System.Exception e)
             {
-                var errorMessage = "При загрузке плагина произошла ошибка!";
-
-                Logger.LogError(e);
+                var errorMessage = "При загрузке плагина произошла ошибка!" + Environment.NewLine + e.Message;
+                logger.LogError(e);
 
                 if (editor is null)
                 {
@@ -224,6 +110,7 @@ namespace Plugins
             }
             catch (System.Exception e)
             {
+                var logger = new FileLogger(nameof(Terminate));
                 logger.LogError(e);
             }
         }
@@ -240,13 +127,12 @@ namespace Plugins
         public void DrawCommand()
         {
             Session session = null;
+            var logger = new FileLogger("main.log");
 
             try
             {
                 var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
-
-                Point3d[] points = GetPoints(doc.Editor);
-
+                var points = GetPoints(doc.Editor);
                 session = new Session(logger);
 
                 if (points != null && points.Length == 2) 
@@ -268,14 +154,7 @@ namespace Plugins
                     session.Top = long.MaxValue;
                 }
 
-                // FIXME: !!! Если на горизонте 0 объектов, команда подвисает, а при закрытии окна AutoCAD выдает критическую ошибку !!!
                 session.Run();
-                logger.LogInformation("Закончена отрисовка геометрии!");
-            }
-            catch (TypeInitializationException)
-            {
-                logger.LogWarning("Не удалось подключиться к БД!");
-                return;
             }
             catch (System.Exception e)
             {
@@ -319,7 +198,9 @@ namespace Plugins
                     string linkField;
 
                     if ((linkField = buffer.GetXData(LINK_FIELD)) == string.Empty
-                        || (systemId = (xData = buffer.GetXData(SYSTEM_ID)) == string.Empty ? ERROR_SYSTEM_ID : Convert.ToInt32(xData)) == ERROR_SYSTEM_ID
+                        || (systemId = (xData = buffer.GetXData(SYSTEM_ID)) == string.Empty 
+                            ? ERROR_SYSTEM_ID 
+                            : Convert.ToInt32(xData)) == ERROR_SYSTEM_ID
                         || (xData = buffer.GetXData(BASE_NAME)) == string.Empty
                         || (row = xData.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)).Length <= 1)
                     {
@@ -334,11 +215,11 @@ namespace Plugins
                     var fields = link.Split('\n');
                     var fieldNames = new Dictionary<string, string>();
 
-                    if (fields.Length > 5) fieldNames = ParseFieldNames(fields);
+                    if (fields.Length > 5) fieldNames = DbHelper.ParseFieldNames(fields);
 
                     if (fields.Length > 2) baseCapture = fields[1];
 
-                    new ExternalDbWindow(connection.GetDataTable(CreateCommand(baseName, linkField, systemId, fieldNames)).DefaultView)
+                    new ExternalDbWindow(connection.GetDataTable(DbHelper.CreateCommand(baseName, linkField, systemId, fieldNames)).DefaultView)
                     {
                         Title = baseCapture
                     }.ShowDialog();

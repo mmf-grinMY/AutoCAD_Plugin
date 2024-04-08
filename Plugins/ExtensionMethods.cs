@@ -5,11 +5,9 @@ using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 
-using Newtonsoft.Json.Linq;
+using Oracle.ManagedDataAccess.Client;
 
 using static Plugins.Constants;
-using Oracle.ManagedDataAccess.Client;
-using System.Windows;
 
 namespace Plugins
 {
@@ -59,7 +57,6 @@ namespace Plugins
         /// <param name="degree">Угол в градусах</param>
         /// <returns>Угол в радианах</returns>
         public static double ToRad(this double degree) => degree / 180 * System.Math.PI;
-        
         /// <summary>
         /// Добавление в XData необходимых для связывания таблиц параметров
         /// </summary>
@@ -86,38 +83,6 @@ namespace Plugins
             entity.XData = new ResultBuffer(typedValues.ToArray());
 
             return entity;
-        }
-        /// <summary>
-        /// Установка свойств для объекта Polyline
-        /// </summary>
-        /// <param name="polyline">Исходный объект</param>
-        /// <param name="settings">Параметры отрисовки</param>
-        /// <param name="layer">Слой отрисовки</param>
-        public static Polyline SetDrawSettings(this Polyline polyline, JObject settings, string layer)
-        {
-            const string PEN_COLOR = "PenColor";
-            const string WIDTH = "Width";
-            const string BORDER_DESCRIPRION = "BorderDescription";
-            const string PEN_STYLE = "nPenStyle";
-
-            const string NOT_DRAWING_LINE_STYLE = "{D075F160-4C94-11D3-A90B-A8163E53382F}";
-
-            polyline.Color = ColorConverter.FromMMColor(settings.Value<int>(PEN_COLOR));
-            polyline.Thickness = settings.Value<double>(WIDTH);
-            polyline.Layer = layer;
-
-            // TODO: Добавить загрузку штриховок из файла стилей линий
-            if (settings.TryGetValue(BORDER_DESCRIPRION, StringComparison.CurrentCulture, out JToken borderDescription)
-               && borderDescription.Value<string>() == NOT_DRAWING_LINE_STYLE)
-            {
-                throw new NotDrawingLineException();
-            }
-            else if (settings.Value<int>(PEN_STYLE) == 1)
-            {
-                polyline.Linetype = "MMP_2"; // Commands.TYPE_NAME;
-            }
-
-            return polyline;
         }
         /// <summary>
         /// Получение XData
@@ -174,12 +139,6 @@ namespace Plugins
             record.AppendEntity(entity.AddXData(primitive));
             transaction.AddNewlyCreatedDBObject(entity, true);
         }
-        /// <summary>
-        /// Преобразование json-строки в удобочитаемый вид
-        /// </summary>
-        /// <param name="json">исходная строка в формате json</param>
-        /// <returns>Преобразованная строка</returns>
-        public static string JsonNormalize(this string json) => json.Substring(1, json.Length - 1).Replace(',', '\n');
         /// <summary>
         /// Получение текста ошибки по ее коду
         /// </summary>

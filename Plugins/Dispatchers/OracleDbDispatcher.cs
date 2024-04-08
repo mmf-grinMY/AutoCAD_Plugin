@@ -1,4 +1,5 @@
 ﻿using Plugins.Entities;
+using Plugins.Logging;
 using Plugins.View;
 
 using System.Collections.ObjectModel;
@@ -71,9 +72,6 @@ namespace Plugins
 
         #region Public Properties
 
-        /// <summary>
-        /// Доступные для отрисовки горизонты
-        /// </summary>
         public ObservableCollection<string> Gorizonts
         {
             get
@@ -95,11 +93,6 @@ namespace Plugins
                 return gorizonts;
             }
         }
-        /// <summary>
-        /// Количество записей на горизонте, доступных для отрисовки
-        /// </summary>
-        /// <param name="gorizont">Имя горизонта для поиска</param>
-        /// <returns>Количество записей</returns>
         public uint Count
         {
             get
@@ -122,11 +115,6 @@ namespace Plugins
         /// Освобождение занятых ресурсов
         /// </summary>
         public void Dispose() => connection?.Dispose();
-        /// <summary>
-        /// Получение линковки
-        /// </summary>
-        /// <param name="baseName">Имя таблицы для линковки</param>
-        /// <returns></returns>
         public string GetExternalDbLink(string baseName)
         {
             string command = "SELECT data FROM LINKS WHERE NAME = '" + baseName + "'";
@@ -138,11 +126,6 @@ namespace Plugins
 
             return string.Empty;
         }
-        /// <summary>
-        /// Получение таблицы данных
-        /// </summary>
-        /// <param name="command">Команда для получения данных</param>
-        /// <returns>Таблица данных</returns>
         public System.Data.DataTable GetDataTable(string command)
         {
             using (var reader = new OracleCommand(command, connection).ExecuteReader())
@@ -153,11 +136,6 @@ namespace Plugins
                 return dataTable;
             }
         }
-        /// <summary>
-        /// Получение геометрии больших объектов
-        /// </summary>
-        /// <param name="primitive">Исходный примитив</param>
-        /// <returns>Геометрия в формате wkt</returns>
         public string GetLongGeometry(Primitive primitive)
         {
             var command = $"SELECT page FROM k{gorizont}_trans_clone_geowkt WHERE objectguid = '" + 
@@ -174,13 +152,6 @@ namespace Plugins
 
             return builder.ToString();
         }
-        /// <summary>
-        /// Логика чтения данных о примитиве из БД
-        /// </summary>
-        /// <param name="token">Токен остановки потока</param>
-        /// <param name="queue">Очередь на запись</param>
-        /// <param name="model">Логика работы процесса записи</param>
-        /// <param name="session">Текущая сессия работы команды</param>
         public async void ReadAsync(CancellationToken token, ConcurrentQueue<Primitive> queue, DrawInfoViewModel model, Session session)
         {
             await Task.Run(async () =>
@@ -196,8 +167,11 @@ namespace Plugins
                         session.Right, session.Left, session.Top, session.Bottom);
                 }
 
-                using (var reader = new OracleCommand(command, connection).ExecuteReader())
-                {
+                OracleDataReader reader = null;
+
+                try
+                { 
+                    reader = new OracleCommand(command, connection).ExecuteReader();
                     while (reader.Read())
                     {
                         if (token.IsCancellationRequested) return;
@@ -222,48 +196,22 @@ namespace Plugins
                             model.ReadProgress = percent;
                         }
                     }
-
+                }
+                // Вызывается из-за отсутсвия некоторых запрашиваемых столбцов в таблице
+                catch (OracleException e)
+                {
+                    var logger = new FileLogger(Path.Combine(Constants.AssemblyPath, "Logs", nameof(OracleDbDispatcher) + ".log"));
+                    logger.LogError(e);
+                }
+                finally
+                {
                     model.readPosition = readPosition;
                     model.isReadEnded = true;
+                    reader?.Dispose();
                 }
             }, token);
         }
 
         #endregion
-    }
-    /// <summary>
-    /// Класс-помощник для получения данных из БД
-    /// </summary>
-    static class DbHelper
-    {
-        static string GetResult<T>(T window) where T : Window, IResult
-        {
-            string result = null;
-
-            window.ShowDialog();
-
-            if (window.IsSuccess)
-            {
-                result = window.Result;
-            }
-
-            window.Close();
-
-            return result;
-        }
-        public static string ConnectionStr => GetResult(new LoginWindow());
-        public static string SelectGorizont(ObservableCollection<string> gorizonts) => GetResult(new GorizontSelecterWindow(gorizonts));
-    }
-    /// <summary>
-    /// Диспетчер для работы с БД
-    /// </summary>
-    interface IDbDispatcher : IDisposable
-    {
-        uint Count { get; }
-        ObservableCollection<string> Gorizonts { get; }
-        string GetExternalDbLink(string baseName);
-        System.Data.DataTable GetDataTable(string command);
-        string GetLongGeometry(Primitive primitive);
-        void ReadAsync(CancellationToken token, ConcurrentQueue<Primitive> queue, DrawInfoViewModel model, Session session);
     }
 }

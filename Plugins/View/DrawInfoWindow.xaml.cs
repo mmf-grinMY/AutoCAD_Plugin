@@ -6,10 +6,11 @@ using System.Threading;
 using System.Windows;
 using System;
 
+// TODO: Исправить логику остановки отрисовки плагина
 namespace Plugins.View
 {
     /// <summary>
-    /// Монтор прогресса отрисовки
+    /// Окно прогресса отрисовки
     /// </summary>
     partial class DrawInfoWindow : Window
     {
@@ -19,7 +20,7 @@ namespace Plugins.View
         internal DrawInfoWindow() => InitializeComponent();
     }
     /// <summary>
-    /// Логика взаимодействия для DrawInfoWindow
+    /// Логика окна управления работой команды отрисовки
     /// </summary>
     class DrawInfoViewModel : BaseViewModel
     {
@@ -47,10 +48,6 @@ namespace Plugins.View
         #region Private Fields
 
         /// <summary>
-        /// Завершение операции чтения из БД Oracle
-        /// </summary>
-        public bool isReadEnded;
-        /// <summary>
         /// Прогресс чтения объектов
         /// </summary>
         double readProgress;
@@ -67,10 +64,6 @@ namespace Plugins.View
         /// </summary>
         Visibility progressVisibility;
         /// <summary>
-        /// Количество прочитанных объектов
-        /// </summary>
-        public uint readPosition;
-        /// <summary>
         /// Количество записанных объектов
         /// </summary>
         uint writePosition;
@@ -82,6 +75,19 @@ namespace Plugins.View
         /// Завершение операции записи на чертеж
         /// </summary>
         bool isWriteEnded;
+
+        #endregion
+
+        #region Public Fields
+
+        /// <summary>
+        /// Завершение операции чтения из БД Oracle
+        /// </summary>
+        public bool isReadEnded;
+        /// <summary>
+        /// Количество прочитанных объектов
+        /// </summary>
+        public uint readPosition;
 
         #endregion
 
@@ -153,18 +159,22 @@ namespace Plugins.View
 
         #endregion
 
-        #region Ctors
+        #region Ctor
 
         /// <summary>
         /// Создание объекта
         /// </summary>
-        /// <param name="s">Текущая сессия работы</param>
-        /// <param name="log">Логер событий</param>
-        public DrawInfoViewModel(Session s, ILogger log, IDbDispatcher dispatcher)
+        /// <param name="session">Текущая сессия работы</param>
+        /// <param name="logger">Логер событий</param>
+        public DrawInfoViewModel(Session session, ILogger logger, IDbDispatcher dispatcher)
         {
-            logger = log;
-            session = s;
+            this.logger = logger;
+            this.session = session;
             connection = dispatcher;
+
+            totalCount = this.session.PrimitivesCount;
+            if (totalCount == 0)
+                throw new ArgumentOutOfRangeException(nameof(totalCount));
 
             CancelCommand = new RelayCommand(obj => CancelDrawing());
             StopCommand = new RelayCommand(obj => StopDrawing());
@@ -179,11 +189,10 @@ namespace Plugins.View
             isReadEnded = false;
             isWriteEnded = false;
             queue = new ConcurrentQueue<Entities.Primitive>();
-            totalCount = session.PrimitivesCount;
 
             RunAsync();
 
-            logger.LogInformation("Запущена отрисовка геометрии!");
+            this.logger.LogInformation("Запущена отрисовка геометрии!");
         }
         readonly IDbDispatcher connection;
 

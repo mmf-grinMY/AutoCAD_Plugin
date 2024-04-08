@@ -3,22 +3,25 @@ using Plugins.Entities;
 using Plugins.Logging;
 using Plugins.View;
 
+using System.IO;
 using System;
 
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 
+using Newtonsoft.Json.Linq;
+
 using static Plugins.Constants;
 
 namespace Plugins
 {
     /// <summary>
-    /// Сеанс работы плагина
+    /// Сеанс работы команды отрисовки
     /// </summary>
     class Session : IDisposable
     {
-        #region Private Fields
+        #region Private Readonly Fields
 
         /// <summary>
         /// Логер событий
@@ -36,6 +39,9 @@ namespace Plugins
         /// Создатель блоков AutoCAD
         /// </summary>
         readonly ITableDispatcher blockDispatcher;
+        /// <summary>
+        /// Диспетчер для работы с таблицей RegAppTable
+        /// </summary>
         readonly ITableDispatcher regAppDispatcher;
         /// <summary>
         /// Диспетчер подключения к БД Oracle
@@ -49,10 +55,19 @@ namespace Plugins
         /// Текущий документ AutoCAD
         /// </summary>
         readonly Document doc;
+
+        #endregion
+
+        #region Private Fields
+
         /// <summary>
-        /// Монитор прогресса отрисовки
+        /// Окно управления процессом отрисовки
         /// </summary>
         DrawInfoWindow window;
+        /// <summary>
+        /// Статус закрытия сессии
+        /// </summary>
+        bool isClosed = false;
 
         #endregion
 
@@ -82,11 +97,7 @@ namespace Plugins
         public Session(ILogger logger)
         {
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            connection = new OracleDbDispatcher(
-#if FAST_DEBUG
-            "Data Source=data-pc/GEO;Password=g1;User Id=g;Connection Timeout=360;", "K305F"
-#endif
-            );
+            connection = new OracleDbDispatcher();
             doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
                 ?? throw new ArgumentNullException(nameof(doc));
             db = doc.Database ?? throw new ArgumentNullException(nameof(db));
@@ -101,18 +112,20 @@ namespace Plugins
             RegApp(LINK_FIELD);
             RegApp(OBJ_ID);
 
-            // TODO: Вынести в конфигурационный файл
-            const string LINE_TYPE_SOURCE = "acad.lin";
-            const string TYPE_NAME = "MMP_2";
+            var config = JObject.Parse(File.ReadAllText(Path.Combine(AssemblyPath, CONFIG_FILE))).Value<JObject>("linetype");
 
-            try
+            var source = config.Value<string>("source");
+            foreach (var name in config.Value<JArray>("linetypes"))
             {
-                db.LoadLineTypeFile(TYPE_NAME, LINE_TYPE_SOURCE);
-            }
-            catch (Autodesk.AutoCAD.Runtime.Exception)
-            {
-                logger.LogError("Не удалось найти стиль линии \"" + TYPE_NAME + "\" в файле \"" + LINE_TYPE_SOURCE + "\"!");
-                throw;
+                try
+                {
+                    db.LoadLineTypeFile(name.Value<string>(), source);
+                }
+                catch (Autodesk.AutoCAD.Runtime.Exception)
+                {
+                    logger.LogError("Не удалось найти стиль линии \"{0}}\" в файле \"{1}\"!", name, source);
+                    throw;
+                }
             }
         }
 
@@ -124,9 +137,21 @@ namespace Plugins
         /// Количество примитивов на горизонте, доступных для отрисовки
         /// </summary>
         public uint PrimitivesCount => System.Convert.ToUInt32(connection.Count);
+        /// <summary>
+        /// Координата по оси X левой крайней точки
+        /// </summary>
         public long Left { get; set; }
+        /// <summary>
+        /// Координата по оси X правой крайней точки
+        /// </summary>
         public long Right { get; set; }
+        /// <summary>
+        /// Координата по оси Y верхней крайней точки
+        /// </summary>
         public long Top { get; set; }
+        /// <summary>
+        /// Координата по оси Y нижней крайней точки
+        /// </summary>
         public long Bottom { get; set; }
 
         #endregion
@@ -136,16 +161,16 @@ namespace Plugins
         /// <summary>
         /// Освобождение неуправляемых ресурсов
         /// </summary>
-        public void Dispose()
-        {
-            connection?.Dispose();
-        }
+        public void Dispose() => connection?.Dispose();
         /// <summary>
         /// Нарисовать примитив
         /// </summary>
-        /// <param name="primitive">Объект отрисовки</param>
+        /// <param name="primitive">Примитив отрисовки</param>
         public void Add(Primitive primitive)
         {
+            if (primitive is null)
+                throw new ArgumentNullException(nameof(primitive));
+
             if (layerDispatcher.TryAdd(primitive.LayerName))
             {
                 try
@@ -167,23 +192,27 @@ namespace Plugins
         /// </summary>
         public void Run()
         {
-            var model = new DrawInfoViewModel(this, logger, connection);
-            window = new DrawInfoWindow() { DataContext = model };
-            window.Closed += model.HandleOperationCancel;
-            if (!isClosed)
-                window.ShowDialog();
-
             try
             {
-                Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument.Editor
-                    .Zoom(new Extents3d(new Point3d(Left, Bottom, 0), new Point3d(Right, Top, 0)));
+                var model = new DrawInfoViewModel(this, logger, connection);
+                window = new DrawInfoWindow() { DataContext = model };
+                window.Closed += model.HandleOperationCancel;
+                if (!isClosed)
+                    window.ShowDialog();
+                try
+                {
+                    Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument.Editor
+                        .Zoom(new Extents3d(new Point3d(Left, Bottom, 0), new Point3d(Right, Top, 0)));
+                }
+                catch (Exception)
+                {
+                    System.Windows.MessageBox.Show("\n" + "Wrong BB");
+                }
+
+                logger.LogInformation("Закончена отрисовка геометрии!");
             }
-            catch (Exception)
-            {
-                System.Windows.MessageBox.Show("\n" + "Wrong BB");
-            }
+            catch (ArgumentOutOfRangeException) { }
         }
-        bool isClosed = false;
         /// <summary>
         /// Закрытие сессии работы
         /// </summary>
@@ -193,6 +222,10 @@ namespace Plugins
                 window.Dispatcher.Invoke(() => window.Close());
             isClosed = true;
         }
+        /// <summary>
+        /// Записать сообщение в командную строку AutoCAD
+        /// </summary>
+        /// <param name="message">Текст сообщения</param>
         public void WriteMessage(string message)
         {
             if (window != null)

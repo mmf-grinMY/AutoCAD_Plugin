@@ -76,10 +76,10 @@ namespace Plugins
                 dbConfigPath = System.IO.Path.GetTempFileName();
 
                 var config = JObject.Parse(File.ReadAllText(Path.Combine(assemblyPath, CONFIG_FILE)));
-
-                config = config.Value<JObject>("queue");
-                queueLimit = config.Value<int>("limit");
-                readerSleepTime = config.Value<int>("sleep");
+                
+                var queueConfig = config.Value<JObject>("queue");
+                queueLimit = queueConfig.Value<int>("limit");
+                readerSleepTime = queueConfig.Value<int>("sleep");
 
                 string path = app.Preferences.Files.SupportPath;
 

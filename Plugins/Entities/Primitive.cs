@@ -9,6 +9,15 @@ namespace Plugins.Entities
     /// </summary>
     public class Primitive
     {
+        #region Privat Fields
+
+        /// <summary>
+        /// Уникальный Guid объекта
+        /// </summary>
+        readonly Guid guid;
+
+        #endregion
+
         #region Public Properties
 
         /// <summary>
@@ -43,14 +52,12 @@ namespace Plugins.Entities
         /// Уникальный порядковый номер
         /// </summary>
         public int Id { get; }
-        /// <summary>
-        /// Уникальный Guid объекта
-        /// </summary>
-        public Guid Guid { get; }
+        /// <inheritdoc cref="guid"/>
+        public string Guid => guid.ToString().ToUpper();
 
         #endregion
 
-        #region Ctors
+        #region Ctor
         
         /// <summary>
         /// Создание объекта
@@ -62,6 +69,8 @@ namespace Plugins.Entities
         /// <param name="systemid">Уникальный номер</param>
         /// <param name="baseName">Имя слинкованной таблицы</param>
         /// <param name="childFields">Столбец линковки</param>
+        /// <param name="id">Номер объекта в таблице запросов</param>
+        /// <param name="guid">Уникальный Guid объекта</param>
         public Primitive(string wkt,
                          string settings,
                          string param,
@@ -80,18 +89,8 @@ namespace Plugins.Entities
             BaseName = baseName;
             ChildField = childFields;
             Id = Convert.ToInt32(id);
-            Guid = Guid.Parse(guid);
+            this.guid = System.Guid.Parse(guid);
         }
-
-        #endregion
-
-        #region Public Methods
-
-        /// <summary>
-        /// Конвертация объекта в строку
-        /// </summary>
-        /// <returns>Строковое представление объекта</returns>
-        public override string ToString() => Id.ToString();
 
         #endregion
     }
