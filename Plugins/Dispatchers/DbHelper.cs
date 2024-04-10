@@ -18,12 +18,12 @@ namespace Plugins
         /// <summary>
         /// Получение данных от пользователя
         /// </summary>
-        /// <typeparam name="T">Окно ввода</typeparam>
+        /// <typeparam name="TWindow">Окно ввода</typeparam>
         /// <param name="window">Окно работы с пользователем</param>
         /// <returns>Введенные пользователем данные</returns>
-        static (string, bool) GetResult<T>(T window) where T : Window, IResult
+        static object[] GetResult<TWindow>(TWindow window) where TWindow : Window, IResult
         {
-            string result = null;
+            object result = null;
             bool isCanceled = true;
 
             window.ShowDialog();
@@ -36,18 +36,19 @@ namespace Plugins
 
             window.Close();
 
-            return (result, isCanceled);
+            return new object[] { result, isCanceled };
         }
         /// <summary>
         /// Получение строки подключения к БД
         /// </summary>
-        public static (string, bool) ConnectionStr => GetResult(new LoginWindow());
+        public static object[] ConnectionStr => GetResult(new LoginWindow());
         /// <summary>
         /// Получение рисуемого горизонта
         /// </summary>
         /// <param name="gorizonts">Список доступных для отрисовки горизонтов</param>
         /// <returns>Выбранный горизонт</returns>
-        public static (string, bool) SelectGorizont(ObservableCollection<string> gorizonts) => GetResult(new GorizontSelecterWindow(gorizonts));
+        public static object[] SelectGorizont(ObservableCollection<string> gorizonts) => 
+            GetResult(new GorizontSelecterWindow(gorizonts));
         /// <summary>
         /// Получение полилиний из wkt
         /// </summary>

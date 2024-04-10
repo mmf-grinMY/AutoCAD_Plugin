@@ -49,6 +49,7 @@
                 <RowDefinition/>
                 <RowDefinition/>
                 <RowDefinition/>
+                <RowDefinition/>
             </Grid.RowDefinitions>
 
             <Grid.ColumnDefinitions>
@@ -120,6 +121,14 @@
                 Grid.Row="4"
                 Grid.Column="1"
                 Style="{StaticResource TextBoxStyle}"/>
+            <CheckBox
+                Margin="4 4 4 0"
+                Grid.Row="5"
+                Grid.ColumnSpan="2"
+                VerticalContentAlignment="Center"
+                FontSize="14"
+                Content="Учитывать граничные точки"
+                IsChecked="{Binding IsBoundigBoxChecked}"/>
         </Grid>
         <Button
             x:Name="savebutton"

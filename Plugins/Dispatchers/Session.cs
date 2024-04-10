@@ -155,6 +155,10 @@ namespace Plugins
         /// Координата по оси Y нижней крайней точки
         /// </summary>
         public long Bottom { get; set; }
+        /// <summary>
+        /// Учет граничных точек
+        /// </summary>
+        public bool IsBoundingBoxChecked => connection.IsBoundingBoxChecked;
 
         #endregion
 

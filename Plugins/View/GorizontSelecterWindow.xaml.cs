@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Input;
 
 namespace Plugins.View
 {
@@ -8,6 +9,8 @@ namespace Plugins.View
     /// </summary>
     partial class GorizontSelecterWindow : Window, IResult
     {
+        #region Ctor
+
         /// <summary>
         /// Создание объекта
         /// </summary>
@@ -27,14 +30,23 @@ namespace Plugins.View
                 Hide();
             });
         }
-        public string Result { get; internal set; }
+
+        #endregion
+
+        #region Public Properties
+
+        public object Result { get; internal set; }
         public bool IsSuccess { get; internal set; }
+
+        #endregion
     }
     /// <summary>
     /// Модель представления для GorizontSelecterWindow.xaml
     /// </summary>
     class GorizontSelecterViewModel : BaseViewModel
     {
+        #region Private Fields
+
         /// <summary>
         /// Выбранный горизонт
         /// </summary>
@@ -43,6 +55,11 @@ namespace Plugins.View
         /// Список доступных для чтения горизонтов
         /// </summary>
         readonly ObservableCollection<string> gorizonts;
+
+        #endregion
+
+        #region Ctor
+
         /// <summary>
         /// Создание объекта
         /// </summary>
@@ -60,17 +77,27 @@ namespace Plugins.View
                 OnPropertyChanged(nameof(SelectedGorizont));
             }
         }
-        /// <summary>
-        /// Список доступных для отрисовки горизонтов
-        /// </summary>
+
+        #endregion
+
+        #region Public Properties
+
+        /// <inheritdoc cref="gorizonts"/>
         public ObservableCollection<string> Gorizonts => gorizonts;
+
+        #endregion
+
+        #region Commands
+
         /// <summary>
         /// Команда продолжения
         /// </summary>
-        public RelayCommand SelectCommand { get; set; }
+        public ICommand SelectCommand { get; set; }
         /// <summary>
         /// Команда прекращения действий
         /// </summary>
-        public RelayCommand CancelCommand { get; set; }
+        public ICommand CancelCommand { get; set; }
+
+        #endregion
     }
 }
