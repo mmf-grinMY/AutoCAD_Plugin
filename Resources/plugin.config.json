@@ -1,8 +1,8 @@
 {
     "linetype" : {
-        "source" : "acad.lin",
+        "source" : "mmlines.lin",
         "linetypes" : [
-            "MMP_2"
+            "MMLT_1"
         ]
     },
     "queue" : {
