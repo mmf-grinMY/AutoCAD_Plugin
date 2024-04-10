@@ -1,4 +1,6 @@
-﻿namespace Plugins
+﻿using System.Collections.Generic;
+
+namespace Plugins
 {
     /// <summary>
     /// Диспетчер для работы с БД
@@ -44,5 +46,10 @@
                        System.Collections.Concurrent.ConcurrentQueue<Entities.Primitive> queue,
                        View.DrawInfoViewModel model,
                        Session session);
+        /// <summary>
+        /// Получение списка необходимых для записи слоев
+        /// </summary>
+        /// <returns>Список необходимых для записи слоев</returns>
+        IEnumerable<string> GetLayers();
     }
 }

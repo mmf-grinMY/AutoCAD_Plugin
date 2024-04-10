@@ -88,21 +88,7 @@ namespace Plugins
             catch (System.IO.FileNotFoundException) { throw; }
             catch (Exception e)
             {
-                // FIXME: При попытке создания блока pnt.chr 188 появляется сообщение 
-                //        "Forgot to call Dispose? (Autodesk.AutoCAD.DatabaseServices.Polyline): DisposableWrapper"
-                if (e.StackTrace.Contains("в Autodesk.AutoCAD.DatabaseServices.SymbolTableRecord.set_Name(String name)"))
-                {
-                    logger.LogInformation(name);
-                }
-                else if (e.Data.Count != 0)
-                {
-                    logger.LogInformation("Не определен символ \"" + e.Data["Symbol"] + "\" из шрифта \"" + e.Data["FontName"] + "\"!");
-                }
-                else
-                {
-                    logger.LogError(e);
-                }
-
+                logger.LogError(e);
                 return false;
             }
 

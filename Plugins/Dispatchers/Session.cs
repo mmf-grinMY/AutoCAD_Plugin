@@ -32,10 +32,6 @@ namespace Plugins
         /// </summary>
         readonly EntitiesFactory factory;
         /// <summary>
-        /// Диспетчер слоев AutoCAD
-        /// </summary>
-        readonly ITableDispatcher layerDispatcher;
-        /// <summary>
         /// Создатель блоков AutoCAD
         /// </summary>
         readonly ITableDispatcher blockDispatcher;
@@ -103,7 +99,6 @@ namespace Plugins
             db = doc.Database ?? throw new ArgumentNullException(nameof(db));
 
             regAppDispatcher = new RegAppTableDispatcher(db, this.logger);
-            layerDispatcher = new LayerTableDispatcher(db, this.logger);
             blockDispatcher = new BlockTableDispatcher(db, this.logger);
             factory = new EntitiesFactory(blockDispatcher, connection);
 
@@ -126,6 +121,13 @@ namespace Plugins
                     logger.LogError("Не удалось найти стиль линии \"{0}}\" в файле \"{1}\"!", name, source);
                     throw;
                 }
+            }
+
+            var layerDispatcher = new LayerTableDispatcher(db, this.logger);
+
+            foreach (var layer in connection.GetLayers())
+            {
+                if (!layerDispatcher.TryAdd(layer)) logger.LogInformation("Не удалось создать слой " + layer + "!");
             }
         }
 
@@ -171,20 +173,13 @@ namespace Plugins
             if (primitive is null)
                 throw new ArgumentNullException(nameof(primitive));
 
-            if (layerDispatcher.TryAdd(primitive.LayerName))
+            try
             {
-                try
-                {
-                    factory.Create(primitive).AppendToDrawing(db, logger);
-                }
-                catch (Exception e)
-                {
-                    logger.LogError(e);
-                }
+                factory.Create(primitive).AppendToDrawing(db, logger);
             }
-            else
+            catch (Exception e)
             {
-                logger.LogWarning("Не удалось отрисовать объект {0}", primitive);
+                logger.LogError(e);
             }
         }
         /// <summary>
