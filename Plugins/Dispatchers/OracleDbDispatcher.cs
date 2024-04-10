@@ -48,6 +48,7 @@ namespace Plugins
         {
             var isCreated = false;
             var isCanceled = false;
+            object[] result = null;
 
             while (!isCreated && !isCanceled)
             {
@@ -60,19 +61,33 @@ namespace Plugins
                 catch (OracleException e)
                 {
                     MessageBox.Show(e.GetCodeDescription(), "Ошибка подключения", MessageBoxButton.OK, MessageBoxImage.Error);
-                    (connectionStr, isCanceled) = DbHelper.ConnectionStr;
+                    result = DbHelper.ConnectionStr;
+                    isCanceled = (bool)result[1];
+                    if (result[0] is object[] array)
+                    {
+                        connectionStr = array[0].ToString();
+                        IsBoundingBoxChecked = (bool)array[1];
+                    }
                 }
                 catch (InvalidOperationException)
                 {
-                    (connectionStr, isCanceled) = DbHelper.ConnectionStr;
+                    result = DbHelper.ConnectionStr;
+                    isCanceled = (bool)result[1];
+                    if (result[0] is object[] array)
+                    {
+                        connectionStr = array[0].ToString();
+                        IsBoundingBoxChecked = (bool)array[1];
+                    }
                 }
             }
 
             if (gorizont is null)
-                (this.gorizont, isCanceled) = DbHelper.SelectGorizont(Gorizonts);
+                result = DbHelper.SelectGorizont(Gorizonts);
 
-            if (isCanceled)
+            if ((bool)result[1])
                 throw new InvalidOperationException();
+
+            this.gorizont = result[0].ToString();
         }
 
         #endregion
@@ -113,6 +128,7 @@ namespace Plugins
                 }
             }
         }
+        public bool IsBoundingBoxChecked { get; }
 
         #endregion
 

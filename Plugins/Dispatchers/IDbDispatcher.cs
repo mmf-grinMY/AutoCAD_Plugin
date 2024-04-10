@@ -7,6 +7,8 @@ namespace Plugins
     /// </summary>
     interface IDbDispatcher : System.IDisposable
     {
+        #region Properties
+
         /// <summary>
         /// Количество записей на горизонте, доступных для отрисовки
         /// </summary>
@@ -17,6 +19,15 @@ namespace Plugins
         /// Доступные для отрисовки горизонты
         /// </summary>
         System.Collections.ObjectModel.ObservableCollection<string> Gorizonts { get; }
+        /// <summary>
+        /// Учет граничных точек
+        /// </summary>
+        bool IsBoundingBoxChecked { get; }
+
+        #endregion
+
+        #region Methods
+
         /// <summary>
         /// Получение линковки
         /// </summary>
@@ -51,5 +62,7 @@ namespace Plugins
         /// </summary>
         /// <returns>Список необходимых для записи слоев</returns>
         IEnumerable<string> GetLayers();
+
+        #endregion
     }
 }
