@@ -12,6 +12,8 @@ using System.IO;
 using System;
 
 using Oracle.ManagedDataAccess.Client;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace Plugins
 {
@@ -181,7 +183,7 @@ namespace Plugins
                         queue.Enqueue(new Primitive(reader["geowkt"].ToString(),
                                                           reader["drawjson"].ToString(),
                                                           reader["paramjson"].ToString(),
-                                                          reader["layername"] + " | " + reader["sublayername"],
+                                                          reader["layername"] + " _ " + reader["sublayername"],
                                                           reader["systemid"].ToString(),
                                                           reader["basename"].ToString(),
                                                           reader["childfields"].ToString(),
@@ -210,6 +212,20 @@ namespace Plugins
                     reader?.Dispose();
                 }
             }, token);
+        }
+        public IEnumerable<string> GetLayers()
+        {
+            string command = "SELECT layername, sublayername FROM ( " + 
+                $"SELECT DISTINCT b.layername, b.sublayername FROM k{gorizont}_trans_clone a" + 
+                $" INNER JOIN k{gorizont}_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid)";
+
+            using (var reader = new OracleCommand(command, connection).ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    yield return Regex.Replace(reader.GetString(0) + " _ " + reader.GetString(1), "[<>\\*\\?/|\\\\\":;,=]", "_");
+                }
+            }
         }
 
         #endregion

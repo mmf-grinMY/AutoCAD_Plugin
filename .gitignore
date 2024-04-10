@@ -7,6 +7,9 @@
 /Plugins/bin
 /Plugins/obj
 /**/*.xsd
-/Plugins.Tests/
 /Plugins.Core.Tests/
 /Plugins/ClassDiagram1.cd
+/Plugins.Tests/bin
+/Plugins.Tests/obj
+/Plugins.Tests/Core
+/Plugins.Tests/Helpers
