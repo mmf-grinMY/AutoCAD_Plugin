@@ -3,6 +3,7 @@
 using System.IO;
 
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Colors;
 
 namespace Plugins.Dispatchers
 {
@@ -11,7 +12,7 @@ namespace Plugins.Dispatchers
     /// </summary>
     class BlockTableDispatcher : SymbolTableDispatcher, ITableDispatcher
     {
-        #region Ctors
+        #region Ctor
 
         /// <summary>
         /// Создание объекта
@@ -79,6 +80,24 @@ namespace Plugins.Dispatchers
 
             return collection;
         }
+        /// <summary>
+        /// Создание блока по умолчанию
+        /// </summary>
+        /// <param name="transaction">Текущая транзакция</param>
+        /// <param name="record">Новый блок</param>
+        /// <param name="name">Имя блока</param>
+        void CreateDefaultSign(Transaction transaction, BlockTableRecord record, string name)
+        {
+            var circle = new Circle()
+            {
+                Center = new Autodesk.AutoCAD.Geometry.Point3d(0, 0, 0),
+                Radius = 3,
+                Color = Color.FromRgb(0, 0, 0)
+            };
+
+            record.AppendEntity(circle);
+            transaction.AddNewlyCreatedDBObject(circle, true);
+        }
 
         #endregion
 
@@ -92,9 +111,7 @@ namespace Plugins.Dispatchers
             }
             catch (FileNotFoundException)
             {
-                cache.Add(name);
-                logger.LogInformation("Не найден файл определения блока \"{0}\"!", name);
-                return false;
+                return TryAdd<BlockTable, BlockTableRecord>(name, db.BlockTableId, CreateDefaultSign);
             }
         }
 

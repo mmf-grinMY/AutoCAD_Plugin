@@ -27,29 +27,27 @@ namespace Plugins.Entities
         protected override void Draw(Transaction transaction, BlockTable table, BlockTableRecord record, Logging.ILogger logger)
         {
             base.Draw(transaction, table, record, logger);
-
+            
             const string FONT_SIZE = "FontSize";
             const string ANGLE = "Angle";
             const string TEXT = "Text";
             const string X_OFFSET = "XOffset";
             const string Y_OFFSET = "YOffset";
+            const int DEFAULT_FONT_SIZE = 10;
 
             var settings = primitive.DrawSettings;
             var fontSize = settings.Value<int>(FONT_SIZE) * style.scale;
             var paramJson = primitive.Param;
             var offset = new Vector3d(paramJson.Value<string>(X_OFFSET).ToDouble(), paramJson.Value<string>(Y_OFFSET).ToDouble(), 0);
 
-            // FIXME: Присваивать высоту 10 для объектов с высотой 0
+            DBText text = new DBText();
+
             try
             {
-                var text = new DBText()
-                {
-                    Layer = primitive.LayerName,
-                    Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0),
-                    Position = Wkt.Parser.ParsePoint(primitive.Geometry) + offset,
-                    TextString = settings.Value<string>(TEXT),
-                    Height = fontSize,
-                };
+                text.Layer = primitive.LayerName;
+                text.Color = Autodesk.AutoCAD.Colors.Color.FromRgb(0, 0, 0);
+                text.Position = Wkt.Parser.ParsePoint(primitive.Geometry) + offset;
+                text.TextString = settings.Value<string>(TEXT);
 
                 if (primitive.Param.TryGetValue(ANGLE, System.StringComparison.CurrentCulture, out JToken angle))
                 {
@@ -57,11 +55,19 @@ namespace Plugins.Entities
                 }
 
                 text.AppendToDb(transaction, record, primitive);
+
+                text.Height = fontSize;
             }
             catch (Autodesk.AutoCAD.Runtime.Exception e)
             {
                 if (!e.StackTrace.Contains("DBText.set_Height"))
+                {
                     throw;
+                }
+                else
+                {
+                    text.Height = DEFAULT_FONT_SIZE;
+                }
             }
         }
 
