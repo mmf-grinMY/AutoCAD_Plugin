@@ -100,13 +100,10 @@ namespace Plugins
         /// </summary>
         public void Terminate()
         {
-            dynamic app = Application.AcadApplication;
-
             try
             {
                 System.IO.File.Delete(DbConfigPath);
-                app.Preferences.Files.SupportPath = 
-                    app.Preferences.Files.SupportPath.Replace(System.IO.Path.Combine(AssemblyPath, HATCHES), string.Empty);
+                UnloadFriendFolders();
             }
             catch (System.Exception e)
             {

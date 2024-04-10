@@ -38,7 +38,7 @@ namespace Plugins.Entities
             else if (settings.Value<int>(PEN_STYLE) == 1)
             {
                 // TODO: Исправить это явное вхождение названия штриховки
-                polyline.Linetype = "MMP_2";
+                polyline.Linetype = "MMLT_1";
             }
 
             return polyline;

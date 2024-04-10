@@ -119,7 +119,7 @@ namespace Plugins
             {
                 try
                 {
-                    db.LoadLineTypeFile(name.Value<string>(), source);
+                    db.LoadLineTypeFile(name.Value<string>(), Path.Combine(AssemblyPath, source));
                 }
                 catch (Autodesk.AutoCAD.Runtime.Exception)
                 {

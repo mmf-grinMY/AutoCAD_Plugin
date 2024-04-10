@@ -61,8 +61,6 @@ namespace Plugins
         /// </summary>
         public static void Initialize()
         {
-            dynamic app = Application.AcadApplication;
-
             try
             {
                 const string logFile = "main.log";
@@ -81,17 +79,42 @@ namespace Plugins
                 queueLimit = queueConfig.Value<int>("limit");
                 readerSleepTime = queueConfig.Value<int>("sleep");
 
-                string path = app.Preferences.Files.SupportPath;
-
-                if (!path.Contains(assemblyPath))
-                {
-                    // FIXME: !!! Может повредить дружественные папки AutoCAD !!!
-                    app.Preferences.Files.SupportPath = path + ";" + Path.Combine(assemblyPath, HATCHES);
-                }
+                LoadFriendFolders();
             }
             catch (Exception e)
             {
                 logger.LogError(e);
+            }
+        }
+        /// <summary>
+        /// Добавление пользовательских дружественных папок в AutoCAD
+        /// </summary>
+        public static void LoadFriendFolders()
+        {
+            dynamic app = Application.AcadApplication;
+
+            string path = app.Preferences.Files.SupportPath;
+
+            if (!path.Contains(assemblyPath))
+            {
+                // FIXME: !!! Может повредить дружественные папки AutoCAD !!!
+                app.Preferences.Files.SupportPath = path + ";" + Path.Combine(assemblyPath, HATCHES) + ";" + assemblyPath;
+            }
+        }
+        /// <summary>
+        /// Удаление пользовательских дружественных папок в AutoCAD
+        /// </summary>
+        public static void UnloadFriendFolders()
+        {
+            dynamic app = Application.AcadApplication;
+
+            string path = app.Preferences.Files.SupportPath;
+
+            if (!path.Contains(assemblyPath))
+            {
+                app.Preferences.Files.SupportPath = 
+                    path.Replace(Path.Combine(assemblyPath, HATCHES), string.Empty)
+                        .Replace(assemblyPath, string.Empty);
             }
         }
 
