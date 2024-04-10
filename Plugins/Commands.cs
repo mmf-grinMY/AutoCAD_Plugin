@@ -11,6 +11,7 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
+using System.Linq;
 
 namespace Plugins
 {
@@ -23,7 +24,7 @@ namespace Plugins
         /// </summary>
         /// <param name="doc">Текущий документ</param>
         /// <returns>Граничные точки, в случае успеха и UndefinedType в противном случае</returns>
-        Point3d[] GetPoints(Editor editor)
+        IEnumerable<Point3d> GetPoints(Editor editor)
         {
             var pointOptions = new PromptPointOptions("\n\tЛевый нижний угол: ");
             var left = editor.GetPoint(pointOptions);
@@ -129,26 +130,38 @@ namespace Plugins
             try
             {
                 var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
-                var points = GetPoints(doc.Editor);
-                session = new Session(logger);
 
-                if (points != null && points.Length == 2) 
+                try
                 {
-                    var point = points[0];
-                    var corner = points[1];
-
-                    const double precession = 1000;
-                    session.Left = (long)(Math.Min(point.X, corner.X) * precession);
-                    session.Right = (long)(Math.Max(point.X, corner.X) * precession);
-                    session.Bottom = (long)(Math.Min(point.Y, corner.Y) * precession);
-                    session.Top = (long)(Math.Max(point.Y, corner.Y) * precession);
+                    session = new Session(logger)
+                    {
+                        Bottom = long.MinValue,
+                        Left = long.MinValue,
+                        Right = long.MaxValue,
+                        Top = long.MaxValue
+                    };
                 }
-                else
+                catch (InvalidOperationException) 
                 {
-                    session.Bottom = long.MinValue;
-                    session.Left = long.MinValue;
-                    session.Right = long.MaxValue;
-                    session.Top = long.MaxValue;
+                    logger.LogInformation("Выполнение команды \"" + DRAW_COMMAND + "\" была остановлена пользователем!");
+                    return; 
+                }
+
+                if (session.IsBoundingBoxChecked)
+                {
+                    var points = GetPoints(doc.Editor);
+
+                    if (points != null && points.Count() == 2)
+                    {
+                        var point = points.ElementAt(0);
+                        var corner = points.ElementAt(1);
+
+                        const double precession = 1000;
+                        session.Left = (long)(Math.Min(point.X, corner.X) * precession);
+                        session.Right = (long)(Math.Max(point.X, corner.X) * precession);
+                        session.Bottom = (long)(Math.Min(point.Y, corner.Y) * precession);
+                        session.Top = (long)(Math.Max(point.Y, corner.Y) * precession);
+                    }
                 }
 
                 session.Run();
@@ -168,11 +181,15 @@ namespace Plugins
         [CommandMethod("VRM_INSPECT_EXT_DB")]
         public void InspectExtDB()
         {
-            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
-                ?? throw new ArgumentNullException("document");
+            OracleDbDispatcher connection;
 
-            var connection = new OracleDbDispatcher();
+            try
+            {
+                connection = new OracleDbDispatcher();
+            }
+            catch (InvalidOperationException) { return; }
 
+            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
             var editor = doc.Editor;
             var options = new PromptEntityOptions("\nВыберите объект: ");
             using (var transaction = doc.TransactionManager.StartTransaction())

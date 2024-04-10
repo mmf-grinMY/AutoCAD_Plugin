@@ -2,6 +2,7 @@
 using System.IO;
 
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace Plugins.View
 {
@@ -30,7 +31,7 @@ namespace Plugins.View
                 Hide();
                 var args = new ConnectionParams(model.UserName, passwordBox.Password, model.Host, model.Port, model.DbName);
                 File.WriteAllText(Constants.DbConfigPath, JsonConvert.SerializeObject(args));
-                Result = args.ToString();
+                Result = new object[] { args.ToString(), model.IsBoundigBoxChecked };
             });
             model.CancelCommand = new RelayCommand(obj => Hide());
         }
@@ -53,8 +54,12 @@ namespace Plugins.View
 
         #endregion
 
+        #region Public Properties
+
         public bool IsSuccess { get; internal set; }
-        public string Result { get; internal set; }
+        public object Result { get; internal set; }
+
+        #endregion
     }
     /// <summary>
     /// Модель предстваления для класса LoginWindow
@@ -79,6 +84,10 @@ namespace Plugins.View
         /// Номер порта
         /// </summary>
         int port;
+        /// <summary>
+        /// Учет граничных точек
+        /// </summary>
+        bool isBoundigBoxChecked;
 
         #endregion
 
@@ -108,9 +117,7 @@ namespace Plugins.View
 
         #region Public Properties
 
-        /// <summary>
-        /// Имя пользователя
-        /// </summary>
+        /// <inheritdoc cref="username"/>
         public string UserName
         {
             get => username;
@@ -120,9 +127,7 @@ namespace Plugins.View
                 OnPropertyChanged(nameof(UserName));
             }
         }
-        /// <summary>
-        /// Местоположение базы данных
-        /// </summary>
+        /// <inheritdoc cref="host"/>
         public string Host
         {
             get => host;
@@ -132,9 +137,7 @@ namespace Plugins.View
                 OnPropertyChanged(nameof(Host));
             }
         }
-        /// <summary>
-        /// Имя базы данных
-        /// </summary>
+        /// <inheritdoc cref="dbName"/>
         public string DbName
         {
             get => dbName;
@@ -143,10 +146,8 @@ namespace Plugins.View
                 dbName = value;
                 OnPropertyChanged(nameof(DbName));
             }
-        }
-        /// <summary>
-        /// Номер порта
-        /// </summary>
+        }        
+        /// <inheritdoc cref="port"/>
         public int Port
         {
             get => port;
@@ -154,6 +155,16 @@ namespace Plugins.View
             {
                 port = value;
                 OnPropertyChanged(nameof(Port));
+            }
+        }
+        /// <inheritdoc cref="isBoundigBoxChecked"/>
+        public bool IsBoundigBoxChecked
+        {
+            get => isBoundigBoxChecked;
+            set
+            {
+                isBoundigBoxChecked = value;
+                OnPropertyChanged(nameof(IsBoundigBoxChecked));
             }
         }
 
@@ -174,7 +185,13 @@ namespace Plugins.View
     }
     interface IResult
     {
-        string Result { get; }
+        /// <summary>
+        /// Введенные пользователем данные
+        /// </summary>
+        object Result { get; }
+        /// <summary>
+        /// Подтверждение операции ввода
+        /// </summary>
         bool IsSuccess { get; }
     }
 }
