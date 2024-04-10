@@ -91,7 +91,7 @@ namespace Plugins.Dispatchers
             var circle = new Circle()
             {
                 Center = new Autodesk.AutoCAD.Geometry.Point3d(0, 0, 0),
-                Radius = 3,
+                Radius = 1.5,
                 Color = Color.FromRgb(0, 0, 0)
             };
 
