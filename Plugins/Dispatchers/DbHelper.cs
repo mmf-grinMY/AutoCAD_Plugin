@@ -21,31 +21,33 @@ namespace Plugins
         /// <typeparam name="T">Окно ввода</typeparam>
         /// <param name="window">Окно работы с пользователем</param>
         /// <returns>Введенные пользователем данные</returns>
-        static string GetResult<T>(T window) where T : Window, IResult
+        static (string, bool) GetResult<T>(T window) where T : Window, IResult
         {
             string result = null;
+            bool isCanceled = true;
 
             window.ShowDialog();
 
             if (window.IsSuccess)
             {
                 result = window.Result;
+                isCanceled = false;
             }
 
             window.Close();
 
-            return result;
+            return (result, isCanceled);
         }
         /// <summary>
         /// Получение строки подключения к БД
         /// </summary>
-        public static string ConnectionStr => GetResult(new LoginWindow());
+        public static (string, bool) ConnectionStr => GetResult(new LoginWindow());
         /// <summary>
         /// Получение рисуемого горизонта
         /// </summary>
         /// <param name="gorizonts">Список доступных для отрисовки горизонтов</param>
         /// <returns>Выбранный горизонт</returns>
-        public static string SelectGorizont(ObservableCollection<string> gorizonts) => GetResult(new GorizontSelecterWindow(gorizonts));
+        public static (string, bool) SelectGorizont(ObservableCollection<string> gorizonts) => GetResult(new GorizontSelecterWindow(gorizonts));
         /// <summary>
         /// Получение полилиний из wkt
         /// </summary>

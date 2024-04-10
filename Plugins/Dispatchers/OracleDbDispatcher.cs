@@ -47,8 +47,9 @@ namespace Plugins
         public OracleDbDispatcher(string connectionStr = null, string gorizont = null)
         {
             var isCreated = false;
+            var isCanceled = false;
 
-            while (!isCreated)
+            while (!isCreated && !isCanceled)
             {
                 try
                 {
@@ -59,15 +60,19 @@ namespace Plugins
                 catch (OracleException e)
                 {
                     MessageBox.Show(e.GetCodeDescription(), "Ошибка подключения", MessageBoxButton.OK, MessageBoxImage.Error);
-                    connectionStr = DbHelper.ConnectionStr;
+                    (connectionStr, isCanceled) = DbHelper.ConnectionStr;
                 }
                 catch (InvalidOperationException)
                 {
-                    connectionStr = DbHelper.ConnectionStr;
+                    (connectionStr, isCanceled) = DbHelper.ConnectionStr;
                 }
             }
 
-            this.gorizont = gorizont ?? DbHelper.SelectGorizont(Gorizonts);
+            if (gorizont is null)
+                (this.gorizont, isCanceled) = DbHelper.SelectGorizont(Gorizonts);
+
+            if (isCanceled)
+                throw new InvalidOperationException();
         }
 
         #endregion

@@ -11,6 +11,7 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
+using System.Linq;
 
 namespace Plugins
 {
@@ -130,7 +131,16 @@ namespace Plugins
             {
                 var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
                 var points = GetPoints(doc.Editor);
-                session = new Session(logger);
+
+                try
+                {
+                    session = new Session(logger);
+                }
+                catch (InvalidOperationException) 
+                {
+                    logger.LogInformation("Выполнение команды \"" + DRAW_COMMAND + "\" была остановлена пользователем!");
+                    return; 
+                }
 
                 if (points != null && points.Length == 2) 
                 {
@@ -168,11 +178,15 @@ namespace Plugins
         [CommandMethod("VRM_INSPECT_EXT_DB")]
         public void InspectExtDB()
         {
-            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument
-                ?? throw new ArgumentNullException("document");
+            OracleDbDispatcher connection;
 
-            var connection = new OracleDbDispatcher();
+            try
+            {
+                connection = new OracleDbDispatcher();
+            }
+            catch (InvalidOperationException) { return; }
 
+            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
             var editor = doc.Editor;
             var options = new PromptEntityOptions("\nВыберите объект: ");
             using (var transaction = doc.TransactionManager.StartTransaction())
