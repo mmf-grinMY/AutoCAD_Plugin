@@ -86,7 +86,7 @@ namespace Plugins
                 if (!path.Contains(assemblyPath))
                 {
                     // FIXME: !!! Может повредить дружественные папки AutoCAD !!!
-                    app.Preferences.Files.SupportPath = path + ";" + assemblyPath;
+                    app.Preferences.Files.SupportPath = path + ";" + Path.Combine(assemblyPath, HATCHES);
                 }
             }
             catch (Exception e)
@@ -119,6 +119,10 @@ namespace Plugins
         /// Главный конфигурационный файл
         /// </summary>
         public const string CONFIG_FILE = "plugin.config.json";
+        /// <summary>
+        /// Корневая папка паттернов штриховки
+        /// </summary>
+        public const string HATCHES = "Hatches";
 
         #endregion
     }

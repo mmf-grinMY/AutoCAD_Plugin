@@ -1,0 +1,12 @@
+{
+    "hatch" : {
+        "scale" : 0.8,
+        "transparency" : 127
+    },
+    "text" : {
+        "scale" : 0.25
+    },
+    "sign" : {
+        "scale" : 1.0
+    }
+}

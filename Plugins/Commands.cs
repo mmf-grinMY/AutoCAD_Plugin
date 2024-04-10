@@ -11,7 +11,6 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
-using System.Management;
 
 namespace Plugins
 {
@@ -106,7 +105,8 @@ namespace Plugins
             try
             {
                 System.IO.File.Delete(DbConfigPath);
-                app.Preferences.Files.SupportPath = app.Preferences.Files.SupportPath.Replace(AssemblyPath, string.Empty);
+                app.Preferences.Files.SupportPath = 
+                    app.Preferences.Files.SupportPath.Replace(System.IO.Path.Combine(AssemblyPath, HATCHES), string.Empty);
             }
             catch (System.Exception e)
             {

@@ -36,7 +36,7 @@ namespace Plugins
         public HatchPatternLoader()
         {
             if (root is null)
-                root = XDocument.Load(System.IO.Path.Combine(Constants.AssemblyPath, "Pattern.conf.xml")).Element("AcadPatterns");
+                root = XDocument.Load(System.IO.Path.Combine(Constants.AssemblyPath, "Pattern.xml")).Element("AcadPatterns");
 
             cache = new Dictionary<string, Dictionary<string, string>>();
         }
