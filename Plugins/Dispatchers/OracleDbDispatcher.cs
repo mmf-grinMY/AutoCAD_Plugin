@@ -48,7 +48,7 @@ namespace Plugins
         {
             var isCreated = false;
             var isCanceled = false;
-            object[] result = null;
+            object[] result;
 
             while (!isCreated && !isCanceled)
             {
@@ -82,12 +82,18 @@ namespace Plugins
             }
 
             if (gorizont is null)
+            {
                 result = DbHelper.SelectGorizont(Gorizonts);
 
-            if ((bool)result[1])
-                throw new InvalidOperationException();
+                if ((bool)result[1])
+                    throw new InvalidOperationException();
 
-            this.gorizont = result[0].ToString();
+                this.gorizont = result[0].ToString();
+            }
+            else
+            {
+                this.gorizont = gorizont;
+            }
         }
 
         #endregion

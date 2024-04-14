@@ -92,7 +92,7 @@ namespace Plugins.Dispatchers
             {
                 Center = new Autodesk.AutoCAD.Geometry.Point3d(0, 0, 0),
                 Radius = 1.5,
-                Color = Color.FromRgb(0, 0, 0)
+                Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)// Color.FromRgb(0, 0, 0)
             };
 
             record.AppendEntity(circle);

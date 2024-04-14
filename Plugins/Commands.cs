@@ -12,6 +12,12 @@ using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
 using System.Linq;
+using Oracle.ManagedDataAccess.Client;
+using System.Reflection;
+using System.Text;
+using System.IO;
+using System.Web.Script.Serialization;
+using Autodesk.AutoCAD.MacroRecorder;
 
 namespace Plugins
 {
@@ -178,14 +184,14 @@ namespace Plugins
         /// <summary>
         /// Команда инспектирования отрисованных примитивов
         /// </summary>
-        [CommandMethod("VRM_INSPECT_EXT_DB")]
+        [CommandMethod("MMP_INSPECT_EXT_DB")]
         public void InspectExtDB()
         {
             OracleDbDispatcher connection;
 
             try
             {
-                connection = new OracleDbDispatcher();
+                connection = new OracleDbDispatcher(null, "");
             }
             catch (InvalidOperationException) { return; }
 
@@ -240,8 +246,296 @@ namespace Plugins
                 }
             }
         }
-
         #endregion
+        [CommandMethod("VRM_INSPECT_EXT_DB")]
+        static public void InspectExtDB0()
+        {
+            VarOpenTrans vot = new VarOpenTrans();
+            if (!vot.tryConnectAndSave())
+                return;
+
+            Document doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+            Editor ed = doc.Editor;
+            PromptEntityOptions opt =
+              new PromptEntityOptions(
+                "\nSelect entity: "
+              );
+
+            Transaction tr =
+              doc.TransactionManager.StartTransaction();
+            using (tr)
+            {
+                while (true)
+                {
+
+                    PromptEntityResult res =
+                      ed.GetEntity(opt);
+                    if (res.Status == PromptStatus.OK)
+                    {
+                        DBObject obj =
+                          tr.GetObject(
+                            res.ObjectId,
+                            OpenMode.ForRead
+                          );
+
+                        ResultBuffer rb = obj.XData;
+                        if (rb == null)
+                        {
+                            ed.WriteMessage(
+                              "\nEntity does not have XData attached."
+                            );
+                        }
+                        else
+                        {
+                            string cross_guid2 = "";
+                            getXDataMok(obj.XData, "varMM_SystemID", out cross_guid2);
+                            if (cross_guid2 != "")
+                            {
+                                int systemID = Convert.ToInt32(cross_guid2);
+                                cross_guid2 = "";
+                                getXDataMok(obj.XData, "varMM_BaseName", out cross_guid2);
+                                if (cross_guid2 != "")
+                                {
+                                    string baseName = "";
+                                    var row = cross_guid2.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+                                    if (row.Count() > 1)
+                                        baseName = row[1];
+                                    cross_guid2 = "";
+                                    getXDataMok(obj.XData, "varMM_LinkField", out cross_guid2);
+                                    if (cross_guid2 != "")
+                                    {
+                                        string linkField = cross_guid2;
+                                        //MessageBox.Show("\n SystemID_BaseName_linkField  " + systemID.ToString() + " " +  baseName + " " + linkField);
+                                        string outData = "";
+                                        string baseCapture = baseName;
+                                        vot.parseExternalDBLINK(baseName, out outData, vot.dbcon);
+                                        string[] f = outData.Split('\n');
+                                        if (f.Count() > 2)
+                                            baseCapture = f[1];
+                                        vot.getExternalDB(baseName, baseCapture, linkField, systemID, vot.dbcon);
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+                    else
+                        break;
+                }// while
+            } //using
+            vot.dbcon.Close();
+        }
+        public static void getXDataMok(ResultBuffer rb, string RegAppName, out string RegValue)
+        {
+            bool proc_fl_1 = false;
+            int ind = 0;
+            RegValue = "";
+            foreach (TypedValue tv in rb)
+            {
+                if (proc_fl_1)
+                {
+                    RegValue = tv.Value.ToString();
+                    proc_fl_1 = false;
+                }
+                if ((tv.TypeCode == (int)DxfCode.ExtendedDataRegAppName) && (tv.Value.ToString() == RegAppName))
+                {
+                    proc_fl_1 = true;
+                }
+            }
+        }
     }
     sealed class NotDrawingLineException : System.Exception { }
+    public class SubLayerGuid
+    {
+        public string SubGuid;
+        public string SubName;
+        public string LayerGuid;
+        public string LayerName;
+        public string SubLayerBaseName;
+        public string SubLayerParentFiedls;
+        public string SubLayerChildFields;
+
+        public SubLayerGuid(string s1, string s2, string s3, string s4, string s5, string s6, string s7)
+        {
+            SubGuid = s1;
+            SubName = s2;
+            LayerGuid = s3;
+            LayerName = s4;
+            SubLayerBaseName = s5;
+            SubLayerParentFiedls = s6;
+            SubLayerChildFields = s7;
+        }
+
+    }
+    class VarOpenTrans
+    {
+        // Tables sufixes
+        public string sufTransOpen = "_TRANS_OPEN";
+        public string sufTransClone = "_TRANS_CLONE";
+        public string sufTransControl = "_TRANS_CONTROL";
+        public string sufTransSubLayers = "_TRANS_OPEN_SUBLAYERS";
+
+        public string host = "exatest-scan.moscow.eurochem.ru"; //"172.16.1.141"; "PCSPATIAL"
+        public int port = 1521;
+        public string sid = "iisdev_gis.moscow.eurochem.ru"; // "GEO.KALI"; "IFCDB"
+        public string network_user = "g"; // сессионный юзер
+        public string network_pass = "g"; // сессионный пароль
+
+        public List<string> WktStringList;
+        public List<string> DrawStringList;
+        public List<string> ParamStringList;
+        public List<SubLayerGuid> NameGuidList;
+        public List<string> SubLayerGuidList;
+        public List<string> SubLayerNameList;
+        public List<string> LayerGuidList;
+        public List<string> LayerNameList;
+        //public List<string> SubLayerBaseList;
+        //public List<string> SubLayerParentList;
+        //public List<string> SubLayerChildList;
+        public List<int> SystemIdList;
+        public Dictionary<string, string> field_names = new Dictionary<string, string>();
+        public int WktCount = 0;
+        public OracleConnection dbcon = null;
+        public bool tryConnectAndSave()
+        {
+            dbcon = GetDBConnection(host, port, sid, network_user, network_pass);
+            try
+            {
+                dbcon.Open();
+            }
+            catch (System.Exception ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message);
+                return false;
+            }
+            //dbcon.Close();
+            return true;
+        }
+        public static OracleConnection
+                              GetDBConnection(string host, int port, String sid, String user, String password)
+        {
+            return new OracleConnection((DbHelper.ConnectionStr[0] as object[])[0].ToString());
+        }
+        /////////////////////////////=========================================
+        public bool parseExternalDBLINK(string BaseName, out string table_data_fin, OracleConnection dbcon)
+        {
+            table_data_fin = "Empty";
+            //if (!pd.layers.ContainsValue(mt.TextString))
+            //    pd.layers.Add(Convert.ToString(blkId), mt.TextString);
+            field_names.Clear();
+            try
+            {
+                if (true)
+                {
+                    //MessageBox.Show("GetProjectBB " + prj_bb.ToString());
+                    string command_str = "SELECT * FROM LINKS WHERE NAME = '" + BaseName + "'";
+                    OracleCommand command = new OracleCommand(command_str, dbcon);
+                    try
+                    {
+                        OracleDataReader dr = command.ExecuteReader();
+                        while (dr.Read())
+                        {
+                            table_data_fin = dr["DATA"].ToString();
+                        }
+                        dr.Close();
+                    }
+                    catch (System.Exception ex)
+                    {
+                        System.Windows.MessageBox.Show(ex.Message);
+                        return false;
+                    }
+                }
+                //dbcon.Close();
+                //MessageBox.Show(table_data_fin);
+                string[] f = table_data_fin.Split('\n');
+                if (f.Count() > 5)
+                {
+                    //MessageBox.Show(f.Count().ToString());
+                    bool fields_fl = true;
+                    for (int i = 0; i < f.Count(); i++)
+                    {
+                        if (fields_fl)
+                        {
+                            if (f[i] == "FIELDS")
+                            {
+                                fields_fl = false;
+                            }
+                            continue;
+                        }
+                        if (f[i] == "ENDFIELDS")
+                        {
+                            break;
+                        }
+                        if (f[i].Contains("+"))
+                            continue;
+                        var row_0 = f[i].Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (row_0.Count() > 1)
+                        {
+                            string field_value = "";
+                            for (int j = 1; j < row_0.Count(); j++)
+                            {
+                                field_value += row_0[j] + "_";
+                            }
+
+                            if (!field_names.ContainsKey(row_0[0]))
+                            {
+                                field_names.Add(row_0[0], field_value);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message);
+            }
+            return true;
+        }
+        public bool getExternalDB(string BaseName, string BaseCaption, string ChildField, int SystemID, OracleConnection dbcon)
+        {
+            try
+            {
+                if (true)
+                {
+                    //MessageBox.Show("GetProjectBB " + prj_bb.ToString());
+                    string command_str = "SELECT ";
+                    int field_count = 0;
+                    foreach (var item in field_names)
+                    {
+                        //MessageBox.Show("field_names: " + item.Key + " " + item.Value);
+                        if (field_count > 0)
+                            command_str += " , ";
+                        command_str += item.Key + " as \"" + item.Value + "\"";
+                        field_count++;
+                    }
+                    command_str += " FROM " + BaseName + " WHERE " + ChildField + " = " + SystemID.ToString();
+                    System.Windows.MessageBox.Show("command_str: " + command_str);
+                    //string command_str = "SELECT * FROM " + BaseName + " WHERE " + ChildField + " = " + SystemID.ToString();
+                    OracleCommand command = new OracleCommand(command_str, dbcon);
+                    try
+                    {
+                        OracleDataReader dr = command.ExecuteReader();
+                        System.Data.DataTable dataTable = new System.Data.DataTable();
+                        dataTable.Load(dr);
+                        new ExternalDbWindow(dataTable.DefaultView)
+                        {
+                            Title = BaseCaption
+                        }.ShowDialog();
+                        dr.Close();
+                    }
+                    catch (System.Exception ex)
+                    {
+                        System.Windows.MessageBox.Show(ex.Message);
+                        return false;
+                    }
+                }
+                //dbcon.Close();
+            }
+            catch (System.Exception ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message);
+            }
+            return true;
+        }
+    } // class VarOpenTrans
 }
