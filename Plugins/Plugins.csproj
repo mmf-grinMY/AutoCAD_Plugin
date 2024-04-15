@@ -162,6 +162,12 @@
     <Compile Include="Entities\MyEntityStyle.cs" />
     <Compile Include="Entities\PolylineExtension.cs" />
     <Compile Include="Entities\Wkt\Parser.cs" />
+    <Compile Include="ExternalDB.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ExternalDB.Designer.cs">
+      <DependentUpon>ExternalDB.cs</DependentUpon>
+    </Compile>
     <Compile Include="Logging\File\FileLogger.cs" />
     <Compile Include="Logging\ILogging.cs" />
     <Compile Include="MyTransaction.cs" />
@@ -224,6 +230,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <EmbeddedResource Include="ExternalDB.resx">
+      <DependentUpon>ExternalDB.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

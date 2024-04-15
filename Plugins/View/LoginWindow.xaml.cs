@@ -16,9 +16,13 @@ namespace Plugins.View
         /// <summary>
         /// Создание объекта
         /// </summary>
-        public LoginWindow()
+        public LoginWindow(bool isBBChecked = true)
         {
             InitializeComponent();
+
+            if (!isBBChecked)
+                BBCheckBox.Visibility = Visibility.Collapsed;
+
             SizeChanged += HandleSizeChanged;
             Top = (SystemParameters.FullPrimaryScreenHeight - ActualHeight) / 2;
             IsSuccess = false;

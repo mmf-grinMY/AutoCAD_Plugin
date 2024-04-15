@@ -43,6 +43,10 @@ namespace Plugins
         /// </summary>
         public static object[] ConnectionStr => GetResult(new LoginWindow());
         /// <summary>
+        /// Получение строки подключения без учета BoundingBox
+        /// </summary>
+        public static string SimpleConnectionStr => (GetResult(new LoginWindow(false))[0] as object[])[0].ToString();
+        /// <summary>
         /// Получение рисуемого горизонта
         /// </summary>
         /// <param name="gorizonts">Список доступных для отрисовки горизонтов</param>

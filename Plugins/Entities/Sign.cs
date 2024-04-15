@@ -3,7 +3,6 @@ using Plugins.Logging;
 
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.Colors;
 
 namespace Plugins.Entities
 {
@@ -47,20 +46,9 @@ namespace Plugins.Entities
 
             if (!factory.TryAdd(key)) return;
 
-            Color color;
-
-            if (key != "pnt!.chr#48") 
-            {
-                color = Color.FromRgb(0, 0, 0); // ColorConverter.FromMMColor(settings.Value<int>("Color"));
-            }
-            else
-            {
-                color = Color.FromRgb(255, 0, 0);
-            }
-
             new BlockReference(Wkt.Parser.ParsePoint(primitive.Geometry), table[key])
             {
-                Color = color,
+                Color = ColorConverter.FromMMColor(settings.Value<int>("Color")),
                 Layer = primitive.LayerName,
                 ScaleFactors = new Scale3d(settings.Value<string>("FontScaleX").ToDouble()) * style.scale
             }.AppendToDb(transaction, record, primitive);
