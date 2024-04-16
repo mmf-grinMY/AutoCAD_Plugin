@@ -1,6 +1,6 @@
 {
     "hatch" : {
-        "scale" : 0.8,
+        "scale" : 800,
         "transparency" : 127
     },
     "text" : {
