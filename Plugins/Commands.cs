@@ -13,11 +13,6 @@ using Autodesk.AutoCAD.Runtime;
 using static Plugins.Constants;
 using System.Linq;
 using Oracle.ManagedDataAccess.Client;
-using System.Reflection;
-using System.Text;
-using System.IO;
-using System.Web.Script.Serialization;
-using Autodesk.AutoCAD.MacroRecorder;
 
 namespace Plugins
 {
