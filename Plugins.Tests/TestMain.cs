@@ -1,13 +1,13 @@
-﻿using Plugins.Tests.Internal;
-using Plugins.Logging;
-
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Linq;
+using System.IO;
 using System;
 
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 
 using Oracle.ManagedDataAccess.Client;
@@ -18,218 +18,198 @@ namespace Plugins.Tests
 {
     class TestMain
     {
+        static TestMain()
+        {
+            var parts = Regex.Split(File.ReadAllText(Path.Combine(Path.GetDirectoryName(Assembly.GetAssembly(typeof(Commands)).Location), "test.ini")),"\\r\\n");
+            CONNECTION_STRING = parts[0];
+            GORIZONT = parts[1];
+        }
+        /// <summary>
+        /// Получение корректного названия слоя AutoCAD
+        /// </summary>
+        /// <param name="layername">Имя слоя MapManager</param>
+        /// <param name="sublayername">Имя подслоя MapManager</param>
+        /// <returns>Корректное имя слоя</returns>
         static string GetLayerName(string layername, string sublayername) =>
             Regex.Replace(layername + " _ " + sublayername, "[<>\\*\\?/|\\\\\":;,=]", "_");
-        const string GORIZONT = "305f";
-        static readonly string CONNECTION_STRING = System.IO.File.ReadAllText("connection.txt");
-        // Проверка записи всех слоев, содержащих объекты
-        [CommandMethod("TEST_ALL_LAYERS")]
-        public void Test_CheckLayers()
+        /// <summary>
+        /// Тестирвемый горизонт
+        /// </summary>
+        static readonly string GORIZONT;
+        /// <summary>
+        /// Строка подключения
+        /// </summary>
+        static readonly string CONNECTION_STRING;
+        /// <summary>
+        /// Тестирование корректности отрисовки командой MMP_DRAW
+        /// </summary>
+        [CommandMethod("MMP_TEST")]
+        public void Test()
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
+            var layers = Test_OA_Layers();
+            if (layers.Count() > 0)
+            {
+                System.Windows.MessageBox.Show(layers.Aggregate((i, j) => i + '\n' + j));
+                return;
+            }
+
+            var nullLayer = "0";
+            var count = GetEntitiesOnLayer(Filter.GetAll(nullLayer)).Count;
+            if (count != 0)
+            {
+                System.Windows.MessageBox.Show($"Слой \"{nullLayer}\" содержит объекты в количестве {count}!");
+                return;
+            }
+
+            var dict = GetEntitiesSub(Filter.GetText, "LabelDraw");
+            if (dict.Count > 0)
+            {
+                System.Windows.MessageBox.Show(string.Join("\n", dict.Select(p => $"{p.Key}: {p.Value}")));
+                return;
+            }
+
+            dict = GetEntitiesSub(Filter.GetSign, "Sign");
+            if (dict.Count > 0)
+            {
+                System.Windows.MessageBox.Show(string.Join("\n", dict.Select(p => $"{p.Key}: {p.Value}")));
+                return;
+            }
+
+            System.Windows.MessageBox.Show("Все тесты успешно выполнены!");
+        }
+        /// <summary>
+        /// Тестирование корректности количества слоев
+        /// </summary>
+        /// <returns>Некорректные слои</returns>
+        IEnumerable<string> Test_OA_Layers()
+        {
+            var db = Application.DocumentManager.MdiActiveDocument.Database;
+
+            OracleConnection connection = null;
+            TSTransaction transaction = null;
+            IEnumerable<string> wrongLayers = new List<string>();
 
             try
             {
-                var expected = new List<string> { "0" };
+                connection = new OracleConnection(CONNECTION_STRING);
+                connection.Open();
 
-                using (var connection = new OracleConnection(CONNECTION_STRING))
+                transaction = new TSTransaction();
+
+                foreach (var layerId in transaction.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable)
                 {
-                    connection.Open();
-
-                    string command = "SELECT DISTINCT layername, sublayername FROM (" +
-                        $"SELECT b.layername, b.sublayername FROM k{GORIZONT}_trans_clone a " +
-                        $"INNER JOIN k{GORIZONT}_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid)";
-
-                    using (var reader = new OracleCommand(command, connection).ExecuteReader())
+                    var name = (transaction.GetObject(layerId, OpenMode.ForRead) as LayerTableRecord).Name;
+                    var layerParts = Regex.Split(name, " _ ");
+                    try
                     {
-                        while (reader.Read())
+                        var command = $"SELECT COUNT(*) FROM k{GORIZONT}_trans_open_sublayers WHERE layername = '{layerParts[0]}' " +
+                            // FIXME: подслой может содержать другой неподдерживаемый символ
+                            $"AND sublayername = '{layerParts[1].Replace('_', ':')}'";
+
+                        using (var reader = new OracleCommand(command, connection).ExecuteReader())
                         {
-                            expected.Add(reader.GetString(0) + " _ " + reader.GetString(1));
+                            if (!(reader.Read() && reader.GetInt32(0) == 1))
+                                wrongLayers.Append(name);
                         }
                     }
-                }
-
-                expected = expected.Select(x => Regex.Replace(x, "[<>\\*\\?/|\\\\\":;,=]", "_")).ToList();
-
-                var db = doc.Database;
-                var actual = new List<string>();
-
-                using (var transaction = db.TransactionManager.StartTransaction())
-                {
-                    var table = transaction.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
-                    foreach (var id in table)
+                    catch (IndexOutOfRangeException)
                     {
-                        actual.Add((transaction.GetObject(id, OpenMode.ForRead) as LayerTableRecord).Name);
+                        continue;
                     }
-
-                    transaction.Commit();
                 }
 
-                AssertCollection.AreEqual(expected, actual);
-
-                doc.Editor.WriteMessage("Таблица слоев полна!" + Environment.NewLine);
+                return wrongLayers;
             }
-            catch (AssertException e)
+            finally
             {
-                doc.Editor.WriteMessage(e.Message + Environment.NewLine);
+                transaction?.Dispose();
+                connection?.Dispose();
             }
         }
-        [CommandMethod("TEST_ABS_COUNT")] // Не проходит
-        public void Test_AbsCount()
+        /// <summary>
+        /// Получение объектов, находящихся на слое
+        /// </summary>
+        /// <param name="values">Фильтр выбора</param>
+        /// <returns>Коллекция Id выбранных объектов</returns>
+        ObjectIdCollection GetEntitiesOnLayer(TypedValue[] values)
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
+            var editor = Application.DocumentManager.MdiActiveDocument.Editor;
+            var filter = new SelectionFilter(values);
+            var selectionResult = editor.SelectAll(filter);
 
-            try
-            {
-                int expected = -1;
-
-                using (var connection = new OracleConnection(CONNECTION_STRING))
-                {
-                    connection.Open();
-                    string command = $"SELECT COUNT(*) FROM k{GORIZONT}_trans_clone WHERE geowkt IS NOT NULL";
-
-                    using (var reader = new OracleCommand(command, connection).ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            expected = reader.GetInt32(0);
-                        }
-                    }
-
-                    if (expected < 0) throw new AssertException("Не удалось посчитать количество объектов!" + Environment.NewLine);
-                }
-
-                var db = doc.Database;
-                Transaction transaction = null;
-
-                int actual = -1;
-
-                try
-                {
-                    transaction = db.TransactionManager.StartTransaction();
-
-                    var record = transaction.GetObject(db.CurrentSpaceId, OpenMode.ForRead) as BlockTableRecord;
-                    foreach (var id in record)
-                    {
-                        if (transaction.GetObject(id, OpenMode.ForRead) is Entity)
-                        {
-                            ++actual;
-                        }
-                    }
-                }
-                finally
-                {
-                    if (transaction != null)
-                    {
-                        transaction.Commit();
-                        transaction.Dispose();
-                    }
-                }
-
-                Assert.AreEqual(expected, actual);
-
-                doc.Editor.WriteMessage("Записано правильное количетство объектов!" + Environment.NewLine);
-            }
-            catch (AssertException e)
-            {
-                doc.Editor.WriteMessage(e.Message);
-            }
+            return selectionResult.Status == PromptStatus.OK
+                ? new ObjectIdCollection(selectionResult.Value.GetObjectIds())
+                : new ObjectIdCollection();
         }
-        [CommandMethod("TEST_ENTITIES_COUNT_IN_LAYERS")]
-        public void Test_CountEntitiesInLayers()
+        /// <summary>
+        /// Получение пар [слой, количества незаписанных объектов]
+        /// </summary>
+        /// <param name="filter">Метод фильтрации</param>
+        /// <param name="pattern">Паттерн типа объекта</param>
+        /// <returns>Словарь ошибочно записанных слоев</returns>
+        IDictionary<string, int> GetEntitiesSub(Func<string, TypedValue[]> filter, string pattern)
         {
-            var logger = new FileLogger("test_count_layer.log");
-            var doc = Application.DocumentManager.MdiActiveDocument;
-            var db = doc.Database;
-            var actual = new Dictionary<string, int>();
-            var expected = new Dictionary<string, int>() { { "0", 0 } };
+            var result = new Dictionary<string, int>();
 
             using (var connection = new OracleConnection(CONNECTION_STRING))
             {
                 connection.Open();
-                var command = "SELECT a.layername, a.sublayername, COUNT(*) " +
-                    $"FROM k{GORIZONT}_trans_open_sublayers a INNER JOIN k{GORIZONT}_trans_clone b " +
-                    "ON a.sublayerguid = b.sublayerguid GROUP BY a.layername, a.sublayername";
 
+                var command = string.Format("SELECT DISTINCT b.layername, b.sublayername, COUNT(*) FROM k{0}_trans_clone a " +
+                    "INNER JOIN k{0}_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid " +
+                    "WHERE a.geowkt IS NOT NULL AND a.drawjson LIKE '%{1}%' GROUP BY b.layername, b.sublayername", GORIZONT, pattern);
                 using (var reader = new OracleCommand(command, connection).ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        expected.Add(GetLayerName(reader.GetString(0), reader.GetString(1)), reader.GetInt32(2));
+                        var layerName = GetLayerName(reader.GetString(0), reader.GetString(1));
+                        var expected = reader.GetInt32(2);
+                        var actual = GetEntitiesOnLayer(filter(layerName)).Count;
+                        if (expected != actual) result.Add(layerName, actual - expected);
                     }
                 }
             }
 
-            using (var transaction = new TSTransaction())
-            {
-                foreach (var id in transaction.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable)
+            return result;
+        }
+        static class Filter
+        {
+            public static TypedValue[] GetAll(string layerName) => 
+                new TypedValue[] { new TypedValue((int)DxfCode.LayerName, layerName) };
+            public static TypedValue[] GetText(string layerName) =>
+                new TypedValue[]
                 {
-                    actual.Add((transaction.GetObject(id, OpenMode.ForRead) as LayerTableRecord).Name, 0);
-                }
-            }
-
-            using (var transaction = new TSTransaction())
-            {
-                var record = transaction.GetObject(db.CurrentSpaceId, OpenMode.ForRead) as BlockTableRecord;
-
-                foreach (var id in record)
+                    new TypedValue((int)DxfCode.Operator, "<and"),
+                    new TypedValue((int)DxfCode.LayerName, layerName),
+                    new TypedValue((int)DxfCode.Start, "TEXT"),
+                    new TypedValue((int)DxfCode.Operator, "and>"),
+                };
+            public static TypedValue[] GetSign(string layerName) =>
+                new TypedValue[]
                 {
-                    if (transaction.GetObject(id, OpenMode.ForRead) is Entity entity)
-                    {
-                        actual[entity.Layer]++;
-                    }
-                }
-            }
-
-            foreach (var id in actual.Keys)
-            {
-                if (!expected.ContainsKey(id))
-                    logger.LogInformation("Чертеж содержит лишний слой " + id + "!" + Environment.NewLine);
-                else if (actual[id] != expected[id])
-                    logger.LogInformation($"На слое {id} содержится {actual[id]} объектов, хотя должно быть {expected[id]}");
-            }
-
-            doc.Editor.WriteMessage("Тест закончил выполнение!" + Environment.NewLine);
+                    new TypedValue((int)DxfCode.Operator, "<and"),
+                    new TypedValue((int)DxfCode.LayerName, layerName),
+                    new TypedValue((int)DxfCode.Operator, "<and"),
+                    new TypedValue((int)DxfCode.Start, "INSERT"),
+                    new TypedValue((int)DxfCode.BlockName, "*chr`#*"),
+                    new TypedValue((int)DxfCode.Operator, "and>"),
+                    new TypedValue((int)DxfCode.Operator, "and>"),
+                };
         }
     }
-    namespace Internal
+    /// <summary>
+    /// Throw Safe Transaction
+    /// </summary>
+    class TSTransaction : IDisposable
     {
-        static class AssertCollection
+        readonly Transaction transaction;
+        internal TSTransaction() =>
+            transaction = Application.DocumentManager.MdiActiveDocument.Database.TransactionManager.StartTransaction();
+        public void Dispose()
         {
-            public static void AreEqual<T>(IEnumerable<T> actual, IEnumerable<T> expected)
-            {
-                if (actual == expected) return;
-                if (actual.Count() != expected.Count())
-                    throw new AssertException("Количество элементов в коллекции отличается:" + Environment.NewLine +
-                        "Actual: " + actual.Count() + Environment.NewLine + "Expected: " + expected.Count());
-
-                foreach (var item in actual)
-                {
-                    if (!expected.Contains(item)) throw new AssertException("Коллекции отличаются элементом " + item.ToString() + "!");
-                }
-            }
+            transaction.Commit();
+            transaction.Dispose();
         }
-        static class Assert
-        {
-            public static void AreEqual(object actual, object expected)
-            {
-                if (!actual.Equals(expected)) throw new AssertException("Объект " + actual + " не равен объекту " + expected + "!" + Environment.NewLine);
-            }
-        }
-        /// <summary>
-        /// Throw Safe Transaction
-        /// </summary>
-        class TSTransaction : IDisposable
-        {
-            readonly Transaction transaction;
-            internal TSTransaction() =>
-                transaction = Application.DocumentManager.MdiActiveDocument.Database.TransactionManager.StartTransaction();
-            public void Dispose()
-            {
-                transaction.Commit();
-                transaction.Dispose();
-            }
-            public DBObject GetObject(ObjectId id, OpenMode openMode) => transaction.GetObject(id, openMode);
-        }
+        public DBObject GetObject(ObjectId id, OpenMode openMode) => transaction.GetObject(id, openMode);
     }
 }
