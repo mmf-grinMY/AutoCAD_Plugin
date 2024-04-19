@@ -8,10 +8,10 @@ SELECT * FROM
     JOIN k{0}_trans_open_sublayers b ON a.sublayerguid = b.sublayerguid
     WHERE a.geowkt IS NOT NULL AND 
     (
-        (a.RIGHTBOUND < {2}) AND
-        (a.LEFTBOUND > {3}) AND
-        (a.TOPBOUND < {4}) AND
-        (a.BOTTOMBOUND > {5})
+        NOT (a.RIGHTBOUND < {3}) AND
+        NOT (a.LEFTBOUND > {2}) AND
+        NOT (a.TOPBOUND < {5}) AND
+        NOT (a.BOTTOMBOUND > {4})
     )
 )
 WHERE rn > {1}

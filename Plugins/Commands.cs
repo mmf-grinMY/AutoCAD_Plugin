@@ -1,7 +1,7 @@
 ﻿using Plugins.Logging;
-using Plugins.View;
 
 using System.Collections.Generic;
+using System.Linq;
 using System;
 
 using Autodesk.AutoCAD.ApplicationServices;
@@ -10,9 +10,9 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 
-using static Plugins.Constants;
-using System.Linq;
 using Oracle.ManagedDataAccess.Client;
+
+using static Plugins.Constants;
 
 namespace Plugins
 {
@@ -177,73 +177,10 @@ namespace Plugins
             }
         }
         /// <summary>
-        /// Команда инспектирования отрисованных примитивов
+        /// Команда инспектирования атрибутивной таблицы
         /// </summary>
-        // [CommandMethod("MMP_INSPECT_EXT_DB")]
-        public void InspectExtDB()
-        {
-            OracleDbDispatcher connection;
-
-            try
-            {
-                connection = new OracleDbDispatcher(null, "");
-            }
-            catch (InvalidOperationException) { return; }
-
-            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
-            var editor = doc.Editor;
-            var options = new PromptEntityOptions("\nВыберите объект: ");
-            using (var transaction = doc.TransactionManager.StartTransaction())
-            {
-                PromptEntityResult result = null;
-                while ((result = editor.GetEntity(options)).Status == PromptStatus.OK)
-                {
-                    var buffer = transaction.GetObject(result.ObjectId, OpenMode.ForRead).XData;
-                    if (buffer == null)
-                    {
-                        editor.WriteMessage("\nУ объекта отсутствуют параметры XData");
-                        continue;
-                    }
-
-                    string xData;
-                    const int ERROR_SYSTEM_ID = -1;
-
-                    int systemId;
-                    string[] row;
-                    string linkField;
-
-                    if ((linkField = buffer.GetXData(LINK_FIELD)) == string.Empty
-                        || (systemId = (xData = buffer.GetXData(SYSTEM_ID)) == string.Empty 
-                            ? ERROR_SYSTEM_ID 
-                            : Convert.ToInt32(xData)) == ERROR_SYSTEM_ID
-                        || (xData = buffer.GetXData(BASE_NAME)) == string.Empty
-                        || (row = xData.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)).Length <= 1)
-                    {
-                        editor.WriteMessage("Атрибутивная таблица к объекту отсутствует!");
-                        continue;
-                    }
-
-                    string baseName = row[1];
-                    string baseCapture = baseName;
-                    var link = connection.GetExternalDbLink(baseName);
-
-                    var fields = link.Split('\n');
-                    var fieldNames = new Dictionary<string, string>();
-
-                    if (fields.Length > 5) fieldNames = DbHelper.ParseFieldNames(fields);
-
-                    if (fields.Length > 2) baseCapture = fields[1];
-
-                    new ExternalDbWindow(connection.GetDataTable(DbHelper.CreateCommand(baseName, linkField, systemId, fieldNames)).DefaultView)
-                    {
-                        Title = baseCapture
-                    }.ShowDialog();
-                }
-            }
-        }
-        #endregion
         [CommandMethod("VRM_INSPECT_EXT_DB")]
-        static public void InspectExtDB0()
+        public void InspectExtDB0()
         {
             VarOpenTrans vot = new VarOpenTrans();
             if (!vot.tryConnectAndSave())
@@ -317,6 +254,9 @@ namespace Plugins
             }
             vot.dbcon.Close();
         }
+
+        #endregion
+
         public static void getXDataMok(ResultBuffer rb, string RegAppName, out string RegValue)
         {
             bool proc_fl_1 = false;
@@ -501,7 +441,6 @@ namespace Plugins
                         return false;
                     }
                 }
-                //dbcon.Close();
             }
             catch (System.Exception ex)
             {
