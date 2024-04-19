@@ -12,6 +12,8 @@ using Autodesk.AutoCAD.Runtime;
 
 using static Plugins.Constants;
 
+using static Plugins.Constants;
+
 namespace Plugins
 {
     public class Commands : IExtensionApplication
