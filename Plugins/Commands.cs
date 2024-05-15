@@ -211,8 +211,8 @@ namespace Plugins
                     string linkField;
 
                     if ((linkField = buffer.GetXData(LINK_FIELD)) == string.Empty
-                        || (systemId = (xData = buffer.GetXData(SYSTEM_ID)) == string.Empty 
-                            ? ERROR_SYSTEM_ID 
+                        || (systemId = (xData = buffer.GetXData(SYSTEM_ID)) == string.Empty
+                            ? ERROR_SYSTEM_ID
                             : Convert.ToInt32(xData)) == ERROR_SYSTEM_ID
                         || (xData = buffer.GetXData(BASE_NAME)) == string.Empty
                         || (row = xData.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)).Length <= 1)
