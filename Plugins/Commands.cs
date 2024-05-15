@@ -13,6 +13,8 @@ using Autodesk.AutoCAD.Runtime;
 using static Plugins.Constants;
 
 using static Plugins.Constants;
+using Plugins.View;
+using System.Security.Cryptography;
 
 namespace Plugins
 {
